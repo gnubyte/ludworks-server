@@ -1,0 +1,1761 @@
+{
+  "tags": [
+    {
+      "name": "Admin",
+      "description": "Administration: users, server settings (general, security, SMTP, IMAP, files, media, TV), audit log, library spaces, the category taxonomy and database backups. Requires the `admin` role; tokens additionally need the `admin` scope."
+    }
+  ],
+  "paths": {
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "adminListUsers",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List users",
+        "description": "**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Filter by username, email or display name (substring, case-insensitive).",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of users sorted by username.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "adminCreateUser",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Create a user",
+        "description": "**Scope:** `admin`",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserCreate"
+              },
+              "example": {
+                "username": "carol",
+                "email": "carol@example.com",
+                "password": "temporary long passphrase",
+                "role": "user",
+                "quota_bytes": 536870912000
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Username or email already in use."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "get": {
+        "operationId": "adminGetUser",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get a user",
+        "description": "**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User with storage usage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "adminUpdateUser",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update a user",
+        "description": "Change role, disabled flag, quota, email, display name or verification state. Demoting or disabling the **last admin** is refused with 409.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserUpdate"
+              },
+              "example": {
+                "disabled": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Would remove the last active admin, or email already in use."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "adminDeleteUser",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete a user",
+        "description": "Deletes the account, its sessions/tokens, notes, vault, workbooks, lineups and channels. With `delete_files=true` the home space and its files are deleted too; otherwise the home space is kept for an admin to recover. You cannot delete yourself or the last admin.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "delete_files",
+            "in": "query",
+            "description": "Also delete the user's home space and files.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Cannot delete yourself or the last admin."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/password": {
+      "post": {
+        "operationId": "adminSetUserPassword",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Set a user's password",
+        "description": "Sets a new password and revokes all of the user's sessions and session tokens.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminPasswordSet"
+              },
+              "example": {
+                "new_password": "temporary long passphrase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password set."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/revoke-sessions": {
+      "post": {
+        "operationId": "adminRevokeUserSessions",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Revoke all sessions of a user",
+        "description": "Logs the user out everywhere (cookie sessions and `lws_` tokens). Personal access tokens are revoked as well.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}/totp": {
+      "delete": {
+        "operationId": "adminResetUserTotp",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Reset a user's 2FA",
+        "description": "Removes the TOTP secret and recovery codes (e.g. lost phone). The user can enrol again.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "User ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "2FA removed."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "adminGetSettings",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get all settings",
+        "description": "Every settings namespace (`general`, `security`, `smtp`, `imap`, `files`, `media`, `tv`). Secret fields (`smtp.password`, `imap.password`, `media.tmdb_api_key`) are redacted to `{\"set\": true|false}`.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "adminUpdateSettings",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Update settings",
+        "description": "Partial update: include any namespaces and keys. For secret fields send a string to set, `null` to clear, or omit to keep. Values are validated per namespace (422 with `details.fields` keyed `namespace.key`). Returns the full redacted settings. Every change is audited.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSettingsPatch"
+              },
+              "example": {
+                "general": {
+                  "registration_enabled": true
+                },
+                "smtp": {
+                  "enabled": true,
+                  "host": "smtp.example.com",
+                  "port": 587,
+                  "security": "starttls",
+                  "username": "nas@example.com",
+                  "password": "app-password",
+                  "from_address": "nas@example.com"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings/smtp/test": {
+      "post": {
+        "operationId": "adminTestSmtp",
+        "tags": [
+          "Admin",
+          "Mail"
+        ],
+        "summary": "Send a test email",
+        "description": "Sends a test message with the **saved** SMTP settings.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSmtpTest"
+              },
+              "example": {
+                "to": "admin@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Message accepted by the SMTP server."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "502": {
+            "description": "`smtp_failed`: the SMTP server rejected the connection or message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "smtp_failed",
+                    "message": "smtp: 535 authentication failed"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/settings/imap/test": {
+      "post": {
+        "operationId": "adminTestImap",
+        "tags": [
+          "Admin",
+          "Mail"
+        ],
+        "summary": "Test the IMAP connection",
+        "description": "Logs in with the **saved** IMAP settings, lists mailboxes and counts unseen messages in the configured mailbox. Does not modify anything.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Connection works.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminImapTestResult"
+                },
+                "example": {
+                  "ok": true,
+                  "mailboxes": [
+                    "INBOX",
+                    "Archive",
+                    "Sent"
+                  ],
+                  "unseen": 3
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "502": {
+            "description": "`imap_failed`: connection, TLS or login failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "imap_failed",
+                    "message": "imap: login failed"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/audit": {
+      "get": {
+        "operationId": "adminListAudit",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Audit log",
+        "description": "Authentication events (logins, failures, logouts, password/TOTP changes, token create/revoke) and every admin action, newest first.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "name": "actor_id",
+            "in": "query",
+            "description": "Only events by this user.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Only this action (exact match, e.g. `auth.login_failed`).",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of events.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuditPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "mezu3k3h55y73gtq6idbh4zcvd",
+                      "time": "2026-10-26T12:00:00.123Z",
+                      "actor_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                      "actor_username": "alice",
+                      "action": "admin.settings.update",
+                      "target_type": "settings",
+                      "target_id": "general",
+                      "ip": "192.168.1.20",
+                      "meta": {
+                        "keys": [
+                          "general.registration_enabled"
+                        ]
+                      }
+                    }
+                  ],
+                  "next_cursor": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/db-backup": {
+      "post": {
+        "operationId": "adminBackupDatabase",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Back up the database",
+        "description": "Writes a consistent online copy of the SQLite database with `VACUUM INTO <data>/backups/ludworks-<timestamp>.db`. File contents in `<data>/storage` are not included — back those up separately.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Backup written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDbBackup"
+                },
+                "example": {
+                  "path": "/var/lib/ludworks/backups/ludworks-20261026T120000Z.db",
+                  "size": 73400320
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminSecretState": {
+        "type": "object",
+        "description": "Redacted view of a secret setting.",
+        "required": [
+          "set"
+        ],
+        "properties": {
+          "set": {
+            "type": "boolean",
+            "description": "Whether a value is stored."
+          }
+        }
+      },
+      "AdminSettingsGeneral": {
+        "type": "object",
+        "description": "Settings namespace `general`.",
+        "required": [
+          "server_name",
+          "public_url",
+          "registration_enabled",
+          "require_email_verification",
+          "default_quota_bytes",
+          "default_role"
+        ],
+        "properties": {
+          "server_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name shown in the UI, emails, HDHomeRun and XMLTV.",
+            "default": "Ludworks"
+          },
+          "public_url": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "External base URL (e.g. `https://nas.example.com`) used in emails and feed URLs. Empty = derive from the request.",
+            "default": ""
+          },
+          "registration_enabled": {
+            "type": "boolean",
+            "description": "Allow self-registration at `POST /api/v1/auth/register`.",
+            "default": false
+          },
+          "require_email_verification": {
+            "type": "boolean",
+            "description": "New self-registered users must verify their email before logging in (needs SMTP).",
+            "default": false
+          },
+          "default_quota_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Quota for new users in bytes; 0 = unlimited.",
+            "default": 0
+          },
+          "default_role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ],
+            "description": "Role for self-registered users. Leave at `user`.",
+            "default": "user"
+          }
+        }
+      },
+      "AdminSettingsGeneralPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `general`.",
+        "properties": {
+          "server_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Name shown in the UI, emails, HDHomeRun and XMLTV."
+          },
+          "public_url": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "External base URL (e.g. `https://nas.example.com`) used in emails and feed URLs. Empty = derive from the request."
+          },
+          "registration_enabled": {
+            "type": "boolean",
+            "description": "Allow self-registration at `POST /api/v1/auth/register`."
+          },
+          "require_email_verification": {
+            "type": "boolean",
+            "description": "New self-registered users must verify their email before logging in (needs SMTP)."
+          },
+          "default_quota_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Quota for new users in bytes; 0 = unlimited."
+          },
+          "default_role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin"
+            ],
+            "description": "Role for self-registered users. Leave at `user`."
+          }
+        }
+      },
+      "AdminSettingsSecurity": {
+        "type": "object",
+        "description": "Settings namespace `security`.",
+        "required": [
+          "session_idle_minutes",
+          "session_absolute_days",
+          "password_min_length",
+          "require_totp_for_admins",
+          "allowed_extension_origins",
+          "login_lockout_enabled"
+        ],
+        "properties": {
+          "session_idle_minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 525600,
+            "description": "Sliding idle timeout of sessions (default 7 days).",
+            "default": 10080
+          },
+          "session_absolute_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650,
+            "description": "Absolute session lifetime.",
+            "default": 30
+          },
+          "password_min_length": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 1024,
+            "description": "Minimum password length for new passwords.",
+            "default": 12
+          },
+          "require_totp_for_admins": {
+            "type": "boolean",
+            "description": "Admins without TOTP must enrol before using admin features.",
+            "default": false
+          },
+          "allowed_extension_origins": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(chrome-extension|moz-extension)://[A-Za-z0-9._-]+$"
+            },
+            "description": "Browser-extension origins allowed for CORS with **bearer** auth. Empty = any extension origin (never with cookies).",
+            "default": []
+          },
+          "login_lockout_enabled": {
+            "type": "boolean",
+            "description": "Exponential lockout after 5 failed logins per account/IP.",
+            "default": true
+          }
+        }
+      },
+      "AdminSettingsSecurityPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `security`.",
+        "properties": {
+          "session_idle_minutes": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 525600,
+            "description": "Sliding idle timeout of sessions (default 7 days)."
+          },
+          "session_absolute_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650,
+            "description": "Absolute session lifetime."
+          },
+          "password_min_length": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 1024,
+            "description": "Minimum password length for new passwords."
+          },
+          "require_totp_for_admins": {
+            "type": "boolean",
+            "description": "Admins without TOTP must enrol before using admin features."
+          },
+          "allowed_extension_origins": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(chrome-extension|moz-extension)://[A-Za-z0-9._-]+$"
+            },
+            "description": "Browser-extension origins allowed for CORS with **bearer** auth. Empty = any extension origin (never with cookies)."
+          },
+          "login_lockout_enabled": {
+            "type": "boolean",
+            "description": "Exponential lockout after 5 failed logins per account/IP."
+          }
+        }
+      },
+      "AdminSettingsSmtp": {
+        "type": "object",
+        "description": "Settings namespace `smtp`.",
+        "required": [
+          "enabled",
+          "host",
+          "port",
+          "security",
+          "username",
+          "password",
+          "from_address",
+          "from_name"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Send email (verification, password reset, test mail).",
+            "default": false
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253,
+            "description": "SMTP server host name.",
+            "default": ""
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "SMTP port (587 STARTTLS, 465 implicit TLS).",
+            "default": 587
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "starttls",
+              "tls",
+              "none"
+            ],
+            "description": "Transport security. `none` only for a local relay.",
+            "default": "starttls"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "SMTP username (empty = no AUTH).",
+            "default": ""
+          },
+          "password": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminSecretState"
+              }
+            ],
+            "description": "SMTP password. **Secret** — encrypted at rest, never returned."
+          },
+          "from_address": {
+            "type": "string",
+            "maxLength": 320,
+            "description": "Envelope/From address.",
+            "default": ""
+          },
+          "from_name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "From display name.",
+            "default": "Ludworks"
+          }
+        }
+      },
+      "AdminSettingsSmtpPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `smtp`.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Send email (verification, password reset, test mail)."
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253,
+            "description": "SMTP server host name."
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "SMTP port (587 STARTTLS, 465 implicit TLS)."
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "starttls",
+              "tls",
+              "none"
+            ],
+            "description": "Transport security. `none` only for a local relay."
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "SMTP username (empty = no AUTH)."
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "description": "SMTP password. **Secret** — encrypted at rest, never returned. Send a string to set, `null` to clear, omit to keep."
+          },
+          "from_address": {
+            "type": "string",
+            "maxLength": 320,
+            "description": "Envelope/From address."
+          },
+          "from_name": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "From display name."
+          }
+        }
+      },
+      "AdminSettingsImap": {
+        "type": "object",
+        "description": "Settings namespace `imap`.",
+        "required": [
+          "enabled",
+          "host",
+          "port",
+          "security",
+          "username",
+          "password",
+          "mailbox",
+          "poll_minutes",
+          "mark_seen",
+          "save_attachments"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Poll a mailbox and turn mail from users into notes (mail-in).",
+            "default": false
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253,
+            "description": "IMAP server host name.",
+            "default": ""
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "IMAP port (993 implicit TLS, 143 STARTTLS).",
+            "default": 993
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "tls",
+              "starttls",
+              "none"
+            ],
+            "description": "Transport security.",
+            "default": "tls"
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "IMAP username.",
+            "default": ""
+          },
+          "password": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminSecretState"
+              }
+            ],
+            "description": "IMAP password. **Secret** — encrypted at rest, never returned."
+          },
+          "mailbox": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Mailbox to poll.",
+            "default": "INBOX"
+          },
+          "poll_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "Polling interval.",
+            "default": 5
+          },
+          "mark_seen": {
+            "type": "boolean",
+            "description": "Mark processed messages as seen.",
+            "default": true
+          },
+          "save_attachments": {
+            "type": "boolean",
+            "description": "Save attachments to `home:/Mail Attachments/`.",
+            "default": true
+          }
+        }
+      },
+      "AdminSettingsImapPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `imap`.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Poll a mailbox and turn mail from users into notes (mail-in)."
+          },
+          "host": {
+            "type": "string",
+            "maxLength": 253,
+            "description": "IMAP server host name."
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "IMAP port (993 implicit TLS, 143 STARTTLS)."
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "tls",
+              "starttls",
+              "none"
+            ],
+            "description": "Transport security."
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "IMAP username."
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "description": "IMAP password. **Secret** — encrypted at rest, never returned. Send a string to set, `null` to clear, omit to keep."
+          },
+          "mailbox": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Mailbox to poll."
+          },
+          "poll_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "Polling interval."
+          },
+          "mark_seen": {
+            "type": "boolean",
+            "description": "Mark processed messages as seen."
+          },
+          "save_attachments": {
+            "type": "boolean",
+            "description": "Save attachments to `home:/Mail Attachments/`."
+          }
+        }
+      },
+      "AdminSettingsFiles": {
+        "type": "object",
+        "description": "Settings namespace `files`.",
+        "required": [
+          "max_upload_bytes",
+          "trash_retention_days",
+          "upload_expiry_hours",
+          "compute_sha256"
+        ],
+        "properties": {
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Maximum size of a single upload; 0 = unlimited (simple uploads are still capped at 2 GiB).",
+            "default": 0
+          },
+          "trash_retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650,
+            "description": "Trashed files are purged after this many days.",
+            "default": 30
+          },
+          "upload_expiry_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8760,
+            "description": "Incomplete tus uploads expire after this many hours.",
+            "default": 72
+          },
+          "compute_sha256": {
+            "type": "boolean",
+            "description": "Compute SHA-256 of uploaded/scanned files (used by sync and dedupe).",
+            "default": true
+          }
+        }
+      },
+      "AdminSettingsFilesPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `files`.",
+        "properties": {
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Maximum size of a single upload; 0 = unlimited (simple uploads are still capped at 2 GiB)."
+          },
+          "trash_retention_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3650,
+            "description": "Trashed files are purged after this many days."
+          },
+          "upload_expiry_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8760,
+            "description": "Incomplete tus uploads expire after this many hours."
+          },
+          "compute_sha256": {
+            "type": "boolean",
+            "description": "Compute SHA-256 of uploaded/scanned files (used by sync and dedupe)."
+          }
+        }
+      },
+      "AdminSettingsMedia": {
+        "type": "object",
+        "description": "Settings namespace `media`.",
+        "required": [
+          "ffmpeg_path",
+          "ffprobe_path",
+          "tmdb_api_key",
+          "auto_probe",
+          "auto_thumbnails",
+          "transcode_enabled"
+        ],
+        "properties": {
+          "ffmpeg_path": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Path to `ffmpeg`; empty = search `PATH`.",
+            "default": ""
+          },
+          "ffprobe_path": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Path to `ffprobe`; empty = search `PATH`.",
+            "default": ""
+          },
+          "tmdb_api_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminSecretState"
+              }
+            ],
+            "description": "TMDB API key for metadata lookups. **Secret**."
+          },
+          "auto_probe": {
+            "type": "boolean",
+            "description": "Probe duration/codecs of new media files automatically.",
+            "default": true
+          },
+          "auto_thumbnails": {
+            "type": "boolean",
+            "description": "Generate thumbnails automatically (video needs ffmpeg).",
+            "default": true
+          },
+          "transcode_enabled": {
+            "type": "boolean",
+            "description": "Allow on-the-fly transcoding (default `true` when ffmpeg is found).",
+            "default": true
+          }
+        }
+      },
+      "AdminSettingsMediaPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `media`.",
+        "properties": {
+          "ffmpeg_path": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Path to `ffmpeg`; empty = search `PATH`."
+          },
+          "ffprobe_path": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "Path to `ffprobe`; empty = search `PATH`."
+          },
+          "tmdb_api_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "description": "TMDB API key for metadata lookups. **Secret**. Send a string to set, `null` to clear, omit to keep."
+          },
+          "auto_probe": {
+            "type": "boolean",
+            "description": "Probe duration/codecs of new media files automatically."
+          },
+          "auto_thumbnails": {
+            "type": "boolean",
+            "description": "Generate thumbnails automatically (video needs ffmpeg)."
+          },
+          "transcode_enabled": {
+            "type": "boolean",
+            "description": "Allow on-the-fly transcoding (default `true` when ffmpeg is found)."
+          }
+        }
+      },
+      "AdminSettingsTv": {
+        "type": "object",
+        "description": "Settings namespace `tv`.",
+        "required": [
+          "hdhr_enabled",
+          "hdhr_device_name",
+          "hdhr_tuner_count",
+          "guide_days"
+        ],
+        "properties": {
+          "hdhr_enabled": {
+            "type": "boolean",
+            "description": "Enable HDHomeRun tuner emulation under `/api/v1/hdhr/{feed_token}/`.",
+            "default": false
+          },
+          "hdhr_device_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Friendly name announced to Plex/Jellyfin.",
+            "default": "Ludworks TV"
+          },
+          "hdhr_tuner_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "description": "Number of tuners announced (concurrent streams).",
+            "default": 2
+          },
+          "guide_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14,
+            "description": "Days of programmes in the XMLTV guide.",
+            "default": 3
+          }
+        }
+      },
+      "AdminSettingsTvPatch": {
+        "type": "object",
+        "description": "Partial update of namespace `tv`.",
+        "properties": {
+          "hdhr_enabled": {
+            "type": "boolean",
+            "description": "Enable HDHomeRun tuner emulation under `/api/v1/hdhr/{feed_token}/`."
+          },
+          "hdhr_device_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Friendly name announced to Plex/Jellyfin."
+          },
+          "hdhr_tuner_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16,
+            "description": "Number of tuners announced (concurrent streams)."
+          },
+          "guide_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 14,
+            "description": "Days of programmes in the XMLTV guide."
+          }
+        }
+      },
+      "AdminSettings": {
+        "type": "object",
+        "description": "All settings namespaces; secret fields are redacted to `{\"set\": bool}`.",
+        "required": [
+          "general",
+          "security",
+          "smtp",
+          "imap",
+          "files",
+          "media",
+          "tv"
+        ],
+        "properties": {
+          "general": {
+            "$ref": "#/components/schemas/AdminSettingsGeneral"
+          },
+          "security": {
+            "$ref": "#/components/schemas/AdminSettingsSecurity"
+          },
+          "smtp": {
+            "$ref": "#/components/schemas/AdminSettingsSmtp"
+          },
+          "imap": {
+            "$ref": "#/components/schemas/AdminSettingsImap"
+          },
+          "files": {
+            "$ref": "#/components/schemas/AdminSettingsFiles"
+          },
+          "media": {
+            "$ref": "#/components/schemas/AdminSettingsMedia"
+          },
+          "tv": {
+            "$ref": "#/components/schemas/AdminSettingsTv"
+          }
+        }
+      },
+      "AdminSettingsPatch": {
+        "type": "object",
+        "description": "Any subset of namespaces and keys.",
+        "properties": {
+          "general": {
+            "$ref": "#/components/schemas/AdminSettingsGeneralPatch"
+          },
+          "security": {
+            "$ref": "#/components/schemas/AdminSettingsSecurityPatch"
+          },
+          "smtp": {
+            "$ref": "#/components/schemas/AdminSettingsSmtpPatch"
+          },
+          "imap": {
+            "$ref": "#/components/schemas/AdminSettingsImapPatch"
+          },
+          "files": {
+            "$ref": "#/components/schemas/AdminSettingsFilesPatch"
+          },
+          "media": {
+            "$ref": "#/components/schemas/AdminSettingsMediaPatch"
+          },
+          "tv": {
+            "$ref": "#/components/schemas/AdminSettingsTvPatch"
+          }
+        }
+      },
+      "AdminUserCreate": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password",
+          "role"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Username.",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Email.",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "description": "Initial password (min `security.password_min_length`).",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "quota_bytes": {
+            "type": "integer",
+            "description": "Quota in bytes; 0 = unlimited (default `general.default_quota_bytes`).",
+            "format": "int64",
+            "minimum": 0
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Display name.",
+            "maxLength": 100
+          }
+        }
+      },
+      "AdminUserDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/User"
+          },
+          {
+            "type": "object",
+            "required": [
+              "usage_bytes"
+            ],
+            "properties": {
+              "usage_bytes": {
+                "type": "integer",
+                "description": "Bytes used by the user's files (home + owned files in libraries, excluding trash).",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "AdminUserUpdate": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "Disabling revokes all sessions and tokens."
+          },
+          "quota_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Mark the email as verified (or not)."
+          }
+        }
+      },
+      "AdminPasswordSet": {
+        "type": "object",
+        "required": [
+          "new_password"
+        ],
+        "properties": {
+          "new_password": {
+            "type": "string",
+            "description": "New password.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "AdminSmtpTest": {
+        "type": "object",
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "type": "string",
+            "description": "Recipient of the test message.",
+            "format": "email"
+          }
+        }
+      },
+      "AdminImapTestResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "mailboxes",
+          "unseen"
+        ],
+        "properties": {
+          "ok": {
+            "const": true
+          },
+          "mailboxes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Mailboxes visible to the account."
+          },
+          "unseen": {
+            "type": "integer",
+            "description": "Unseen messages in the configured mailbox.",
+            "minimum": 0
+          }
+        }
+      },
+      "AdminAuditEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "time",
+          "actor_id",
+          "actor_username",
+          "action",
+          "target_type",
+          "target_id",
+          "ip",
+          "meta"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "time": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "actor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "User who acted; `null` for the system or unauthenticated actors (e.g. failed logins)."
+          },
+          "actor_username": {
+            "type": "string",
+            "description": "Username at the time of the event (or the attempted username)."
+          },
+          "action": {
+            "type": "string",
+            "description": "Dotted action name, e.g. `auth.login`, `auth.login_failed`, `admin.user.update`, `token.create`."
+          },
+          "target_type": {
+            "type": "string",
+            "description": "Type of the affected object, e.g. `user`, `settings`, `space`."
+          },
+          "target_id": {
+            "type": "string",
+            "description": "ID of the affected object (may be empty)."
+          },
+          "ip": {
+            "type": "string",
+            "description": "Client IP."
+          },
+          "meta": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Action-specific details (never secrets)."
+          }
+        }
+      },
+      "AdminAuditPage": {
+        "type": "object",
+        "description": "A page of audit events, newest first.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminAuditEvent"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "AdminDbBackup": {
+        "type": "object",
+        "required": [
+          "path",
+          "size"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path of the backup file on the server (`<data>/backups/ludworks-<timestamp>.db`)."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size in bytes.",
+            "format": "int64"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1060 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ludworks API",
+    "summary": "Self-hosted NAS multitool: files, virtual TV, notes, password vault, spreadsheets.",
+    "description": "Ludworks is a self-hosted, security-first NAS \"multitool\": files with resumable uploads, a retro virtual-TV\nchannel app, Markdown notes, an end-to-end-encrypted password vault, spreadsheets and admin tooling.\nThis document describes **HTTP API v1** (base path `/api/v1`). JSON is UTF-8 with `snake_case` fields;\nIDs are opaque strings; timestamps are RFC 3339 UTC. Boolean query parameters are true for `1`, `true`, `yes` or `on`\n(case-insensitive) and false otherwise. JSON request bodies must be sent as `application/json` (else 415) and are\ncapped at 1 MiB unless stated; unknown fields are ignored for forward compatibility.\n\n## Authentication\n\n| Method | How | Notes |\n|---|---|---|\n| Browser session | `lw_session` cookie set by `POST /api/v1/auth/login` | `HttpOnly; SameSite=Strict`. **Unsafe requests (POST/PUT/PATCH/DELETE) must send `X-CSRF-Token`** with the `csrf_token` returned by login / `GET /api/v1/auth/session`; a present `Origin` header must match the server. |\n| Session token | `Authorization: Bearer lws_…` | From `POST /api/v1/auth/login` with `\"token_mode\": true` (SDK, apps, browser extension). Full access of the user, no CSRF. |\n| Personal access token | `Authorization: Bearer lwp_…` | Created at `POST /api/v1/me/tokens`, limited to the chosen **scopes**, optional expiry. No CSRF. |\n| Query token | `?access_token=<token>` | Only on streaming/feed endpoints (players, `<video>`, M3U/XMLTV). Prefer a PAT with only `media:read tv:read`. |\n\n**Scopes:** `files:read files:write media:read media:write tv:read tv:write notes:read notes:write vault:read\nvault:write sheets:read sheets:write account admin`. Sessions have every scope (`*`); `admin` additionally\nrequires the admin role. Every operation states its requirement in `x-scope`: `public` (no auth), `auth`\n(any signed-in principal), `admin`, or a scope name.\n\nIn this Swagger UI on the same origin your browser session cookie is sent automatically; for unsafe\nrequests authorise **csrfHeader** with the `csrf_token` from `GET /api/v1/auth/session`, or authorise\n**bearerAuth** with a token instead.\n\n## Errors\n\nErrors use the HTTP status plus `{\"error\": {\"code\", \"message\", \"details\"?}}`. Codes: `bad_request` 400,\n`unauthorized` / `invalid_credentials` / `totp_required` 401, `forbidden` / `registration_disabled` 403,\n`not_found` 404 (also used for resources you may not see), `conflict` 409, `gone` 410, `payload_too_large` 413,\n`unsupported_media_type` 415, `validation_failed` 422 (`details.fields`), `rate_limited` 429 (`Retry-After`),\n`internal` 500, `not_implemented` / `ffmpeg_unavailable` 501, `setup_required` 503 (before first-run setup),\n`quota_exceeded` / `insufficient_storage` 507.\n\n## Pagination\n\nList endpoints that page take `limit` (default 50, max 200) and `cursor` and return\n`{\"items\": [...], \"next_cursor\": \"<opaque>\" | null}`. Pass `next_cursor` back unchanged until it is `null`.\n\n## Rate limits\n\nLogin, TOTP, password reset and setup are limited per IP and per account with exponential lockout\n(5 free failures, then 2^n seconds up to 15 minutes). Every principal/IP also has a generous general\nlimit (50 requests/s, burst 200). Exceeding a limit returns `429` with `Retry-After`.",
+    "version": "1",
+    "license": {
+      "name": "Proprietary — all rights reserved"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "This Ludworks server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {
+      "cookieAuth": [],
+      "csrfHeader": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Server",
+      "description": "Health check and the API description itself (OpenAPI document and Swagger UI)."
+    },
+    {
+      "name": "Setup",
+      "description": "First-run claim of a fresh server using the one-time setup token printed on first start."
+    },
+    {
+      "name": "Auth",
+      "description": "Login (cookie or bearer-token mode), logout, session info, self-registration, email verification and password reset."
+    },
+    {
+      "name": "Account",
+      "description": "The signed-in user: profile, password, TOTP two-factor authentication, sessions and personal access tokens (PATs)."
+    },
+    {
+      "name": "Admin",
+      "description": "Administration: users, server settings (general, security, SMTP, IMAP, files, media, TV), audit log, library spaces, the category taxonomy and database backups. Requires the `admin` role; tokens additionally need the `admin` scope."
+    },
+    {
+      "name": "Mail",
+      "description": "Outgoing mail (SMTP) for verification and password-reset emails, and incoming mail (IMAP) that turns emails from users into notes (\"mail-in\"). Configured through the `smtp` and `imap` settings namespaces."
+    },
+    {
+      "name": "Files",
+      "description": "Spaces, browsing, search, categories/tags, folder operations, downloads with HTTP Range support, thumbnails, ZIP downloads, simple uploads and rescans."
+    },
+    {
+      "name": "Uploads",
+      "description": "Resumable uploads using the tus 1.0.0 protocol (extensions: creation, termination, checksum, expiration). Use these for anything large."
+    },
+    {
+      "name": "Trash",
+      "description": "Trashed files: list, restore, delete permanently, empty. Trash is purged automatically after `files.trash_retention_days`."
+    },
+    {
+      "name": "Backup",
+      "description": "Devices of the desktop backup utility: the folders each device keeps synced into Files, and sync run reports."
+    },
+    {
+      "name": "Media",
+      "description": "Media library on top of Files: metadata (titles, shows, seasons, episodes, genres), probing, posters, playback streams, ffmpeg transcoding, subtitles, watch progress and TMDB lookups."
+    },
+    {
+      "name": "TV",
+      "description": "Retro \"virtual TV\": lineups (ordered program sources), channels that play a lineup on a deterministic schedule (optionally shuffled), now-playing and the program guide."
+    },
+    {
+      "name": "TV Feeds",
+      "description": "Integrations for external players and media servers: M3U playlist, XMLTV guide, MPEG-TS live streams and HDHomeRun tuner emulation (Plex, Jellyfin, VLC, Kodi)."
+    },
+    {
+      "name": "Notes",
+      "description": "iOS-Notes-style Markdown notes with folders, tags, pinning, full-text search, code snippets, attachments, sync and bulk Markdown import/export."
+    },
+    {
+      "name": "Vault",
+      "description": "End-to-end-encrypted password vault. The server only stores ciphertext (`v1.<nonce>.<ciphertext>`) and KDF parameters; see the Vault cryptography documentation."
+    },
+    {
+      "name": "Sheets",
+      "description": "Spreadsheets: workbooks, sheets, cells with formulas and styles, ranges, row/column operations, formula evaluation, and XLSX/XLS/CSV import/export."
+    },
+    {
+      "name": "System",
+      "description": "Storage usage (per user, space, category and volume) and server information."
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "Server"
+        ],
+        "summary": "Health check",
+        "description": "Liveness probe for load balancers and monitoring. Cheap; does not touch the disk. Answers even before first-run setup.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                },
+                "example": {
+                  "status": "ok",
+                  "version": "1.0.0",
+                  "time": "2026-10-26T12:00:00.123Z"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": [
+          "Server"
+        ],
+        "summary": "OpenAPI document",
+        "description": "This merged OpenAPI 3.1 document (base + every module fragment) with `info.version` set to the server version.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "OpenAPI 3.1 document."
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/docs": {
+      "get": {
+        "operationId": "getApiDocs",
+        "tags": [
+          "Server"
+        ],
+        "summary": "Swagger UI",
+        "description": "Interactive API explorer (vendored, pinned `swagger-ui-dist`; no CDN). Served with a page-specific CSP that additionally allows inline styles.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "HTML page.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Id": {
+        "type": "string",
+        "description": "Opaque identifier. Server-generated IDs are 26-character lowercase base32 strings.",
+        "pattern": "^[A-Za-z0-9_-]{8,64}$",
+        "examples": [
+          "sy76wfhw4aultzf42qrfqqa4pl"
+        ]
+      },
+      "Timestamp": {
+        "type": "string",
+        "description": "RFC 3339 timestamp in UTC with millisecond precision.",
+        "format": "date-time",
+        "examples": [
+          "2026-10-26T12:00:00.123Z"
+        ]
+      },
+      "NextCursor": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Opaque cursor for the next page; `null` on the last page.",
+        "examples": [
+          "eyJrIjoiYWJjIn0.c2ln"
+        ]
+      },
+      "Page": {
+        "type": "object",
+        "description": "Generic shape of every cursor-paginated response. Concrete page schemas (e.g. `UserPage`, `EntryPage`) narrow `items`.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {}
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code, e.g. `not_found`, `validation_failed`, `rate_limited`. Some endpoints add their own codes (e.g. `smtp_failed`, `imap_failed`).",
+            "examples": [
+              "not_found"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable message (safe to show to users; never contains secrets).",
+            "examples": [
+              "not found"
+            ]
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Optional structured details, e.g. `fields` for `validation_failed` or `current` for version conflicts."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Body of every error response.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "description": "422 body: `details.fields` maps each invalid field to a message.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "details"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "validation_failed"
+                  },
+                  "details": {
+                    "type": "object",
+                    "required": [
+                      "fields"
+                    ],
+                    "properties": {
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Field name → problem."
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "UpdatedCount": {
+        "type": "object",
+        "required": [
+          "updated"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "description": "Number of records changed.",
+            "minimum": 0
+          }
+        }
+      },
+      "Scope": {
+        "type": "string",
+        "description": "Token scope.",
+        "enum": [
+          "files:read",
+          "files:write",
+          "media:read",
+          "media:write",
+          "tv:read",
+          "tv:write",
+          "notes:read",
+          "notes:write",
+          "vault:read",
+          "vault:write",
+          "sheets:read",
+          "sheets:write",
+          "account",
+          "admin"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "description": "Account role.",
+        "enum": [
+          "admin",
+          "user"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "display_name",
+          "role",
+          "disabled",
+          "email_verified",
+          "totp_enabled",
+          "quota_bytes",
+          "created_at",
+          "last_login_at",
+          "mail_in_enabled"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "username": {
+            "type": "string",
+            "description": "Unique login name (case-insensitive).",
+            "examples": [
+              "alice"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "description": "Unique email address (case-insensitive).",
+            "format": "email"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Name shown in the UI."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "Disabled accounts cannot log in; their sessions are revoked."
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Whether the email address was verified (required for mail-in)."
+          },
+          "totp_enabled": {
+            "type": "boolean",
+            "description": "Whether TOTP two-factor authentication is enabled."
+          },
+          "quota_bytes": {
+            "type": "integer",
+            "description": "Storage quota in bytes; `0` = unlimited.",
+            "format": "int64",
+            "minimum": 0
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mail_in_enabled": {
+            "type": "boolean",
+            "description": "Whether emails from this user's verified address are turned into notes."
+          }
+        },
+        "examples": [
+          {
+            "id": "sy76wfhw4aultzf42qrfqqa4pl",
+            "username": "alice",
+            "email": "alice@example.com",
+            "display_name": "Alice",
+            "role": "admin",
+            "disabled": false,
+            "email_verified": true,
+            "totp_enabled": true,
+            "quota_bytes": 0,
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "last_login_at": "2026-10-26T12:30:00.000Z",
+            "mail_in_enabled": false
+          }
+        ]
+      },
+      "UserPage": {
+        "type": "object",
+        "description": "A page of users.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "Space": {
+        "type": "object",
+        "description": "A storage root. Every file lives in exactly one space.",
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "access",
+          "usage_bytes"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`home` = a user's private space (created on demand); `library` = shared space managed by admins.",
+            "enum": [
+              "home",
+              "library"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name."
+          },
+          "access": {
+            "type": "string",
+            "description": "The caller's access level.",
+            "enum": [
+              "owner",
+              "write",
+              "read"
+            ]
+          },
+          "usage_bytes": {
+            "type": "integer",
+            "description": "Bytes used by files in this space (excluding trash).",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "examples": [
+          {
+            "id": "rn6jbqcz4uzhddgdsb7ujseqro",
+            "kind": "home",
+            "name": "Home",
+            "access": "owner",
+            "usage_bytes": 52428800000
+          }
+        ]
+      },
+      "Entry": {
+        "type": "object",
+        "description": "A file or directory in a space.",
+        "required": [
+          "id",
+          "space_id",
+          "parent_id",
+          "path",
+          "name",
+          "is_dir",
+          "size",
+          "mime",
+          "mod_time",
+          "category",
+          "subcategory",
+          "tags",
+          "sha256",
+          "owner_id",
+          "created_at",
+          "updated_at",
+          "has_thumbnail"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Parent directory entry; `null` for the space root."
+          },
+          "path": {
+            "type": "string",
+            "description": "Space-relative path, `/`-separated, no leading slash; the space root is `\"\"`."
+          },
+          "name": {
+            "type": "string",
+            "description": "File or folder name (≤ 255 bytes UTF-8)."
+          },
+          "is_dir": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size in bytes (0 for directories).",
+            "format": "int64",
+            "minimum": 0
+          },
+          "mime": {
+            "type": "string",
+            "description": "Detected MIME type (`inode/directory` for folders)."
+          },
+          "mod_time": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category slug from the taxonomy (`movie`, `tv`, `music`, `image`, `game`, `document`, `software`, `other`) or `\"\"`."
+          },
+          "subcategory": {
+            "type": "string",
+            "description": "Subcategory slug or `\"\"`."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Free-form tags."
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Hex SHA-256 of the content; `\"\"` until computed (see `files.compute_sha256`)."
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "has_thumbnail": {
+            "type": "boolean",
+            "description": "Whether `GET /api/v1/files/{id}/thumbnail` will return an image."
+          }
+        },
+        "examples": [
+          {
+            "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+            "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+            "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+            "path": "Movies/Night of the Living Dead (1968).mp4",
+            "name": "Night of the Living Dead (1968).mp4",
+            "is_dir": false,
+            "size": 1468006400,
+            "mime": "video/mp4",
+            "mod_time": "2026-10-26T12:00:00.123Z",
+            "category": "movie",
+            "subcategory": "feature",
+            "tags": [
+              "horror",
+              "public-domain"
+            ],
+            "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+            "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "updated_at": "2026-10-26T12:30:00.000Z",
+            "has_thumbnail": true
+          }
+        ]
+      },
+      "EntryPage": {
+        "type": "object",
+        "description": "A page of file entries.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "time"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Always `ok` when the server answers.",
+            "const": "ok"
+          },
+          "version": {
+            "type": "string",
+            "description": "Server version.",
+            "examples": [
+              "1.0.0"
+            ]
+          },
+          "time": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Page size (default 50, maximum 200).",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Opaque `next_cursor` value from the previous page.",
+        "schema": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "Range": {
+        "name": "Range",
+        "in": "header",
+        "description": "Single byte range, e.g. `bytes=0-1048575` or `bytes=1048576-`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IfRange": {
+        "name": "If-Range",
+        "in": "header",
+        "description": "Only honour `Range` if the entity still matches this ETag or date.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IfNoneMatch": {
+        "name": "If-None-Match",
+        "in": "header",
+        "description": "Return 304 when the current `ETag` matches.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "headers": {
+      "RetryAfter": {
+        "description": "Seconds to wait before retrying.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "SetSessionCookie": {
+        "description": "`lw_session=<token>; Path=/; HttpOnly; SameSite=Strict` plus `Secure` when served over TLS (or behind a trusted TLS proxy).",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ETag": {
+        "description": "Strong entity tag of the content.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "LastModified": {
+        "description": "HTTP date of the last content change.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "AcceptRanges": {
+        "description": "`bytes` when Range requests are supported.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "bytes"
+          ]
+        }
+      },
+      "ContentRange": {
+        "description": "`bytes <start>-<end>/<size>`.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ContentDisposition": {
+        "description": "`inline` or `attachment; filename*=UTF-8''<name>`.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "`bad_request`: malformed JSON, a missing body, trailing data after the JSON value, or an invalid query parameter or header.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "bad_request",
+                "message": "invalid JSON body"
+              }
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "`unauthorized`: no valid session/token (missing, expired or revoked). Login-style endpoints also return `invalid_credentials` or `totp_required`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "unauthorized",
+                "message": "authentication required"
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "`forbidden`: authenticated but not allowed — missing scope or admin role, disabled account, or a cookie request without a valid `X-CSRF-Token` / matching `Origin`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "forbidden",
+                "message": "missing scope"
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "`not_found`: the resource does not exist **or is not visible to the caller** (existence is never revealed).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "not_found",
+                "message": "not found"
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "`conflict`: the request conflicts with the current state (name taken, stale version, already initialised, …).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "conflict",
+                "message": "a file with that name already exists"
+              }
+            }
+          }
+        }
+      },
+      "Gone": {
+        "description": "`gone`: the resource or token expired.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "gone",
+                "message": "expired"
+              }
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "`payload_too_large`: the request body exceeds the limit of this endpoint.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "payload_too_large",
+                "message": "request body too large"
+              }
+            }
+          }
+        }
+      },
+      "UnsupportedMediaType": {
+        "description": "`unsupported_media_type`: wrong `Content-Type` (JSON endpoints require `application/json`) or an unsupported file format.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "unsupported_media_type",
+                "message": "Content-Type must be application/json"
+              }
+            }
+          }
+        }
+      },
+      "ValidationFailed": {
+        "description": "`validation_failed`: one or more fields are invalid; see `details.fields`.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "example": {
+              "error": {
+                "code": "validation_failed",
+                "message": "validation failed",
+                "details": {
+                  "fields": {
+                    "name": "must not be empty"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "`rate_limited`: too many requests. Retry after `Retry-After` seconds.",
+        "headers": {
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "rate_limited",
+                "message": "too many attempts, try again later"
+              }
+            }
+          }
+        }
+      },
+      "NotImplemented": {
+        "description": "`not_implemented` / `ffmpeg_unavailable`: an optional feature is not available on this server.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "ffmpeg_unavailable",
+                "message": "ffmpeg is not available on this server"
+              }
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "`setup_required`: the server has not been set up yet; complete first-run setup.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "setup_required",
+                "message": "server setup required"
+              }
+            }
+          }
+        }
+      },
+      "InsufficientStorage": {
+        "description": "`quota_exceeded` (user quota reached) or `insufficient_storage` (not enough free disk space).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "quota_exceeded",
+                "message": "storage quota exceeded"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "description": "Unexpected error, e.g. `rate_limited` (429), `internal` (500) or `setup_required` (503).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "internal",
+                "message": "internal server error"
+              }
+            }
+          }
+        }
+      },
+      "NotModified": {
+        "description": "Not modified: `If-None-Match` matched the current `ETag`.",
+        "headers": {
+          "ETag": {
+            "$ref": "#/components/headers/ETag"
+          }
+        }
+      },
+      "RangeNotSatisfiable": {
+        "description": "Range not satisfiable.",
+        "headers": {
+          "Content-Range": {
+            "description": "`bytes */<size>`",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "lws_… (session) or lwp_… (personal access token)",
+        "description": "Bearer token: a session token (`lws_…`) from `POST /api/v1/auth/login` with `token_mode: true`, or a personal access token (`lwp_…`) from `POST /api/v1/me/tokens`. Exempt from CSRF checks."
+      },
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "lw_session",
+        "description": "Browser session cookie set by login/setup/registration (`HttpOnly; SameSite=Strict`). Unsafe methods additionally require `csrfHeader`."
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "CSRF token of the cookie session (`csrf_token` from login or `GET /api/v1/auth/session`). Required on POST/PUT/PATCH/DELETE with cookie auth; ignored for bearer auth and safe methods."
+      },
+      "accessTokenQuery": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "access_token",
+        "description": "Token in the query string. Accepted only by streaming and feed endpoints (marked in their description). Use a narrowly scoped PAT: URLs end up in player logs and history."
+      }
+    }
+  }
+}

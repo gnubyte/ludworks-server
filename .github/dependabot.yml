@@ -1,0 +1,36 @@
+# Weekly dependency updates. The Go dependency list is deliberately tiny (see
+# docs/spec/ARCHITECTURE.md §2.1); review every bump, and never add new modules through
+# a Dependabot PR. GitHub Actions are pinned to commit SHAs, which Dependabot updates
+# together with the version comment.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Let new releases age a few days before proposing them (supply-chain hygiene).
+    cooldown:
+      default-days: 7
+    groups:
+      golang-x:
+        patterns:
+          - golang.org/x/*
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci

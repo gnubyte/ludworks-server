@@ -1,0 +1,2947 @@
+{
+  "tags": [
+    {
+      "name": "Sheets",
+      "description": "Spreadsheets: workbooks, sheets, cells with formulas and styles, ranges, row/column operations, formula evaluation, and XLSX/XLS/CSV import/export."
+    }
+  ],
+  "paths": {
+    "/api/v1/sheets": {
+      "get": {
+        "operationId": "listWorkbooks",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "List workbooks",
+        "description": "**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Filter by name.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of workbooks.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbookPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Create a workbook",
+        "description": "Creates a workbook with one empty sheet \"Sheet1\" (100 rows × 26 columns).\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsName"
+              },
+              "example": {
+                "name": "NAS budget"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workbook created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbook"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}": {
+      "get": {
+        "operationId": "getWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Get a workbook with all cells",
+        "description": "Large responses are gzip-compressed when the client sends `Accept-Encoding: gzip`.\n\n**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The workbook.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbook"
+                },
+                "example": {
+                  "id": "guscgvw2ah2emka6bacmslvngw",
+                  "name": "NAS budget",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "version": 7,
+                  "sheets": [
+                    {
+                      "id": "jgvnapsqagedu3w7e325efjcgh",
+                      "name": "Sheet1",
+                      "index": 0,
+                      "rows": 100,
+                      "cols": 26,
+                      "col_widths": {
+                        "A": 160
+                      },
+                      "row_heights": {},
+                      "frozen_rows": 1,
+                      "frozen_cols": 0,
+                      "cells": {
+                        "A1": {
+                          "v": "Item",
+                          "t": "s",
+                          "s": {
+                            "b": true,
+                            "bg": "#e8f0fe"
+                          }
+                        },
+                        "B1": {
+                          "v": "Cost",
+                          "t": "s",
+                          "s": {
+                            "b": true,
+                            "bg": "#e8f0fe",
+                            "align": "right"
+                          }
+                        },
+                        "A2": {
+                          "v": "Disk",
+                          "t": "s"
+                        },
+                        "B2": {
+                          "v": 189.99,
+                          "t": "n",
+                          "s": {
+                            "fmt": "$#,##0.00"
+                          }
+                        },
+                        "A3": {
+                          "v": "Case",
+                          "t": "s"
+                        },
+                        "B3": {
+                          "v": 74.5,
+                          "t": "n",
+                          "s": {
+                            "fmt": "$#,##0.00"
+                          }
+                        },
+                        "A4": {
+                          "v": "Total",
+                          "t": "s",
+                          "s": {
+                            "b": true
+                          }
+                        },
+                        "B4": {
+                          "v": 264.49,
+                          "f": "=SUM(B2:B3)",
+                          "t": "n",
+                          "s": {
+                            "b": true,
+                            "fmt": "$#,##0.00"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Rename a workbook",
+        "description": "Returns the workbook summary.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsName"
+              },
+              "example": {
+                "name": "NAS budget 2027"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated workbook (without cells).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbookSummary"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Delete a workbook",
+        "description": "**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted.",
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets": {
+      "post": {
+        "operationId": "addSheet",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Add a sheet",
+        "description": "Appends an empty 100 × 26 sheet; the default name is the first free `SheetN`. Formulas that referenced a missing sheet of that name recalculate.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsSheetCreate"
+              },
+              "example": {
+                "name": "Q1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The new (empty) sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsSheet"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Sheet name already used."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}": {
+      "patch": {
+        "operationId": "updateSheet",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Rename / reorder / resize a sheet",
+        "description": "Renaming a sheet rewrites formulas that reference it. Shrinking `rows`/`cols` below used cells is refused (422). `col_widths` and `row_heights` are merged (`null` resets an entry). Returns the sheet without cells.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsSheetUpdate"
+              },
+              "example": {
+                "name": "Budget",
+                "col_widths": {
+                  "A": 200
+                },
+                "frozen_rows": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated sheet metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsSheetSummary"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Sheet name already used."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSheet",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Delete a sheet",
+        "description": "References to the deleted sheet become `#REF!`.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted.",
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Cannot delete the last sheet."
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}/range": {
+      "get": {
+        "operationId": "getRange",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Read a range",
+        "description": "Values, formulas and styles of a rectangular range as row-major 2-D arrays — the simplest way for scripts and AI agents to read data. Whole rows/columns (`A:C`, `2:5`) are clipped to the sheet’s grid; at most 100,000 cells. `formulas` holds `null` where a cell has no formula and `styles` `null` where it has no style.\n\n**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "ref",
+            "in": "query",
+            "description": "Range like `A1:D20`, `A:A` or `1:1`.",
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Range contents.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsRange"
+                },
+                "example": {
+                  "ref": "A1:B2",
+                  "values": [
+                    [
+                      "Item",
+                      "Cost"
+                    ],
+                    [
+                      "Disk",
+                      189.99
+                    ]
+                  ],
+                  "formulas": [
+                    [
+                      null,
+                      null
+                    ],
+                    [
+                      null,
+                      null
+                    ]
+                  ],
+                  "styles": [
+                    [
+                      {
+                        "b": true
+                      },
+                      {
+                        "b": true
+                      }
+                    ],
+                    [
+                      null,
+                      {
+                        "fmt": "$#,##0.00"
+                      }
+                    ]
+                  ]
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "operationId": "writeRange",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Write values/formulas to a range",
+        "description": "Writes a 2-D array starting at `ref`. Strings beginning with `=` are formulas. Returns every changed cell including recalculated dependents.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsRangeWrite"
+              },
+              "example": {
+                "ref": "A1",
+                "values": [
+                  [
+                    "Item",
+                    "Cost"
+                  ],
+                  [
+                    "Disk",
+                    189.99
+                  ],
+                  [
+                    "Case",
+                    74.5
+                  ],
+                  [
+                    "Total",
+                    "=SUM(B2:B3)"
+                  ]
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed cells.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsChanged"
+                },
+                "example": {
+                  "changed": {
+                    "jgvnapsqagedu3w7e325efjcgh": {
+                      "B4": {
+                        "v": 264.49,
+                        "f": "=SUM(B2:B3)",
+                        "t": "n"
+                      }
+                    }
+                  },
+                  "version": 8
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}/cells": {
+      "patch": {
+        "operationId": "updateCells",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Edit cells (values, formulas, styles)",
+        "description": "Applies cell updates (value or formula, merged style, clear) and optionally a style to a whole range (bold, highlight, number format…). Recalculates dependents in all sheets. Use `input` to send text exactly as a user typed it (numbers, percentages, currency and dates are recognised). Everything is validated first and applied all-or-nothing; the response lists the edited cells and every recalculated dependent.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsCellsPatch"
+              },
+              "example": {
+                "updates": [
+                  {
+                    "ref": "B5",
+                    "formula": "=AVERAGE(B2:B3)"
+                  },
+                  {
+                    "ref": "A5",
+                    "value": "Average"
+                  }
+                ],
+                "range_style": {
+                  "ref": "A1:B1",
+                  "style": {
+                    "b": true,
+                    "bg": "#fff2cc"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Changed cells.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsChanged"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}/insert": {
+      "post": {
+        "operationId": "insertRowsOrCols",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Insert rows or columns",
+        "description": "Inserts `count` rows/columns before index `at`; formula references are shifted. Returns the full sheet with cells. Other sheets’ formulas that point into this sheet are rewritten too.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsAxisOp"
+              },
+              "example": {
+                "axis": "row",
+                "at": 1,
+                "count": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsSheet"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}/delete": {
+      "post": {
+        "operationId": "deleteRowsOrCols",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Delete rows or columns",
+        "description": "Deletes `count` rows/columns from index `at`; references into the deleted area become `#REF!`. Returns the full sheet with cells.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsAxisOp"
+              },
+              "example": {
+                "axis": "col",
+                "at": 3,
+                "count": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsSheet"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/sheets/{sheet_id}/sort": {
+      "post": {
+        "operationId": "sortRange",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Sort a range",
+        "description": "Sorts the rows of `ref` by the values in column `by_col` (stable; numbers < text < booleans < errors; blanks last). Returns the full sheet with cells.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "sheet_id",
+            "in": "path",
+            "required": true,
+            "description": "Sheet ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/SheetsIfMatch"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsSortRequest"
+              },
+              "example": {
+                "ref": "A2:D50",
+                "by_col": "B",
+                "desc": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated sheet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsSheet"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/SheetsUnprocessable"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/evaluate": {
+      "post": {
+        "operationId": "evaluateFormula",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Evaluate a formula",
+        "description": "Evaluates a formula without storing it, optionally in the context of a workbook/sheet (for references). Useful for previews and agents. A formula that does not parse is answered with 200, `type` `e`, `value` `null` and the syntax error in `error`. Without `workbook_id`, references evaluate to `#REF!`.\n\n**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsEvaluateRequest"
+              },
+              "example": {
+                "formula": "=ROUND(AVERAGE(B2:B3), 1)",
+                "workbook_id": "guscgvw2ah2emka6bacmslvngw",
+                "sheet_id": "jgvnapsqagedu3w7e325efjcgh"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsEvaluateResult"
+                },
+                "example": {
+                  "value": 132.2,
+                  "type": "n"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/functions": {
+      "get": {
+        "operationId": "listSheetFunctions",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Supported functions",
+        "description": "**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "responses": {
+          "200": {
+            "description": "Functions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SheetsFunction"
+                  }
+                },
+                "example": [
+                  {
+                    "name": "SUM",
+                    "syntax": "SUM(number1, [number2], …)",
+                    "description": "Adds numbers and ranges."
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/import": {
+      "post": {
+        "operationId": "importWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Import XLSX / XLS / CSV",
+        "description": "Raw file body up to 50 MiB. Values, formulas and basic styles are imported; archive sizes, entry counts and nesting are capped before parsing. Send the file bytes as the body with any `Content-Type`. Without `format` the type is detected from magic bytes (ZIP → XLSX, OLE2 → XLS, text → CSV); a declared binary format that does not match the content is refused with 415. CSV import infers numbers (plain, and the currency, percent, thousands-separator and ISO date displays that CSV exports contain, keeping the implied number format) and booleans conservatively, keeps leading zeros as text, and never creates formulas. Formulas in XLSX/XLS files are recalculated after import.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Format of the body; detected from its content when omitted.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "xlsx",
+                "xls",
+                "csv"
+              ]
+            },
+            "required": false
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Workbook name (default \"Imported workbook\"; ≤ 200 characters). For CSV it also names the sheet.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Spreadsheet file.",
+          "content": {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/vnd.ms-excel": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported workbook.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbookSummary"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "Workbook version, e.g. `\"7\"` (use with `If-Match`).",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/import-file": {
+      "post": {
+        "operationId": "importWorkbookFromFile",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Import a spreadsheet from Files",
+        "description": "Imports an `.xlsx`, `.xls` or `.csv` file stored in Files (the caller needs read access to it). The caller also needs the `files:read` scope. The format comes from the file extension (falling back to content detection); the workbook name defaults to the file name without extension.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsImportFile"
+              },
+              "example": {
+                "file_id": "fjrnq7r4a37a4ucezrq3kozbiz"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported workbook.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SheetsWorkbookSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/export": {
+      "get": {
+        "operationId": "exportWorkbook",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Download as XLSX / XLS / CSV",
+        "description": "XLSX and XLS contain every sheet with formulas (XLS: formulas that Excel 97–2003 cannot express — newer functions, array constants — are written as their cached values; its grid limits apply — 422 when exceeded). CSV contains one sheet (`sheet_id`, default the first) as displayed values with a UTF-8 BOM; text that a spreadsheet would treat as a formula is prefixed with an apostrophe.\n\n**Scope:** `sheets:read`",
+        "x-scope": "sheets:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "File format (default `xlsx`).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "xlsx",
+                "xls",
+                "csv"
+              ],
+              "default": "xlsx"
+            },
+            "required": false
+          },
+          {
+            "name": "sheet_id",
+            "in": "query",
+            "description": "CSV only: the sheet to export (default: the first sheet).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "raw",
+            "in": "query",
+            "required": false,
+            "description": "CSV only: `1` writes raw values instead of number-formatted display text.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File download.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.ms-excel": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/csv; charset=utf-8": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/sheets/{id}/export-to-files": {
+      "post": {
+        "operationId": "exportWorkbookToFiles",
+        "tags": [
+          "Sheets"
+        ],
+        "summary": "Save a copy into Files",
+        "description": "Exports the workbook and stores it as a file (needs write access to the target space). The caller also needs the `files:write` scope. The file is categorised as `document` / `spreadsheet`.\n\n**Scope:** `sheets:write`",
+        "x-scope": "sheets:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Workbook ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SheetsExportToFiles"
+              },
+              "example": {
+                "format": "xlsx",
+                "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                "path": "Documents",
+                "name": "NAS budget.xlsx"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                  "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                  "path": "Documents/NAS budget.xlsx",
+                  "name": "NAS budget.xlsx",
+                  "is_dir": false,
+                  "size": 8231,
+                  "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                  "mod_time": "2026-10-26T12:00:00.123Z",
+                  "category": "document",
+                  "subcategory": "spreadsheet",
+                  "tags": [],
+                  "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "has_thumbnail": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A file with that name exists."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "503": {
+            "$ref": "#/components/responses/SheetsBusy"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SheetsBorder": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "boolean",
+            "description": "Top"
+          },
+          "b": {
+            "type": "boolean",
+            "description": "Bottom"
+          },
+          "l": {
+            "type": "boolean",
+            "description": "Left"
+          },
+          "r": {
+            "type": "boolean",
+            "description": "Right"
+          }
+        }
+      },
+      "SheetsStyle": {
+        "type": "object",
+        "description": "Cell style. Omitted keys are unset. In updates, styles are merged key by key; `false` or `\"\"` clears an attribute. Border edges also accept line-style names (`\"thin\"`, `\"double\"`, `\"none\"`…) on input and are returned as booleans.",
+        "properties": {
+          "b": {
+            "type": "boolean",
+            "description": "Bold"
+          },
+          "i": {
+            "type": "boolean",
+            "description": "Italic"
+          },
+          "u": {
+            "type": "boolean",
+            "description": "Underline"
+          },
+          "strike": {
+            "type": "boolean",
+            "description": "Strikethrough"
+          },
+          "color": {
+            "type": "string",
+            "description": "Text colour `#rrggbb`.",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "bg": {
+            "type": "string",
+            "description": "Fill (highlight) colour `#rrggbb`.",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "align": {
+            "type": "string",
+            "enum": [
+              "left",
+              "center",
+              "right"
+            ]
+          },
+          "valign": {
+            "type": "string",
+            "enum": [
+              "top",
+              "middle",
+              "bottom"
+            ]
+          },
+          "wrap": {
+            "type": "boolean",
+            "description": "Wrap text."
+          },
+          "fmt": {
+            "type": "string",
+            "description": "Number format: `general`, `0`, `0.00`, `#,##0`, `#,##0.00`, `0%`, `0.00%`, `$#,##0.00`, `yyyy-mm-dd`, `@` (text) or a custom Excel-style format.",
+            "maxLength": 255,
+            "examples": [
+              "#,##0.00"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "description": "Font size in points (default 11).",
+            "minimum": 1,
+            "maximum": 409
+          },
+          "border": {
+            "$ref": "#/components/schemas/SheetsBorder"
+          }
+        }
+      },
+      "SheetsCell": {
+        "type": "object",
+        "required": [
+          "v",
+          "t"
+        ],
+        "properties": {
+          "v": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "null"
+            ],
+            "description": "Computed value (for errors the error code, e.g. `#DIV/0!`; `null` when empty)."
+          },
+          "f": {
+            "type": "string",
+            "description": "Formula including the leading `=`.",
+            "examples": [
+              "=SUM(A1:A3)"
+            ]
+          },
+          "t": {
+            "type": "string",
+            "description": "Type: `n` number, `s` string, `b` boolean, `e` error, `z` empty.",
+            "enum": [
+              "n",
+              "s",
+              "b",
+              "e",
+              "z"
+            ]
+          },
+          "e": {
+            "type": "string",
+            "description": "Error value when `t` is `e`.",
+            "enum": [
+              "#NULL!",
+              "#DIV/0!",
+              "#VALUE!",
+              "#REF!",
+              "#NAME?",
+              "#N/A",
+              "#NUM!",
+              "#CIRC!"
+            ]
+          },
+          "s": {
+            "$ref": "#/components/schemas/SheetsStyle"
+          }
+        },
+        "examples": [
+          {
+            "v": 264.49,
+            "f": "=SUM(B2:B3)",
+            "t": "n",
+            "s": {
+              "b": true,
+              "fmt": "$#,##0.00"
+            }
+          }
+        ]
+      },
+      "SheetsCellMap": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[A-Z]{1,3}[1-9][0-9]{0,6}$"
+        },
+        "additionalProperties": {
+          "$ref": "#/components/schemas/SheetsCell"
+        },
+        "description": "A1 reference → cell (only non-empty cells)."
+      },
+      "SheetsSheetSummary": {
+        "type": "object",
+        "description": "Sheet metadata without cells.",
+        "required": [
+          "id",
+          "name",
+          "index",
+          "rows",
+          "cols",
+          "col_widths",
+          "row_heights",
+          "frozen_rows",
+          "frozen_cols"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Sheet name (unique in the workbook, ≤ 31 characters, no `[ ] : * ? / \\`)."
+          },
+          "index": {
+            "type": "integer",
+            "description": "0-based tab position.",
+            "minimum": 0
+          },
+          "rows": {
+            "type": "integer",
+            "description": "Grid rows.",
+            "minimum": 1
+          },
+          "cols": {
+            "type": "integer",
+            "description": "Grid columns.",
+            "minimum": 1
+          },
+          "col_widths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Column letter → width in pixels (only non-default widths).",
+            "examples": [
+              {
+                "A": 120
+              }
+            ]
+          },
+          "row_heights": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "1-based row number → height in pixels.",
+            "examples": [
+              {
+                "1": 24
+              }
+            ]
+          },
+          "frozen_rows": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "frozen_cols": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SheetsSheet": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "index",
+          "rows",
+          "cols",
+          "col_widths",
+          "row_heights",
+          "frozen_rows",
+          "frozen_cols",
+          "cells"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Sheet name (unique in the workbook, ≤ 31 characters, no `[ ] : * ? / \\`)."
+          },
+          "index": {
+            "type": "integer",
+            "description": "0-based tab position.",
+            "minimum": 0
+          },
+          "rows": {
+            "type": "integer",
+            "description": "Grid rows.",
+            "minimum": 1
+          },
+          "cols": {
+            "type": "integer",
+            "description": "Grid columns.",
+            "minimum": 1
+          },
+          "col_widths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Column letter → width in pixels (only non-default widths).",
+            "examples": [
+              {
+                "A": 120
+              }
+            ]
+          },
+          "row_heights": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "1-based row number → height in pixels.",
+            "examples": [
+              {
+                "1": 24
+              }
+            ]
+          },
+          "frozen_rows": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "frozen_cols": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cells": {
+            "$ref": "#/components/schemas/SheetsCellMap"
+          }
+        },
+        "examples": [
+          {
+            "id": "jgvnapsqagedu3w7e325efjcgh",
+            "name": "Sheet1",
+            "index": 0,
+            "rows": 100,
+            "cols": 26,
+            "col_widths": {
+              "A": 160
+            },
+            "row_heights": {},
+            "frozen_rows": 1,
+            "frozen_cols": 0,
+            "cells": {
+              "A1": {
+                "v": "Item",
+                "t": "s",
+                "s": {
+                  "b": true,
+                  "bg": "#e8f0fe"
+                }
+              },
+              "B1": {
+                "v": "Cost",
+                "t": "s",
+                "s": {
+                  "b": true,
+                  "bg": "#e8f0fe",
+                  "align": "right"
+                }
+              },
+              "A2": {
+                "v": "Disk",
+                "t": "s"
+              },
+              "B2": {
+                "v": 189.99,
+                "t": "n",
+                "s": {
+                  "fmt": "$#,##0.00"
+                }
+              },
+              "A3": {
+                "v": "Case",
+                "t": "s"
+              },
+              "B3": {
+                "v": 74.5,
+                "t": "n",
+                "s": {
+                  "fmt": "$#,##0.00"
+                }
+              },
+              "A4": {
+                "v": "Total",
+                "t": "s",
+                "s": {
+                  "b": true
+                }
+              },
+              "B4": {
+                "v": 264.49,
+                "f": "=SUM(B2:B3)",
+                "t": "n",
+                "s": {
+                  "b": true,
+                  "fmt": "$#,##0.00"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SheetsWorkbook": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "created_at",
+          "updated_at",
+          "version",
+          "sheets"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Increases on every committed change. Also sent as the `ETag` header; send it back in `If-Match` for optimistic concurrency.",
+            "examples": [
+              7
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetsSheet"
+            }
+          }
+        },
+        "examples": [
+          {
+            "id": "guscgvw2ah2emka6bacmslvngw",
+            "name": "NAS budget",
+            "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "updated_at": "2026-10-26T12:30:00.000Z",
+            "version": 7,
+            "sheets": [
+              {
+                "id": "jgvnapsqagedu3w7e325efjcgh",
+                "name": "Sheet1",
+                "index": 0,
+                "rows": 100,
+                "cols": 26,
+                "col_widths": {
+                  "A": 160
+                },
+                "row_heights": {},
+                "frozen_rows": 1,
+                "frozen_cols": 0,
+                "cells": {
+                  "A1": {
+                    "v": "Item",
+                    "t": "s",
+                    "s": {
+                      "b": true,
+                      "bg": "#e8f0fe"
+                    }
+                  },
+                  "B1": {
+                    "v": "Cost",
+                    "t": "s",
+                    "s": {
+                      "b": true,
+                      "bg": "#e8f0fe",
+                      "align": "right"
+                    }
+                  },
+                  "A2": {
+                    "v": "Disk",
+                    "t": "s"
+                  },
+                  "B2": {
+                    "v": 189.99,
+                    "t": "n",
+                    "s": {
+                      "fmt": "$#,##0.00"
+                    }
+                  },
+                  "A3": {
+                    "v": "Case",
+                    "t": "s"
+                  },
+                  "B3": {
+                    "v": 74.5,
+                    "t": "n",
+                    "s": {
+                      "fmt": "$#,##0.00"
+                    }
+                  },
+                  "A4": {
+                    "v": "Total",
+                    "t": "s",
+                    "s": {
+                      "b": true
+                    }
+                  },
+                  "B4": {
+                    "v": 264.49,
+                    "f": "=SUM(B2:B3)",
+                    "t": "n",
+                    "s": {
+                      "b": true,
+                      "fmt": "$#,##0.00"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "SheetsWorkbookSummary": {
+        "type": "object",
+        "description": "Workbook without cell data.",
+        "required": [
+          "id",
+          "name",
+          "owner_id",
+          "created_at",
+          "updated_at",
+          "version",
+          "sheets"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Increases on every committed change. Also sent as the `ETag` header; send it back in `If-Match` for optimistic concurrency.",
+            "examples": [
+              7
+            ]
+          },
+          "sheets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetsSheetSummary"
+            }
+          }
+        }
+      },
+      "SheetsWorkbookPage": {
+        "type": "object",
+        "description": "A page of workbooks, most recently updated first.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetsWorkbookSummary"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "SheetsName": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      },
+      "SheetsSheetCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Default \"SheetN\".",
+            "minLength": 1,
+            "maxLength": 31
+          }
+        }
+      },
+      "SheetsSheetUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 31
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "New 0-based tab position (clamped to the number of sheets)."
+          },
+          "col_widths": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 4,
+              "maximum": 4000
+            },
+            "description": "Column letter → width in pixels (4–4000). Merged into the existing sizes; `null` (or 0) resets to the default.",
+            "examples": [
+              {
+                "A": 160,
+                "C": null
+              }
+            ]
+          },
+          "row_heights": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 4,
+              "maximum": 4000
+            },
+            "description": "1-based row number → height in pixels (4–4000). Merged into the existing sizes; `null` (or 0) resets to the default.",
+            "examples": [
+              {
+                "1": 32
+              }
+            ]
+          },
+          "frozen_rows": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Rows frozen at the top (must be less than `rows`)."
+          },
+          "frozen_cols": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "description": "Columns frozen at the left (must be less than `cols`)."
+          },
+          "rows": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576,
+            "description": "Grid rows (cannot shrink below used cells)."
+          },
+          "cols": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16384,
+            "description": "Grid columns (cannot shrink below used cells)."
+          }
+        },
+        "description": "All fields are optional; the patch is validated as a whole before anything changes."
+      },
+      "SheetsRange": {
+        "type": "object",
+        "required": [
+          "ref",
+          "values",
+          "formulas",
+          "styles"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Normalised range, e.g. `A1:D20`."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "Row-major computed values."
+          },
+          "formulas": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "description": "Row-major formulas (`null` where the cell has none)."
+          },
+          "styles": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SheetsStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "description": "Row-major styles."
+          }
+        }
+      },
+      "SheetsRangeWrite": {
+        "type": "object",
+        "required": [
+          "ref",
+          "values"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Top-left cell to write at (a range such as `A1:D5` is accepted; its top-left corner is used).",
+            "examples": [
+              "A1"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "description": "Row-major values (rows may be ragged; at most 100,000 values). Strings starting with `=` are formulas, other strings stay text; `null` clears a cell’s value.",
+            "maxItems": 100000
+          }
+        }
+      },
+      "SheetsChanged": {
+        "type": "object",
+        "required": [
+          "changed",
+          "version"
+        ],
+        "properties": {
+          "changed": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SheetsCellMap"
+            },
+            "description": "Sheet ID → changed cells, including recalculated dependents on any sheet."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Increases on every committed change. Also sent as the `ETag` header; send it back in `If-Match` for optimistic concurrency.",
+            "examples": [
+              7
+            ]
+          }
+        },
+        "examples": [
+          {
+            "changed": {
+              "jgvnapsqagedu3w7e325efjcgh": {
+                "B2": {
+                  "v": 200,
+                  "t": "n"
+                },
+                "B4": {
+                  "v": 274.5,
+                  "f": "=SUM(B2:B3)",
+                  "t": "n"
+                }
+              }
+            },
+            "version": 8
+          }
+        ]
+      },
+      "SheetsCellUpdate": {
+        "type": "object",
+        "required": [
+          "ref"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "A1 reference (case-insensitive, `$` allowed).",
+            "examples": [
+              "B2"
+            ]
+          },
+          "value": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "null"
+            ],
+            "description": "New literal value (strings are always text, never formulas). `null` clears the value but keeps the style."
+          },
+          "formula": {
+            "type": "string",
+            "description": "New formula (leading `=` optional). An empty string clears the content.",
+            "maxLength": 32768
+          },
+          "input": {
+            "type": "string",
+            "maxLength": 32767,
+            "description": "Text as typed by a user, interpreted like a spreadsheet: `=…` is a formula, numbers accept thousands separators, `$` and `%` (which also set a number format), dates/times become serials with a date format, `TRUE`/`FALSE` are booleans and a leading apostrophe forces text.",
+            "examples": [
+              "12%"
+            ]
+          },
+          "style": {
+            "$ref": "#/components/schemas/SheetsStyle"
+          },
+          "clear": {
+            "type": "string",
+            "description": "`all` clears value and style, `content` only the value/formula, `style` only the style.",
+            "enum": [
+              "all",
+              "content",
+              "style"
+            ]
+          }
+        },
+        "description": "One cell edit. Set at most one of `value`, `formula` and `input`. `clear` runs first, then the content, then `style` (merged)."
+      },
+      "SheetsRangeStyle": {
+        "type": "object",
+        "required": [
+          "ref",
+          "style"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Range, e.g. `A1:C3`, `B:B` or `1:1` (whole rows/columns are clipped to the grid; at most 200,000 cells)."
+          },
+          "style": {
+            "$ref": "#/components/schemas/SheetsStyle"
+          }
+        }
+      },
+      "SheetsCellsPatch": {
+        "type": "object",
+        "properties": {
+          "updates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SheetsCellUpdate"
+            },
+            "maxItems": 100000
+          },
+          "range_style": {
+            "$ref": "#/components/schemas/SheetsRangeStyle"
+          }
+        },
+        "description": "At least one of `updates` and `range_style`. All updates (including the range style) are validated first and applied all-or-nothing."
+      },
+      "SheetsAxisOp": {
+        "type": "object",
+        "required": [
+          "axis",
+          "at",
+          "count"
+        ],
+        "properties": {
+          "axis": {
+            "type": "string",
+            "enum": [
+              "row",
+              "col"
+            ]
+          },
+          "at": {
+            "type": "integer",
+            "description": "0-based row/column index.",
+            "minimum": 0
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        }
+      },
+      "SheetsSortRequest": {
+        "type": "object",
+        "required": [
+          "ref",
+          "by_col"
+        ],
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Range to sort (exclude the header row). Blanks sort last in both directions; formulas in moved rows keep pointing at their own row.",
+            "examples": [
+              "A2:D50"
+            ]
+          },
+          "by_col": {
+            "type": "string",
+            "description": "Column letter to sort by.",
+            "pattern": "^[A-Z]{1,3}$"
+          },
+          "desc": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "SheetsEvaluateRequest": {
+        "type": "object",
+        "required": [
+          "formula"
+        ],
+        "properties": {
+          "formula": {
+            "type": "string",
+            "description": "Formula with or without the leading `=`.",
+            "minLength": 1,
+            "maxLength": 32768
+          },
+          "workbook_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "sheet_id": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      },
+      "SheetsEvaluateResult": {
+        "type": "object",
+        "required": [
+          "value",
+          "type"
+        ],
+        "properties": {
+          "value": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "n",
+              "s",
+              "b",
+              "e",
+              "z"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error code of the result (`#DIV/0!`…) or, when the formula does not parse, the syntax error message (then `value` is `null`)."
+          }
+        },
+        "examples": [
+          {
+            "value": 264.49,
+            "type": "n"
+          },
+          {
+            "value": "#DIV/0!",
+            "type": "e",
+            "error": "#DIV/0!"
+          }
+        ]
+      },
+      "SheetsFunction": {
+        "type": "object",
+        "required": [
+          "name",
+          "syntax",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "syntax": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "SheetsImportFile": {
+        "type": "object",
+        "required": [
+          "file_id"
+        ],
+        "properties": {
+          "file_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Workbook name (default: file name without extension).",
+            "maxLength": 200
+          }
+        }
+      },
+      "SheetsExportToFiles": {
+        "type": "object",
+        "required": [
+          "format",
+          "space_id",
+          "path"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "xlsx",
+              "xls",
+              "csv"
+            ]
+          },
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string",
+            "description": "Target folder in the space (`\"\"` = root; `/`-separated, no `..`).",
+            "maxLength": 4096
+          },
+          "name": {
+            "type": "string",
+            "description": "File name (default: workbook name). The format’s extension is appended when missing.",
+            "maxLength": 255
+          },
+          "sheet_id": {
+            "$ref": "#/components/schemas/Id",
+            "description": "CSV only: the sheet to export (default: the first)."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false,
+            "description": "Replace an existing file with the same name instead of answering 409."
+          }
+        }
+      }
+    },
+    "parameters": {
+      "SheetsIfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": false,
+        "description": "Optional workbook version (the `ETag` / `version` you last saw, e.g. `\"7\"`). When it no longer matches, the request fails with 409 `conflict` and `details.version` holds the current version.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "SheetsUnprocessable": {
+        "description": "`validation_failed` (`details.fields`) for invalid input, or `recalc_timeout` when recalculating the workbook exceeded the server’s time budget (nothing was changed).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "validation": {
+                "value": {
+                  "error": {
+                    "code": "validation_failed",
+                    "message": "Validation failed",
+                    "details": {
+                      "fields": {
+                        "updates[0].ref": "Invalid cell reference \"ZZZZ1\""
+                      }
+                    }
+                  }
+                }
+              },
+              "timeout": {
+                "value": {
+                  "error": {
+                    "code": "recalc_timeout",
+                    "message": "The workbook took too long to recalculate; the change was not applied"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "SheetsBusy": {
+        "description": "`busy`: the workbook (or the import/export queue) is busy with other requests; retry shortly.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": {
+                "code": "busy",
+                "message": "The workbook is busy with another operation; try again shortly"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

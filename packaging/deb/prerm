@@ -1,0 +1,27 @@
+#!/bin/sh
+# prerm for ludworks: stop the service before the package is removed or upgraded.
+set -e
+
+SERVICE=ludworks.service
+# Tells the next postinst (upgrade, reinstall, or an aborted operation) to start the service
+# again because it was running before we stopped it. /run is cleared at boot.
+RESTART_MARKER=/run/ludworks.dpkg-restart
+
+case "$1" in
+remove | upgrade | deconfigure)
+	if [ -d /run/systemd/system ]; then
+		if systemctl is-active --quiet "$SERVICE"; then
+			: >"$RESTART_MARKER"
+		fi
+		systemctl stop "$SERVICE" || true
+	fi
+	;;
+failed-upgrade)
+	;;
+*)
+	echo "prerm called with unknown argument '$1'" >&2
+	exit 1
+	;;
+esac
+
+exit 0

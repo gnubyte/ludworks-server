@@ -1,0 +1,1748 @@
+{
+  "tags": [
+    {
+      "name": "Setup",
+      "description": "First-run claim of a fresh server using the one-time setup token written to `<data>/setup-token.txt` on first start."
+    },
+    {
+      "name": "Auth",
+      "description": "Login (cookie or bearer-token mode), logout, session info, self-registration, email verification and password reset."
+    },
+    {
+      "name": "Account",
+      "description": "The signed-in user: profile, password, TOTP two-factor authentication, sessions and personal access tokens (PATs)."
+    }
+  ],
+  "paths": {
+    "/api/v1/setup/status": {
+      "get": {
+        "operationId": "getSetupStatus",
+        "tags": [
+          "Setup"
+        ],
+        "summary": "First-run status",
+        "description": "Tells clients whether the server still needs its first administrator, plus public server facts used by login screens and apps (server name, registration flag, version, TLS fingerprint for trust-on-first-use).\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Setup status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSetupStatus"
+                },
+                "example": {
+                  "setup_required": false,
+                  "server_name": "Ludworks",
+                  "registration_enabled": false,
+                  "version": "1.0.0",
+                  "tls_fingerprint_sha256": "5e:3a:…:9c"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/setup": {
+      "post": {
+        "operationId": "completeSetup",
+        "tags": [
+          "Setup"
+        ],
+        "summary": "Create the first administrator",
+        "description": "Claims a fresh server. Requires the one-time **setup token** that the server generated on first start\n(written to `<data>/setup-token.txt`, mode 0600 — e.g. `sudo cat /var/lib/ludworks/setup-token.txt`; the log only names the file).\nCreates the admin account, logs it in with a session cookie and invalidates the token.\nRate limited per IP. Until setup is complete every other API route answers `503 setup_required`.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthSetupRequest"
+              },
+              "example": {
+                "setup_token": "Zk2Vq8…",
+                "username": "admin",
+                "password": "correct horse battery staple",
+                "email": "admin@example.com",
+                "server_name": "Home NAS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Administrator created and logged in.",
+            "headers": {
+              "Set-Cookie": {
+                "$ref": "#/components/headers/SetSessionCookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSetupResponse"
+                },
+                "example": {
+                  "user": {
+                    "id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "username": "admin",
+                    "email": "alice@example.com",
+                    "display_name": "Alice",
+                    "role": "admin",
+                    "disabled": false,
+                    "email_verified": true,
+                    "totp_enabled": true,
+                    "quota_bytes": 0,
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_login_at": "2026-10-26T12:30:00.000Z",
+                    "mail_in_enabled": false
+                  },
+                  "csrf_token": "q3J8bW9Xc0d1M2FzZGZnaGprbA"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Wrong or expired setup token."
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The server is already set up."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log in",
+        "description": "Authenticates with username (or email) and password.\n\n* Default: sets the `lw_session` cookie and returns the `csrf_token` for subsequent unsafe requests.\n* `token_mode: true`: no cookie; returns a bearer session token `lws_…` in `token` (for the SDK, apps and browser extension).\n* If the account has TOTP enabled and no code was sent, the response is `401 totp_required` (the password was correct) —\n  resend with `totp_code` or a `recovery_code`.\n\nBrute-force protection: per-IP and per-account rate limiting with exponential lockout (429 + `Retry-After`).\nUnknown usernames cost the same time as real ones.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthLoginRequest"
+              },
+              "example": {
+                "username": "alice",
+                "password": "correct horse battery staple",
+                "token_mode": true,
+                "device_name": "ludworks-python"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged in. With cookie mode the response also carries `Set-Cookie`.",
+            "headers": {
+              "Set-Cookie": {
+                "$ref": "#/components/headers/SetSessionCookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthLoginResponse"
+                },
+                "example": {
+                  "user": {
+                    "id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "username": "alice",
+                    "email": "alice@example.com",
+                    "display_name": "Alice",
+                    "role": "admin",
+                    "disabled": false,
+                    "email_verified": true,
+                    "totp_enabled": true,
+                    "quota_bytes": 0,
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_login_at": "2026-10-26T12:30:00.000Z",
+                    "mail_in_enabled": false
+                  },
+                  "csrf_token": "q3J8bW9Xc0d1M2FzZGZnaGprbA",
+                  "expires_at": "2026-11-25T12:00:00.000Z",
+                  "token": "lws_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "description": "`invalid_credentials` (wrong username/password/code) or `totp_required` (password correct, second factor needed).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalid": {
+                    "value": {
+                      "error": {
+                        "code": "invalid_credentials",
+                        "message": "invalid username or password"
+                      }
+                    }
+                  },
+                  "totp": {
+                    "value": {
+                      "error": {
+                        "code": "totp_required",
+                        "message": "two-factor code required"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "The account is disabled."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Log out",
+        "description": "Revokes the current session or bearer token. For a browser (cookie) session it also clears the cookie and sends `Clear-Site-Data: \"cache\"`, so private files and thumbnails the browser cached are dropped. To revoke a PAT use `DELETE /api/v1/me/tokens/{id}`.\n\n**Scope:** `auth`",
+        "x-scope": "auth",
+        "responses": {
+          "204": {
+            "description": "Logged out."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "getSession",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Current session",
+        "description": "Returns the signed-in user, the CSRF token of the cookie session (web UI bootstrap after reload), the session expiry and effective scopes.\n\n**Scope:** `auth`",
+        "x-scope": "auth",
+        "responses": {
+          "200": {
+            "description": "Current session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                },
+                "example": {
+                  "user": {
+                    "id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "username": "alice",
+                    "email": "alice@example.com",
+                    "display_name": "Alice",
+                    "role": "admin",
+                    "disabled": false,
+                    "email_verified": true,
+                    "totp_enabled": true,
+                    "quota_bytes": 0,
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_login_at": "2026-10-26T12:30:00.000Z",
+                    "mail_in_enabled": false
+                  },
+                  "csrf_token": "q3J8bW9Xc0d1M2FzZGZnaGprbA",
+                  "expires_at": "2026-11-25T12:00:00.000Z",
+                  "scopes": [
+                    "*"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "register",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Self-register an account",
+        "description": "Creates a regular account when `general.registration_enabled` is on (otherwise `403 registration_disabled`).\nIf `general.require_email_verification` is on, a verification email is sent and the user is not logged in until verified;\notherwise the user is logged in with a session cookie (fetch the CSRF token with `GET /api/v1/auth/session`). Rate limited per IP.\nWith verification on, an email address that already has an account is answered exactly like a fresh registration (201, `verification_required: true`) without creating an account; the address owner is emailed instead, so the endpoint does not reveal registered addresses. Usernames are unique and a taken one is reported (409); without verification a taken address is reported too (409), because the new account would be signed in at once.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRegisterRequest"
+              },
+              "example": {
+                "username": "bob",
+                "email": "bob@example.com",
+                "password": "a long and unique passphrase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created.",
+            "headers": {
+              "Set-Cookie": {
+                "$ref": "#/components/headers/SetSessionCookie"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthRegisterResponse"
+                },
+                "example": {
+                  "user": {
+                    "id": "vlciradn476k3k355ljxdjurp3",
+                    "username": "bob",
+                    "email": "bob@example.com",
+                    "display_name": "bob",
+                    "role": "user",
+                    "disabled": false,
+                    "email_verified": false,
+                    "totp_enabled": false,
+                    "quota_bytes": 0,
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_login_at": null,
+                    "mail_in_enabled": false
+                  },
+                  "verification_required": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "description": "`registration_disabled`: self-registration is turned off.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "registration_disabled",
+                    "message": "registration is disabled"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Username already in use; or, when email verification is off, email address already in use."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "operationId": "verifyEmail",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify an email address",
+        "description": "Consumes the token from a verification email or from an email-change confirmation (see `PATCH /api/v1/me`). The latter switches the account to the confirmed address and marks it verified, or answers `410 gone` if another account took the address meanwhile. Tokens are single-use and expire.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTokenRequest"
+              },
+              "example": {
+                "token": "b3V0Zm9yLXRoZS12ZXJpZmljYXRpb24"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Email verified."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone",
+            "description": "Token unknown, used or expired."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/request": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Request a password-reset email",
+        "description": "Always answers `202` whether or not the address exists (no account enumeration). Requires SMTP to be configured; the email contains a single-use, short-lived link.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthPasswordResetRequest"
+              },
+              "example": {
+                "email": "alice@example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted (an email is sent if the address belongs to an active account)."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "operationId": "confirmPasswordReset",
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Set a new password with a reset token",
+        "description": "Sets the new password and **revokes all sessions and session tokens** of the account.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthPasswordResetConfirm"
+              },
+              "example": {
+                "token": "cmVzZXQtdG9rZW4",
+                "new_password": "a brand new long passphrase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone",
+            "description": "Token unknown, used or expired."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Current user",
+        "description": "**Scope:** `auth`",
+        "x-scope": "auth",
+        "responses": {
+          "200": {
+            "description": "The signed-in user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "example": {
+                  "id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "username": "alice",
+                  "email": "alice@example.com",
+                  "display_name": "Alice",
+                  "role": "admin",
+                  "disabled": false,
+                  "email_verified": true,
+                  "totp_enabled": true,
+                  "quota_bytes": 0,
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "last_login_at": "2026-10-26T12:30:00.000Z",
+                  "mail_in_enabled": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMe",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Update profile",
+        "description": "Updates display name, email or the mail-in opt-in. When SMTP is configured, a new email address is not applied at once: the response is the unchanged user with `email_change_pending: true`, the current address is notified, and the new address receives a confirmation link (redeemed with `POST /api/v1/auth/verify-email`) unless another account already uses it. The answer is identical either way, so this endpoint does not reveal registered addresses. Without SMTP the change applies at once and resets `email_verified` (409 if the address is taken). Email changes are rate limited per user (429).\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthMeUpdate"
+              },
+              "example": {
+                "display_name": "Alice A.",
+                "mail_in_enabled": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated user. `email_change_pending` is present (true) when a new email address awaits confirmation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/User"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "email_change_pending": {
+                          "type": "boolean",
+                          "description": "A confirmation link was sent to the requested address (if no other account uses it); `email` changes once it is redeemed."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Email already in use (only when SMTP is not configured and the change applies at once)."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/password": {
+      "post": {
+        "operationId": "changePassword",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Change password",
+        "description": "Requires the current password. Revokes every **other** session and session token (the current one stays valid). Rate limited.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthPasswordChange"
+              },
+              "example": {
+                "current_password": "old passphrase",
+                "new_password": "new long passphrase"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Password changed."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "`invalid_credentials` when `current_password` is wrong (or `unauthorized` without a session)."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/totp/setup": {
+      "post": {
+        "operationId": "setupTotp",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Start TOTP enrolment",
+        "description": "Generates a new secret (stored encrypted, pending) and returns it with an `otpauth://` URI for the authenticator app. Confirm with `POST /api/v1/me/totp/enable`.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "responses": {
+          "200": {
+            "description": "Pending TOTP secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTotpSetup"
+                },
+                "example": {
+                  "secret": "JBSWY3DPEHPK3PXP",
+                  "otpauth_url": "otpauth://totp/Ludworks:alice?secret=JBSWY3DPEHPK3PXP&issuer=Ludworks"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "TOTP is already enabled."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/totp/enable": {
+      "post": {
+        "operationId": "enableTotp",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Confirm and enable TOTP",
+        "description": "Verifies a code from the authenticator app against the pending secret, enables 2FA and returns 10 single-use recovery codes (shown once, stored hashed). Rate limited.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTotpCode"
+              },
+              "example": {
+                "code": "123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "2FA enabled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTotpRecoveryCodes"
+                },
+                "example": {
+                  "recovery_codes": [
+                    "7f3k-9q2m",
+                    "x8v1-c4n6",
+                    "p2w7-h5j3",
+                    "r9t4-b6y8",
+                    "m3z5-k1d7",
+                    "q6s2-f8g4",
+                    "a1e9-u3o5",
+                    "n7l4-w2c6",
+                    "d5r8-v9b1",
+                    "h4j6-t2p3"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "No pending setup, or TOTP already enabled."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/totp/disable": {
+      "post": {
+        "operationId": "disableTotp",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Disable TOTP",
+        "description": "Requires the account password and a current TOTP code. Deletes the secret and all recovery codes. Rate limited.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTotpDisable"
+              },
+              "example": {
+                "password": "correct horse battery staple",
+                "code": "123456"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "2FA disabled."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "`invalid_credentials` when the password or code is wrong."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "TOTP is not enabled."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/sessions": {
+      "get": {
+        "operationId": "listMySessions",
+        "tags": [
+          "Account"
+        ],
+        "summary": "List my sessions and tokens",
+        "description": "Active browser sessions, `lws_` session tokens and personal access tokens of the caller.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "responses": {
+          "200": {
+            "description": "Sessions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuthSessionInfo"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "nq2jraaf5judl4sjhwvsp2vota",
+                    "kind": "session",
+                    "device_name": "",
+                    "ip": "192.168.1.20",
+                    "user_agent": "Mozilla/5.0 …",
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_seen_at": "2026-10-26T12:30:00.000Z",
+                    "expires_at": "2026-11-25T12:00:00.000Z",
+                    "current": true
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/sessions/{id}": {
+      "delete": {
+        "operationId": "revokeMySession",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Revoke a session",
+        "description": "Revoking the browser session the request itself uses signs this browser out: the cookie is cleared and `Clear-Site-Data: \"cache\"` is sent.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Session or token ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/tokens": {
+      "get": {
+        "operationId": "listMyTokens",
+        "tags": [
+          "Account"
+        ],
+        "summary": "List personal access tokens",
+        "description": "**Scope:** `account`",
+        "x-scope": "account",
+        "responses": {
+          "200": {
+            "description": "Tokens (secrets are never returned again).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuthToken"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "qc5ul3435i6dtnikjsndbuidtq",
+                    "name": "backup laptop",
+                    "scopes": [
+                      "files:read",
+                      "files:write"
+                    ],
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "last_used_at": "2026-10-26T12:30:00.000Z",
+                    "expires_at": null,
+                    "prefix": "lwp_ab12"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMyToken",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Create a personal access token",
+        "description": "Creates an `lwp_` token limited to `scopes`. The token value is returned **once**; only its SHA-256 is stored.\n\n**Scope:** `account`",
+        "x-scope": "account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthTokenCreate"
+              },
+              "example": {
+                "name": "backup laptop",
+                "scopes": [
+                  "files:read",
+                  "files:write"
+                ],
+                "expires_in_days": 365
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthTokenCreated"
+                },
+                "example": {
+                  "id": "qc5ul3435i6dtnikjsndbuidtq",
+                  "name": "backup laptop",
+                  "scopes": [
+                    "files:read",
+                    "files:write"
+                  ],
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "last_used_at": null,
+                  "expires_at": "2027-10-26T12:00:00.123Z",
+                  "prefix": "lwp_ab12",
+                  "token": "lwp_ab12xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me/tokens/{id}": {
+      "delete": {
+        "operationId": "revokeMyToken",
+        "tags": [
+          "Account"
+        ],
+        "summary": "Revoke a personal access token",
+        "description": "**Scope:** `account`",
+        "x-scope": "account",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Token ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthSetupStatus": {
+        "type": "object",
+        "required": [
+          "setup_required",
+          "server_name",
+          "registration_enabled",
+          "version",
+          "tls_fingerprint_sha256"
+        ],
+        "properties": {
+          "setup_required": {
+            "type": "boolean",
+            "description": "`true` until the first admin account has been created."
+          },
+          "server_name": {
+            "type": "string",
+            "description": "Configured server name (`general.server_name`)."
+          },
+          "registration_enabled": {
+            "type": "boolean",
+            "description": "Whether self-registration is open (`general.registration_enabled`)."
+          },
+          "version": {
+            "type": "string",
+            "description": "Server version."
+          },
+          "tls_fingerprint_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "SHA-256 fingerprint of the server TLS certificate (for TOFU pinning by apps); `null` when TLS is off."
+          }
+        }
+      },
+      "AuthSetupRequest": {
+        "type": "object",
+        "required": [
+          "setup_token",
+          "username",
+          "password",
+          "email"
+        ],
+        "properties": {
+          "setup_token": {
+            "type": "string",
+            "description": "One-time token from `<data>/setup-token.txt` or the first-start log.",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "username": {
+            "type": "string",
+            "description": "Username of the first administrator.",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "Password: at least `security.password_min_length` characters (default 12), at most 1024 bytes.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "email": {
+            "type": "string",
+            "description": "Administrator email.",
+            "format": "email"
+          },
+          "server_name": {
+            "type": "string",
+            "description": "Optional server name (default \"Ludworks\").",
+            "maxLength": 100
+          }
+        }
+      },
+      "AuthSetupResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "csrf_token"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "CSRF token for the new cookie session."
+          }
+        }
+      },
+      "AuthLoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Username **or** email address.",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "Account password.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "totp_code": {
+            "type": "string",
+            "description": "6-digit TOTP code.",
+            "pattern": "^[0-9]{6}$",
+            "examples": [
+              "123456"
+            ]
+          },
+          "recovery_code": {
+            "type": "string",
+            "description": "One of the 10 single-use recovery codes (instead of `totp_code`).",
+            "maxLength": 64
+          },
+          "token_mode": {
+            "type": "boolean",
+            "description": "When `true` no cookie is set and a bearer session token (`lws_…`) is returned in `token` (SDK, apps, extensions).",
+            "default": false
+          },
+          "device_name": {
+            "type": "string",
+            "description": "Label shown in the session list, e.g. \"Pixel 9 — Ludworks TV\".",
+            "maxLength": 128
+          }
+        }
+      },
+      "AuthLoginResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "csrf_token",
+          "expires_at"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "CSRF token for cookie sessions (send as `X-CSRF-Token`)."
+          },
+          "expires_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Absolute expiry of the session (it may also end earlier after `security.session_idle_minutes` of inactivity)."
+          },
+          "token": {
+            "type": "string",
+            "description": "Bearer session token `lws_…` — only present when `token_mode` was `true`. Store it in secure OS storage."
+          }
+        }
+      },
+      "AuthSession": {
+        "type": "object",
+        "required": [
+          "user",
+          "csrf_token",
+          "expires_at",
+          "scopes"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "csrf_token": {
+            "type": "string",
+            "description": "CSRF token of the current cookie session."
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Effective scopes; `[\"*\"]` for interactive sessions."
+          }
+        }
+      },
+      "AuthRegisterRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Desired username.",
+            "minLength": 1
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address.",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "description": "Password: at least `security.password_min_length` characters (default 12), at most 1024 bytes.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "AuthRegisterResponse": {
+        "type": "object",
+        "required": [
+          "user",
+          "verification_required"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "verification_required": {
+            "type": "boolean",
+            "description": "When `true` a verification email was sent and the user is **not** logged in yet."
+          }
+        }
+      },
+      "AuthTokenRequest": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Token from the emailed link.",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "AuthPasswordResetRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Account email.",
+            "format": "email"
+          }
+        }
+      },
+      "AuthPasswordResetConfirm": {
+        "type": "object",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Token from the emailed reset link.",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "new_password": {
+            "type": "string",
+            "description": "Password: at least `security.password_min_length` characters (default 12), at most 1024 bytes.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "AuthMeUpdate": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Display name.",
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "description": "New email; it becomes unverified when verification is required.",
+            "format": "email"
+          },
+          "mail_in_enabled": {
+            "type": "boolean",
+            "description": "Turn emails sent from your verified address to the server mailbox into notes."
+          }
+        }
+      },
+      "AuthPasswordChange": {
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "Current password.",
+            "format": "password",
+            "maxLength": 1024
+          },
+          "new_password": {
+            "type": "string",
+            "description": "Password: at least `security.password_min_length` characters (default 12), at most 1024 bytes.",
+            "format": "password",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        }
+      },
+      "AuthTotpSetup": {
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_url"
+        ],
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "Base32 TOTP secret (pending until enabled).",
+            "examples": [
+              "JBSWY3DPEHPK3PXP"
+            ]
+          },
+          "otpauth_url": {
+            "type": "string",
+            "description": "`otpauth://totp/…` URI for authenticator apps / QR codes."
+          }
+        }
+      },
+      "AuthTotpCode": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "6-digit TOTP code.",
+            "pattern": "^[0-9]{6}$",
+            "examples": [
+              "123456"
+            ]
+          }
+        }
+      },
+      "AuthTotpRecoveryCodes": {
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ten single-use recovery codes. Shown once — store them safely.",
+            "minItems": 10,
+            "maxItems": 10
+          }
+        }
+      },
+      "AuthTotpDisable": {
+        "type": "object",
+        "required": [
+          "password",
+          "code"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Account password.",
+            "format": "password",
+            "maxLength": 1024
+          },
+          "code": {
+            "type": "string",
+            "description": "6-digit TOTP code.",
+            "pattern": "^[0-9]{6}$",
+            "examples": [
+              "123456"
+            ]
+          }
+        }
+      },
+      "AuthSessionInfo": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "device_name",
+          "ip",
+          "user_agent",
+          "created_at",
+          "last_seen_at",
+          "expires_at",
+          "current"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`session` = cookie or `lws_` login; `token` = personal access token.",
+            "enum": [
+              "session",
+              "token"
+            ]
+          },
+          "device_name": {
+            "type": "string",
+            "description": "Device label given at login (may be empty)."
+          },
+          "ip": {
+            "type": "string",
+            "description": "Last client IP."
+          },
+          "user_agent": {
+            "type": "string",
+            "description": "Last User-Agent."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "last_seen_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current": {
+            "type": "boolean",
+            "description": "Whether this is the session making the request."
+          }
+        }
+      },
+      "AuthToken": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "scopes",
+          "created_at",
+          "last_used_at",
+          "expires_at",
+          "prefix"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Token label."
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Scope"
+            }
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` = never expires."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "First characters of the token for recognition, e.g. `lwp_ab12`."
+          }
+        }
+      },
+      "AuthTokenCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "scopes"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label, e.g. \"backup laptop\".",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Scope"
+            },
+            "description": "Requested scopes. Must be a subset of the caller's scopes; `admin` requires the admin role.",
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "expires_in_days": {
+            "type": "integer",
+            "description": "Lifetime in days; omit for a non-expiring token.",
+            "minimum": 1,
+            "maximum": 3650
+          }
+        }
+      },
+      "AuthTokenCreated": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AuthToken"
+          },
+          {
+            "type": "object",
+            "required": [
+              "token"
+            ],
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "The full `lwp_…` token. **Shown only once.**"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

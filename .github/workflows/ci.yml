@@ -1,0 +1,195 @@
+# Continuous integration for ludworks-server.
+#
+# Third-party actions are pinned to full commit SHAs (resolved with
+# `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`); the trailing comment names the tag.
+# Dependabot (.github/dependabot.yml) proposes updates for both the SHAs and Go modules.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+
+jobs:
+  go:
+    name: Go (format, vet, test, cross-build, govulncheck)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go mod verify
+        run: go mod verify
+
+      - name: go vet (linux)
+        run: go vet ./...
+
+      - name: go vet (windows)
+        run: GOOS=windows go vet ./...
+
+      - name: go test
+        run: go test -count=1 ./...
+
+      - name: Cross-build windows/amd64 and linux/arm64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o /dev/null ./cmd/ludworks
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o /dev/null ./cmd/ludworks
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  web:
+    name: Web UI tests, OpenAPI and docs checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Web UI unit tests
+        run: node --test "web/tests/**/*.test.mjs"
+
+      - name: OpenAPI and docs tooling tests
+        run: node --test "tools/openapi-check/*.test.mjs"
+
+      - name: OpenAPI fragments vs API.md
+        run: node tools/openapi-check/check.mjs
+
+      - name: Documentation site (nav, links, anchors)
+        run: node tools/openapi-check/docs-check.mjs
+
+  package:
+    name: Packages (.deb amd64/arm64, Windows zip)
+    needs: go
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Build packages
+        run: |
+          VERSION="$(tr -d ' \t\r\n' < VERSION)+ci.${GITHUB_RUN_NUMBER}.g${GITHUB_SHA::7}" bash scripts/package.sh
+
+      - name: Inspect packages
+        run: |
+          set -x
+          for deb in dist/*.deb; do
+            dpkg-deb --info "$deb"
+            dpkg-deb --contents "$deb"
+          done
+          python3 -I -m zipfile -l dist/*_windows_amd64.zip
+          (cd dist && sha256sum -c SHA256SUMS)
+
+      - name: Smoke-test the packaged Linux binary
+        run: |
+          root="$RUNNER_TEMP/root"
+          dpkg-deb -x dist/*_amd64.deb "$root"
+          "$root/usr/bin/ludworks" version
+          "$root/usr/bin/ludworks" serve --config "$root/etc/ludworks/config.json" \
+            --data "$RUNNER_TEMP/data" --listen 127.0.0.1:18443 > "$RUNNER_TEMP/server.log" 2>&1 &
+          pid=$!
+          for _ in $(seq 1 100); do
+            curl -fsk https://127.0.0.1:18443/api/v1/health && break
+            sleep 0.2
+          done
+          curl -fsk https://127.0.0.1:18443/api/v1/health
+          test -s "$RUNNER_TEMP/data/setup-token.txt"
+          kill "$pid"
+          wait "$pid" || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: |
+            dist/*.deb
+            dist/*.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Windows (package.ps1, exe smoke test)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Packaging tool tests
+        run: go test -count=1 ./tools/... ./packaging/
+
+      - name: Build the Windows package with package.ps1
+        shell: pwsh
+        run: ./scripts/package.ps1 -Targets windows
+
+      - name: Smoke-test ludworks.exe
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path 'dist/stage/windows_amd64/ludworks.exe'
+          & $exe version
+          if ($LASTEXITCODE -ne 0) { throw 'ludworks.exe version failed' }
+          $vi = (Get-Item $exe).VersionInfo
+          $vi | Format-List FileVersion, ProductVersion, ProductName, CompanyName, LegalCopyright
+          $want = (Get-Content VERSION -Raw).Trim()
+          if ($vi.ProductVersion -ne $want) { throw "ProductVersion $($vi.ProductVersion) != $want" }
+          $data = Join-Path $env:RUNNER_TEMP 'lwdata'
+          $p = Start-Process -FilePath $exe -PassThru -NoNewWindow `
+            -ArgumentList 'serve', '--data', $data, '--listen', '127.0.0.1:18443', '--tls', 'off'
+          $ok = $false
+          for ($i = 0; $i -lt 100 -and -not $ok; $i++) {
+            Start-Sleep -Milliseconds 200
+            try { $h = Invoke-RestMethod http://127.0.0.1:18443/api/v1/health; $ok = $h.status -eq 'ok' } catch { }
+          }
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok) { throw 'health check failed' }
+          if (-not (Test-Path (Join-Path $data 'setup-token.txt'))) { throw 'setup token missing' }

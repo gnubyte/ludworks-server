@@ -1,0 +1,704 @@
+{
+  "version": 1,
+  "description": "Ludworks vault test vectors (VAULT-CRYPTO.md \u00a78). Raw bytes are lowercase hex (*_hex); b64 = RFC 4648 standard base64 with padding. Sealed strings use the fixed nonces given here; production code must always use random nonces.",
+  "generated_by": "web/tests/vault/gen-vectors.mjs (verified by web/tests/vault/crosscheck.py)",
+  "kdf": {
+    "password": "correct horse battery staple",
+    "kdf": "pbkdf2-sha256",
+    "kdf_iterations": 600000,
+    "kdf_salt_hex": "000102030405060708090a0b0c0d0e0f",
+    "kdf_salt": "AAECAwQFBgcICQoLDA0ODw==",
+    "master_key_hex": "ef177144eec9420cbc1093d2a8b344a92bc506d0d4ec9c028dd19f8324d8c1e6",
+    "hkdf_salt": "",
+    "hkdf_info": "ludworks/vault/wrap/v1",
+    "wrap_key_hex": "dddd9773d4d92f6e308dc15893e52d9068795934643589eb5c1497ec13dc78a3"
+  },
+  "nfc": {
+    "password": "Cafe\u0301 \u212bngstr\u00f6m",
+    "password_nfc_utf8_hex": "436166c3a920c3856e67737472c3b66d",
+    "kdf_iterations": 600000,
+    "kdf_salt_hex": "000102030405060708090a0b0c0d0e0f",
+    "master_key_hex": "148f170ebe2278ecc33930717c5b617b389d0bb2cd442428afee43cee5ab8fb0"
+  },
+  "wrapped_key": {
+    "vault_key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+    "aad": "ludworks/vault/key/v1",
+    "nonce_hex": "a0a1a2a3a4a5a6a7a8a9aaab",
+    "sealed": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+    "server_params": {
+      "kdf": "pbkdf2-sha256",
+      "kdf_iterations": 600000,
+      "kdf_salt": "AAECAwQFBgcICQoLDA0ODw==",
+      "wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS"
+    }
+  },
+  "item": {
+    "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+    "aad": "ludworks/vault/item/v1:3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+    "plaintext_json": "{\"type\":\"login\",\"name\":\"GitHub\",\"favorite\":false,\"notes\":\"\u00dcn\u00efc\u00f6d\u00e9 \u2713 notes\\nline 2\",\"login\":{\"username\":\"me@example.com\",\"password\":\"hunter2-\ud83d\udca1\",\"uris\":[{\"uri\":\"https://github.com/login\",\"match\":\"domain\"}],\"totp\":\"otpauth://totp/GitHub:me?secret=JBSWY3DPEHPK3PXP&issuer=GitHub\"},\"fields\":[{\"name\":\"PIN\",\"value\":\"1234\",\"hidden\":true}],\"password_history\":[{\"password\":\"old\",\"changed_at\":\"2026-01-01T00:00:00Z\"}],\"created_at\":\"2026-10-26T12:00:00Z\",\"updated_at\":\"2026-10-26T12:00:00Z\"}",
+    "nonce_hex": "b0b1b2b3b4b5b6b7b8b9babb",
+    "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw=="
+  },
+  "folder": {
+    "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+    "aad": "ludworks/vault/folder/v1:b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+    "name": "Work/Email \u2713",
+    "plaintext_json": "{\"name\":\"Work/Email \u2713\"}",
+    "nonce_hex": "c0c1c2c3c4c5c6c7c8c9cacb",
+    "sealed": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA="
+  },
+  "open_must_fail": [
+    {
+      "case": "item data opened with the folder AAD",
+      "key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "sealed": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+      "aad": "ludworks/vault/folder/v1:3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+      "error": "decrypt_failed"
+    },
+    {
+      "case": "item data opened under another id",
+      "key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "sealed": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+      "aad": "ludworks/vault/item/v1:b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+      "error": "decrypt_failed"
+    },
+    {
+      "case": "last tag byte flipped",
+      "key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "sealed": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKg==",
+      "aad": "ludworks/vault/item/v1:3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+      "error": "decrypt_failed"
+    },
+    {
+      "case": "wrapped key opened with the vault key",
+      "key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "sealed": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+      "aad": "ludworks/vault/key/v1",
+      "error": "decrypt_failed"
+    },
+    {
+      "case": "unknown version prefix",
+      "key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+      "sealed": "v2.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+      "aad": "ludworks/vault/item/v1:3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+      "error": "unsupported_version"
+    },
+    {
+      "case": "key_check opened with another key (a retired vault key)",
+      "key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "sealed": "v1.0NHS09TV1tfY2drb.fDJlVQScwQOxnch4LsfszQ==",
+      "aad": "ludworks/vault/check/v1",
+      "error": "decrypt_failed"
+    }
+  ],
+  "key_check": {
+    "description": "key_check = Seal(vault_key, \"\" (empty plaintext), AAD \"ludworks/vault/check/v1\"): exactly 16 bytes of ciphertext (the GCM tag)",
+    "vault_key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+    "aad": "ludworks/vault/check/v1",
+    "nonce_hex": "d0d1d2d3d4d5d6d7d8d9dadb",
+    "sealed": "v1.0NHS09TV1tfY2drb.fDJlVQScwQOxnch4LsfszQ=="
+  },
+  "public_suffix_list": {
+    "snapshot": "2026-01-29",
+    "source_sha256": "f3604fee29f4a2234547ca068da1e4c6a1c480418f1c418d4b4040633be501b4",
+    "rules": "web/assets/js/lib/vault/psl-data.js (ICANN + PRIVATE sections, ASCII/punycode, generated by web/tests/vault/gen-psl.mjs)"
+  },
+  "registrable_domain": [
+    {
+      "host": "www.bbc.co.uk",
+      "registrable_domain": "bbc.co.uk"
+    },
+    {
+      "host": "example.co.uk",
+      "registrable_domain": "example.co.uk"
+    },
+    {
+      "host": "co.uk",
+      "registrable_domain": "co.uk"
+    },
+    {
+      "host": "gist.github.com",
+      "registrable_domain": "github.com"
+    },
+    {
+      "host": "victim.github.io",
+      "registrable_domain": "victim.github.io"
+    },
+    {
+      "host": "github.io",
+      "registrable_domain": "github.io"
+    },
+    {
+      "host": "mynas.duckdns.org",
+      "registrable_domain": "mynas.duckdns.org"
+    },
+    {
+      "host": "a.tail1234.ts.net",
+      "registrable_domain": "tail1234.ts.net"
+    },
+    {
+      "host": "alice.me.uk",
+      "registrable_domain": "alice.me.uk"
+    },
+    {
+      "host": "shop.example.com.au",
+      "registrable_domain": "example.com.au"
+    },
+    {
+      "host": "x.shop.ne.jp",
+      "registrable_domain": "shop.ne.jp"
+    },
+    {
+      "host": "a.tienda.gob.mx",
+      "registrable_domain": "tienda.gob.mx"
+    },
+    {
+      "host": "bucket.s3.amazonaws.com",
+      "registrable_domain": "bucket.s3.amazonaws.com"
+    },
+    {
+      "host": "home.synology.me",
+      "registrable_domain": "home.synology.me"
+    },
+    {
+      "host": "foo.bar.ck",
+      "registrable_domain": "foo.bar.ck"
+    },
+    {
+      "host": "www.ck",
+      "registrable_domain": "www.ck"
+    },
+    {
+      "host": "a.www.ck",
+      "registrable_domain": "www.ck"
+    },
+    {
+      "host": "a.b.unknowntld",
+      "registrable_domain": "b.unknowntld"
+    },
+    {
+      "host": "Mail.Example.COM.",
+      "registrable_domain": "example.com"
+    },
+    {
+      "host": "login.example.com:8443",
+      "registrable_domain": "example.com"
+    },
+    {
+      "host": "www.example.\u516c\u53f8.cn",
+      "registrable_domain": "example.xn--55qx5d.cn"
+    },
+    {
+      "host": "shop.b\u00fccher.de",
+      "registrable_domain": "xn--bcher-kva.de"
+    },
+    {
+      "host": "192.168.1.10",
+      "registrable_domain": "192.168.1.10"
+    },
+    {
+      "host": "[::1]",
+      "registrable_domain": "[::1]"
+    },
+    {
+      "host": "localhost",
+      "registrable_domain": "localhost"
+    },
+    {
+      "host": "intranet",
+      "registrable_domain": "intranet"
+    }
+  ],
+  "url_match": [
+    {
+      "item_uri": "https://victim-project.github.io/admin/login",
+      "match": "domain",
+      "page_url": "https://attacker.github.io/phish",
+      "expected": false
+    },
+    {
+      "item_uri": "https://mynas.duckdns.org",
+      "match": null,
+      "page_url": "https://attacker.duckdns.org/login",
+      "expected": false
+    },
+    {
+      "item_uri": "https://home.synology.me:5001",
+      "match": "domain",
+      "page_url": "https://evil.synology.me/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://nas.tail1234.ts.net",
+      "match": "domain",
+      "page_url": "https://evil.tail9999.ts.net/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://app.herokuapp.com",
+      "match": "domain",
+      "page_url": "https://evil.herokuapp.com/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://site.pages.dev",
+      "match": "domain",
+      "page_url": "https://evil.pages.dev/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://bucket.s3.amazonaws.com",
+      "match": "domain",
+      "page_url": "https://evil.s3.amazonaws.com/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://alice.me.uk",
+      "match": "domain",
+      "page_url": "https://bob.me.uk/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://shop1.ne.jp",
+      "match": "domain",
+      "page_url": "https://shop2.ne.jp/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://tienda.gob.mx",
+      "match": "domain",
+      "page_url": "https://otra.gob.mx/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://bbc.co.uk",
+      "match": "domain",
+      "page_url": "https://evil.co.uk/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://github.io",
+      "match": "domain",
+      "page_url": "https://attacker.github.io/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://github.com",
+      "match": "domain",
+      "page_url": "https://github.com.evil.io/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://a.example.co.uk",
+      "match": "domain",
+      "page_url": "https://b.example.co.uk/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://github.com/login",
+      "match": "domain",
+      "page_url": "https://gist.github.com/x",
+      "expected": true
+    },
+    {
+      "item_uri": "https://a.tail1234.ts.net",
+      "match": "domain",
+      "page_url": "https://b.tail1234.ts.net/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://github.io",
+      "match": "domain",
+      "page_url": "https://github.io/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://b\u00fccher.de",
+      "match": "domain",
+      "page_url": "https://www.xn--bcher-kva.de/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://foo.bar.ck",
+      "match": "domain",
+      "page_url": "https://x.foo.bar.ck/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://a.www.ck",
+      "match": "domain",
+      "page_url": "https://www.ck/",
+      "expected": true
+    },
+    {
+      "item_uri": "example.com",
+      "match": "domain",
+      "page_url": "https://login.example.com/",
+      "expected": true
+    },
+    {
+      "item_uri": "https://example.com",
+      "match": "domain",
+      "page_url": "http://example.com/",
+      "expected": false
+    },
+    {
+      "item_uri": "http://example.com",
+      "match": "domain",
+      "page_url": "https://example.com/",
+      "expected": true
+    },
+    {
+      "item_uri": "http://192.168.1.5:8080",
+      "match": "domain",
+      "page_url": "http://192.168.1.5:8080/admin",
+      "expected": true
+    },
+    {
+      "item_uri": "http://192.168.1.5:8080",
+      "match": "domain",
+      "page_url": "http://192.168.1.5:9090/",
+      "expected": false
+    },
+    {
+      "item_uri": "http://localhost:3000/x",
+      "match": "domain",
+      "page_url": "http://localhost:3000/y",
+      "expected": true
+    },
+    {
+      "item_uri": "https://app.example.com",
+      "match": "host",
+      "page_url": "https://app.example.com:443/a",
+      "expected": true
+    },
+    {
+      "item_uri": "https://app.example.com:8443",
+      "match": "host",
+      "page_url": "https://app.example.com/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://app.example.com",
+      "match": "host",
+      "page_url": "https://www.example.com/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://example.com/account",
+      "match": "starts_with",
+      "page_url": "https://example.com/account/settings",
+      "expected": true
+    },
+    {
+      "item_uri": "https://bank.com",
+      "match": "starts_with",
+      "page_url": "https://bank.com.evil.net/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://bank.com",
+      "match": "starts_with",
+      "page_url": "https://bank.com@evil.net/",
+      "expected": false
+    },
+    {
+      "item_uri": "https://bank.com",
+      "match": "starts_with",
+      "page_url": "https://bank.com:8443/",
+      "expected": false
+    },
+    {
+      "item_uri": "androidapp://com.example",
+      "match": "starts_with",
+      "page_url": "androidapp://com.example.app",
+      "expected": true
+    },
+    {
+      "item_uri": "https://example.com/a",
+      "match": "exact",
+      "page_url": "https://example.com/a/",
+      "expected": false
+    },
+    {
+      "item_uri": "^https://(www\\.)?example\\.com/",
+      "match": "regex",
+      "page_url": "https://WWW.example.com/x",
+      "expected": true
+    },
+    {
+      "item_uri": "^(a+)+$",
+      "match": "regex",
+      "page_url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!",
+      "expected": false
+    },
+    {
+      "item_uri": "https://example.com",
+      "match": "never",
+      "page_url": "https://example.com",
+      "expected": false
+    }
+  ],
+  "totp": [
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 59,
+      "code": "94287082"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 59,
+      "code": "46119246"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 59,
+      "code": "90693936"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111109,
+      "code": "07081804"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111109,
+      "code": "68084774"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111109,
+      "code": "25091201"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111111,
+      "code": "14050471"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111111,
+      "code": "67062674"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1111111111,
+      "code": "99943326"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1234567890,
+      "code": "89005924"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1234567890,
+      "code": "91819424"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 1234567890,
+      "code": "93441116"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 2000000000,
+      "code": "69279037"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 2000000000,
+      "code": "90698825"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 2000000000,
+      "code": "38618901"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+      "algorithm": "SHA1",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 20000000000,
+      "code": "65353130"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZA",
+      "algorithm": "SHA256",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 20000000000,
+      "code": "77737706"
+    },
+    {
+      "secret_base32": "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQGEZDGNA",
+      "algorithm": "SHA512",
+      "digits": 8,
+      "period": 30,
+      "unix_time": 20000000000,
+      "code": "47863826"
+    },
+    {
+      "secret_base32": "JBSWY3DPEHPK3PXP",
+      "algorithm": "SHA1",
+      "digits": 6,
+      "period": 30,
+      "unix_time": 1700000000,
+      "code": "324550"
+    },
+    {
+      "secret_base32": "JBSWY3DPEHPK3PXP",
+      "algorithm": "SHA1",
+      "digits": 7,
+      "period": 60,
+      "unix_time": 1700000000,
+      "code": "9508648"
+    },
+    {
+      "secret_base32": "JBSWY3DPEHPK3PXP",
+      "algorithm": "SHA1",
+      "digits": 6,
+      "period": 30,
+      "unix_time": 1893456000,
+      "code": "098407"
+    }
+  ],
+  "otpauth": [
+    {
+      "uri": "otpauth://totp/ACME%20Co:john.doe%40email.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=ACME%20Co&algorithm=SHA256&digits=8&period=60",
+      "parsed": {
+        "type": "totp",
+        "secret": "HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ",
+        "algorithm": "SHA256",
+        "digits": 8,
+        "period": 60,
+        "issuer": "ACME Co",
+        "account": "john.doe@email.com",
+        "encoder": "rfc6238"
+      }
+    },
+    {
+      "uri": "otpauth://totp/alice?secret=jbsw%20y3dp%20ehpk%203pxp",
+      "parsed": {
+        "type": "totp",
+        "secret": "JBSWY3DPEHPK3PXP",
+        "algorithm": "SHA1",
+        "digits": 6,
+        "period": 30,
+        "issuer": "",
+        "account": "alice",
+        "encoder": "rfc6238"
+      }
+    }
+  ],
+  "generator": {
+    "byte_stream": "stream = SHA-256(seed || LE32(0)) || SHA-256(seed || LE32(1)) || ...; each draw consumes the next 4 bytes as a little-endian uint32",
+    "seed_utf8": "ludworks/vault/generator/v1",
+    "random_int": "limit = 2^32 - (2^32 mod n); draw x until x < limit; return x mod n",
+    "charsets": {
+      "upper": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+      "lower": "abcdefghijklmnopqrstuvwxyz",
+      "digits": "0123456789",
+      "symbols": "!@#$%^&*()-_=+[]{};:,.?/",
+      "ambiguous": "Il1O0"
+    },
+    "password_algorithm": "pool = enabled sets concatenated in order upper, lower, digits, symbols (ambiguous chars removed from upper/lower/digits when excludeAmbiguous); repeat { pw = length \u00d7 pool[randomInt(|pool|)] } until every enabled set occurs in pw. Defaults: length 20, all sets on, excludeAmbiguous false. Each case starts a fresh stream.",
+    "passwords": [
+      {
+        "options": {
+          "length": 20
+        },
+        "password": "@HHsHW3,,Zw[u@-7P]T*"
+      },
+      {
+        "options": {
+          "length": 8,
+          "excludeAmbiguous": true
+        },
+        "password": "6xx#XUoW"
+      },
+      {
+        "options": {
+          "length": 32,
+          "symbols": false
+        },
+        "password": "iEG6hSPwg8MlLvDrCNOWRjD8TiVS8vAY"
+      },
+      {
+        "options": {
+          "length": 12,
+          "upper": false,
+          "lower": false,
+          "symbols": false
+        },
+        "password": "468218966821"
+      }
+    ],
+    "passphrase": {
+      "wordlist": "web/assets/js/lib/vault/wordlist.js",
+      "wordlist_size": 3018,
+      "algorithm": "for each word: WORDS[randomInt(N)]; capitalize first letter; if includeNumber: pos = randomInt(words), digit = randomInt(10), append digit to word[pos]; join with separator",
+      "options": {
+        "words": 6,
+        "separator": "-",
+        "capitalize": true,
+        "includeNumber": true
+      },
+      "word_indices": [
+        2664,
+        810,
+        1408,
+        1230,
+        1957,
+        1974
+      ],
+      "passphrase": "Tent-Eclipse-Knight-Heron-Plan-Plug6"
+    }
+  }
+}

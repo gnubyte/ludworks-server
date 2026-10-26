@@ -1,0 +1,415 @@
+{
+  "tags": [
+    {
+      "name": "System",
+      "description": "Storage usage (per user, space, category and volume) and server information."
+    }
+  ],
+  "paths": {
+    "/api/v1/system/storage": {
+      "get": {
+        "operationId": "getStorage",
+        "tags": [
+          "System"
+        ],
+        "summary": "Storage usage",
+        "description": "Every caller sees their own usage: the bytes of non-trashed files they own (by category; `\"\"` = uncategorised), their quota and the bytes in their trash, plus the spaces they can read — their home and every library they are a member of (directly or through \"everyone\"; admins see all libraries). Other users' home spaces are never listed; admins get those numbers in `users`.\n\nAdmins (for personal access tokens: the `admin` scope as well) additionally get `volumes` — one entry per distinct filesystem backing the data directory, the storage directory and library roots, measured with statfs / GetDiskFreeSpaceEx — per-user usage, the bytes held by incomplete resumable uploads and the data directory. For everyone else `volumes` and `users` are empty and `uploads_pending_bytes` and `data_dir` are omitted.\n\nUsage is read from the file index, so it is 0 until files exist.\n\n**Scope:** `auth`",
+        "x-scope": "auth",
+        "responses": {
+          "200": {
+            "description": "Storage overview.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStorage"
+                },
+                "example": {
+                  "user": {
+                    "usage_bytes": 52428800000,
+                    "quota_bytes": 0,
+                    "by_category": {
+                      "movie": 41943040000,
+                      "tv": 9437184000,
+                      "": 1048576000
+                    },
+                    "trash_bytes": 104857600
+                  },
+                  "volumes": [
+                    {
+                      "path": "/var/lib/ludworks",
+                      "label": "data",
+                      "total_bytes": 4000787030016,
+                      "free_bytes": 1800000000000,
+                      "used_bytes": 2200787030016
+                    }
+                  ],
+                  "spaces": [
+                    {
+                      "id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                      "name": "Home",
+                      "kind": "home",
+                      "usage_bytes": 52428800000,
+                      "file_count": 812
+                    }
+                  ],
+                  "users": [
+                    {
+                      "id": "sy76wfhw4aultzf42qrfqqa4pl",
+                      "username": "alice",
+                      "usage_bytes": 52428800000,
+                      "quota_bytes": 0
+                    }
+                  ],
+                  "uploads_pending_bytes": 268435456,
+                  "data_dir": "/var/lib/ludworks"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/system/info": {
+      "get": {
+        "operationId": "getSystemInfo",
+        "tags": [
+          "System"
+        ],
+        "summary": "Server information",
+        "description": "Build and runtime information for administrators: version, Go version, OS/architecture, host name, uptime, database size (main file plus write-ahead log), account and file counts (non-trashed files), ffmpeg availability and the TLS certificate in use.\n\nffmpeg is detected with the `media.ffmpeg_path` setting (or PATH when empty) by running `ffmpeg -version`; the result is cached for 5 minutes and refreshed at once when the media settings change. With TLS off, `fingerprint_sha256` and `not_after` are null.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Server information.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemInfo"
+                },
+                "example": {
+                  "version": "1.0.0",
+                  "go_version": "go1.27.0",
+                  "os": "linux",
+                  "arch": "amd64",
+                  "hostname": "nas",
+                  "uptime_seconds": 86400.5,
+                  "started_at": "2026-10-26T12:00:00.123Z",
+                  "db_size_bytes": 73400320,
+                  "user_count": 4,
+                  "file_count": 120345,
+                  "ffmpeg": {
+                    "available": true,
+                    "version": "7.1"
+                  },
+                  "tls": {
+                    "mode": "self-signed",
+                    "fingerprint_sha256": "5e3a…9c",
+                    "not_after": "2029-01-28T12:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SystemUserUsage": {
+        "type": "object",
+        "required": [
+          "usage_bytes",
+          "quota_bytes",
+          "by_category",
+          "trash_bytes"
+        ],
+        "properties": {
+          "usage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Bytes of non-trashed files owned by the caller (directories excluded)."
+          },
+          "quota_bytes": {
+            "type": "integer",
+            "description": "0 = unlimited.",
+            "format": "int64",
+            "minimum": 0
+          },
+          "by_category": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Category slug → bytes (`\"\"` key = uncategorised)."
+          },
+          "trash_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Bytes of the caller's files in the trash (not included in `usage_bytes`)."
+          }
+        }
+      },
+      "SystemVolume": {
+        "type": "object",
+        "required": [
+          "path",
+          "label",
+          "total_bytes",
+          "free_bytes",
+          "used_bytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory measured: the first of the data directory, storage directory or library root found on this filesystem."
+          },
+          "label": {
+            "type": "string",
+            "description": "What lives on this filesystem, e.g. `data, storage` or `library: Movies` (at most three names, then `+N`)."
+          },
+          "total_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "free_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes the server may still write (excludes blocks reserved for the superuser)."
+          },
+          "used_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes in use (`total_bytes` minus all free blocks, so `used_bytes + free_bytes` can be below `total_bytes`)."
+          }
+        }
+      },
+      "SystemSpaceUsage": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "usage_bytes",
+          "file_count"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "home",
+              "library"
+            ]
+          },
+          "usage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes of non-trashed files in the space."
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Non-trashed files (directories excluded)."
+          }
+        }
+      },
+      "SystemUserStorage": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "usage_bytes",
+          "quota_bytes"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "username": {
+            "type": "string"
+          },
+          "usage_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quota_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SystemStorage": {
+        "type": "object",
+        "required": [
+          "user",
+          "volumes",
+          "spaces",
+          "users"
+        ],
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/SystemUserUsage"
+          },
+          "volumes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemVolume"
+            },
+            "description": "Disk volumes (admins only; empty for others)."
+          },
+          "spaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemSpaceUsage"
+            },
+            "description": "The caller's home space and the libraries they can read (home first, then by name)."
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemUserStorage"
+            },
+            "description": "Per-user usage, sorted by username (admins only; empty for others)."
+          },
+          "uploads_pending_bytes": {
+            "type": "integer",
+            "description": "Bytes held by incomplete uploads (admins only).",
+            "format": "int64"
+          },
+          "data_dir": {
+            "type": "string",
+            "description": "Server data directory (admins only)."
+          }
+        }
+      },
+      "SystemInfo": {
+        "type": "object",
+        "required": [
+          "version",
+          "go_version",
+          "os",
+          "arch",
+          "hostname",
+          "uptime_seconds",
+          "started_at",
+          "db_size_bytes",
+          "user_count",
+          "file_count",
+          "ffmpeg",
+          "tls"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "go_version": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "arch": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "uptime_seconds": {
+            "type": "number",
+            "description": "Seconds since the server started (millisecond precision)."
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "db_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Database file plus its write-ahead log."
+          },
+          "user_count": {
+            "type": "integer"
+          },
+          "file_count": {
+            "type": "integer",
+            "description": "Non-trashed files (directories excluded); 0 while the file index is empty."
+          },
+          "ffmpeg": {
+            "type": "object",
+            "required": [
+              "available",
+              "version"
+            ],
+            "properties": {
+              "available": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "string",
+                "description": "Version reported by `ffmpeg -version`; empty when unavailable."
+              }
+            }
+          },
+          "tls": {
+            "type": "object",
+            "required": [
+              "mode",
+              "fingerprint_sha256",
+              "not_after"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "self-signed",
+                  "files",
+                  "acme",
+                  "off"
+                ]
+              },
+              "fingerprint_sha256": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "not_after": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Timestamp"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

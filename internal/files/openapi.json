@@ -1,0 +1,3815 @@
+{
+  "tags": [
+    {
+      "name": "Files",
+      "description": "Spaces, browsing, search, categories/tags, folder operations, downloads with HTTP Range support, thumbnails, ZIP downloads, simple uploads and rescans."
+    },
+    {
+      "name": "Uploads",
+      "description": "Resumable uploads using the tus 1.0.0 protocol (extensions: creation, termination, checksum, expiration). Use these for anything large."
+    },
+    {
+      "name": "Trash",
+      "description": "Trashed files: list, restore, delete permanently, empty. Trash is purged automatically after `files.trash_retention_days`."
+    },
+    {
+      "name": "Backup",
+      "description": "Devices of the desktop backup utility: the folders each device keeps synced into Files, and sync run reports."
+    }
+  ],
+  "paths": {
+    "/api/v1/spaces": {
+      "get": {
+        "operationId": "listSpaces",
+        "tags": [
+          "Files"
+        ],
+        "summary": "List my spaces",
+        "description": "Spaces the caller can read: the home space first (created on demand), then libraries shared with the user (or all libraries for admins).\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "responses": {
+          "200": {
+            "description": "Spaces.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Space"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                    "kind": "home",
+                    "name": "Home",
+                    "access": "owner",
+                    "usage_bytes": 52428800000
+                  },
+                  {
+                    "id": "xre6wf2g4rngtfuewxpxnfm2ro",
+                    "kind": "library",
+                    "name": "Family Media",
+                    "access": "read",
+                    "usage_bytes": 2199023255552
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files": {
+      "get": {
+        "operationId": "listFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "List a directory",
+        "description": "Lists one directory: its entry, breadcrumbs and a page of children (directories first).\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Space to browse (default: the caller's home space).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Directory path in the space (`\"\"` = root).",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096,
+              "default": ""
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort key (within directories-first grouping).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "size",
+                "mod_time",
+                "type"
+              ],
+              "default": "name"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Directory listing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesListing"
+                },
+                "example": {
+                  "dir": {
+                    "id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                    "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                    "parent_id": null,
+                    "path": "Movies",
+                    "name": "Movies",
+                    "is_dir": true,
+                    "size": 0,
+                    "mime": "inode/directory",
+                    "mod_time": "2026-10-26T12:00:00.123Z",
+                    "category": "",
+                    "subcategory": "",
+                    "tags": [],
+                    "sha256": "",
+                    "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "updated_at": "2026-10-26T12:30:00.000Z",
+                    "has_thumbnail": false
+                  },
+                  "breadcrumbs": [
+                    {
+                      "name": "Home",
+                      "path": ""
+                    },
+                    {
+                      "name": "Movies",
+                      "path": "Movies"
+                    }
+                  ],
+                  "items": [
+                    {
+                      "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                      "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                      "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                      "path": "Movies/Night of the Living Dead (1968).mp4",
+                      "name": "Night of the Living Dead (1968).mp4",
+                      "is_dir": false,
+                      "size": 1468006400,
+                      "mime": "video/mp4",
+                      "mod_time": "2026-10-26T12:00:00.123Z",
+                      "category": "movie",
+                      "subcategory": "feature",
+                      "tags": [
+                        "horror",
+                        "public-domain"
+                      ],
+                      "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                      "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                      "created_at": "2026-10-26T12:00:00.123Z",
+                      "updated_at": "2026-10-26T12:30:00.000Z",
+                      "has_thumbnail": true
+                    }
+                  ],
+                  "next_cursor": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/tree": {
+      "get": {
+        "operationId": "getFileTree",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Recursive listing (for sync)",
+        "description": "Every entry below `path`, streamed as one JSON document, for sync clients such as the desktop backup utility. Subtrees with more than 200 000 entries are rejected with 413 — sync a narrower path.\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Space (default: the caller's home space).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": false
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Root of the subtree.",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096,
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tree.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesTree"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                      "path": "Movies/Night of the Living Dead (1968).mp4",
+                      "is_dir": false,
+                      "size": 1468006400,
+                      "mod_time": "2026-10-26T12:00:00.123Z",
+                      "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/search": {
+      "get": {
+        "operationId": "searchFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Search files",
+        "description": "Full-text search (name, path, tags) and filters across every space the caller can read.\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search text (FTS on name/path/tags). Optional when filtering.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Restrict to one space.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Category slug.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "subcategory",
+            "in": "query",
+            "description": "Subcategory slug.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Has this tag.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Only files or only directories.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "file",
+                "dir"
+              ]
+            }
+          },
+          {
+            "name": "mime_prefix",
+            "in": "query",
+            "description": "MIME prefix, e.g. `video/` or `image/`.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matches (best first when `q` is set).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}": {
+      "get": {
+        "operationId": "getFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Get an entry",
+        "description": "**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                  "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                  "path": "Movies/Night of the Living Dead (1968).mp4",
+                  "name": "Night of the Living Dead (1968).mp4",
+                  "is_dir": false,
+                  "size": 1468006400,
+                  "mime": "video/mp4",
+                  "mod_time": "2026-10-26T12:00:00.123Z",
+                  "category": "movie",
+                  "subcategory": "feature",
+                  "tags": [
+                    "horror",
+                    "public-domain"
+                  ],
+                  "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "has_thumbnail": true
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Rename / tag an entry",
+        "description": "Renames (`name`) and/or sets category, subcategory and tags.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesEntryUpdate"
+              },
+              "example": {
+                "category": "movie",
+                "subcategory": "feature",
+                "tags": [
+                  "horror",
+                  "classic"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The new name already exists in the directory."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "trashFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Move an entry to the trash",
+        "description": "**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Moved to the trash."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/folders": {
+      "post": {
+        "operationId": "createFolder",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Create a folder",
+        "description": "**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesFolderCreate"
+              },
+              "example": {
+                "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                "path": "Movies",
+                "name": "Classics"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Folder created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Name already exists — also when this server's disk is not case-sensitive and a sibling differs only in case (`details.existing_name`)."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/move": {
+      "post": {
+        "operationId": "moveFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Move entries",
+        "description": "Moves files/folders to another directory (possibly in another space). Each item succeeds or fails individually; moving a folder into itself fails. `overwrite` moves the existing destination entry to the trash first. Moves are renames on disk (copy + delete across volumes) and keep entry IDs; moving into a home space transfers ownership (and quota) to its owner. The destination folder must exist (404 otherwise).\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesTransferRequest"
+              },
+              "example": {
+                "ids": [
+                  "o336gvfc4vph3sqcpfhdwyr2r5"
+                ],
+                "dest_space_id": "xre6wf2g4rngtfuewxpxnfm2ro",
+                "dest_path": "Movies/Classics",
+                "on_conflict": "rename"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-item results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesMoveResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/copy": {
+      "post": {
+        "operationId": "copyFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Copy entries",
+        "description": "Copies files/folders (recursively). New entries get new IDs. Counts against the quota of the destination owner (the home owner, or the caller in libraries). Folders with more than 200 000 entries are refused per item.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesTransferRequest"
+              },
+              "example": {
+                "ids": [
+                  "o336gvfc4vph3sqcpfhdwyr2r5"
+                ],
+                "dest_space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                "dest_path": "Backup",
+                "on_conflict": "fail"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-item results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesCopyResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/delete": {
+      "post": {
+        "operationId": "trashFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Move several entries to the trash",
+        "description": "**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesIdList"
+              },
+              "example": {
+                "ids": [
+                  "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "2dhjraw55qxg3wkfztgja77ps6"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-item results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesDeleteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/bulk-meta": {
+      "post": {
+        "operationId": "bulkUpdateFileMeta",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Bulk set category/tags",
+        "description": "Sets category/subcategory and adds/removes tags on many entries at once. Entries the caller cannot write are reported in `errors` and skipped. Setting `category` without `subcategory` clears subcategories that do not belong to the new category.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesBulkMetaRequest"
+              },
+              "example": {
+                "ids": [
+                  "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "2dhjraw55qxg3wkfztgja77ps6"
+                ],
+                "category": "tv",
+                "subcategory": "episode",
+                "add_tags": [
+                  "sitcom"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Number of entries changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesBulkMetaResult"
+                },
+                "example": {
+                  "updated": 2,
+                  "errors": []
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/content": {
+      "get": {
+        "operationId": "downloadFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Download / stream file content",
+        "description": "File bytes with `Range`, `If-Range` and `ETag` support (seekable video/audio). `Content-Disposition` is\n`attachment` when `download=1`; otherwise `inline` only for safe types (images, video, audio, PDF, `text/plain`) and\n`attachment` for everything else — `text/html` and SVG are **always** served as attachments.\n\nResponses carry `Content-Security-Policy: sandbox …`, `X-Content-Type-Options: nosniff` and a strong `ETag` derived from id, size and modification time; active types (HTML, SVG, XML, JavaScript) are sent as `application/octet-stream`. Inline PDFs may be framed by the same origin (web UI preview). Folders answer 400 (use `/zip`).\n\n**Scope:** `files:read` · also accepts `?access_token=`",
+        "x-scope": "files:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "description": "`1` forces `Content-Disposition: attachment`.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfRange"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file content with its detected `Content-Type`.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content for a satisfiable `Range` request.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              },
+              "Content-Range": {
+                "$ref": "#/components/headers/ContentRange"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "The entry is a folder."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "#/components/responses/RangeNotSatisfiable"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/thumbnail": {
+      "get": {
+        "operationId": "getFileThumbnail",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Thumbnail",
+        "description": "JPEG thumbnail. Images are thumbnailed in pure Go (JPEG/PNG/GIF, ≤ 50 MP); video thumbnails need ffmpeg. 404 when none exists (`has_thumbnail: false`). Thumbnails are cached on disk and served with `Cache-Control: private, max-age=3600` and an `ETag`; video thumbnails are taken at 10 % of the duration when ffmpeg is available and `media.auto_thumbnails` is on.\n\n**Scope:** `files:read` · also accepts `?access_token=`",
+        "x-scope": "files:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Longest edge: `sm` 160 px, `md` 320 px, `lg` 640 px.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sm",
+                "md",
+                "lg"
+              ],
+              "default": "md"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JPEG image.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`size` is not `sm`, `md` or `lg`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/zip": {
+      "get": {
+        "operationId": "downloadFolderZip",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Download a folder as ZIP",
+        "description": "Streams a ZIP archive of the folder (store-only for already-compressed media). Entries are placed under `<folder name>/`; already-compressed formats are stored, others deflated. Folders with more than 200 000 entries answer 413. Not resumable.\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "File or folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ZIP stream.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "More than 200 000 entries."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/upload": {
+      "post": {
+        "operationId": "uploadFile",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Simple (non-resumable) upload",
+        "description": "Uploads one file from the raw request body. `Content-Length` is required; the body is capped at\n`files.max_upload_bytes`, or 2 GiB when that is unlimited. For large files or unreliable links use the resumable\n**Uploads** (tus) endpoints. The file is written to a temp file and committed atomically.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Space (default: the caller's home space).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "required": false
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Target directory (created if missing).",
+            "schema": {
+              "type": "string",
+              "maxLength": 4096,
+              "default": ""
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "File name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true
+          },
+          {
+            "name": "overwrite",
+            "in": "query",
+            "description": "Replace an existing file of the same name (default false → 409).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "mod_time",
+            "in": "query",
+            "description": "Modification time to record (e.g. from the source file).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Category slug.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "subcategory",
+            "in": "query",
+            "description": "Subcategory slug.",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Raw file bytes.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "*/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "File stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                },
+                "example": {
+                  "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                  "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                  "path": "Movies/Night of the Living Dead (1968).mp4",
+                  "name": "Night of the Living Dead (1968).mp4",
+                  "is_dir": false,
+                  "size": 1468006400,
+                  "mime": "video/mp4",
+                  "mod_time": "2026-10-26T12:00:00.123Z",
+                  "category": "movie",
+                  "subcategory": "feature",
+                  "tags": [
+                    "horror",
+                    "public-domain"
+                  ],
+                  "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "has_thumbnail": true
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "`Content-Length` missing (chunked bodies are refused) or the body length differs from it."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A file with that name exists and `overwrite` is false."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded` or `insufficient_storage`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/files/rescan": {
+      "post": {
+        "operationId": "rescanFiles",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Rescan disk ↔ index",
+        "description": "Reconciles the file index with what is on disk (files added/removed outside Ludworks) in a background job: new files are indexed, changed ones updated, vanished ones removed, and `file.*` events are published. Symbolic links and names that are not valid Ludworks names are skipped. 404 when `path` is not a folder.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesRescanRequest"
+              },
+              "example": {
+                "space_id": "xre6wf2g4rngtfuewxpxnfm2ro",
+                "path": "Movies"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Job queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesJobAccepted"
+                },
+                "example": {
+                  "job": "rescan"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/trash": {
+      "get": {
+        "operationId": "listTrash",
+        "tags": [
+          "Trash"
+        ],
+        "summary": "List my trash",
+        "description": "The caller's trash (home space trash plus entries they trashed in writable libraries), most recently trashed first. Only trashed roots are listed (a trashed folder's contents come back with it on restore). `path` and `original_path` are the location the entry had before it was trashed. Entries older than `files.trash_retention_days` are purged hourly.\n\n**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trashed entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesTrashPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "emptyTrash",
+        "tags": [
+          "Trash"
+        ],
+        "summary": "Empty my trash",
+        "description": "Permanently deletes everything in the caller's trash: the trash of their home space plus what they trashed in libraries they can write. `deleted` counts every removed entry including folder contents.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "responses": {
+          "200": {
+            "description": "Result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesEmptyTrashResult"
+                },
+                "example": {
+                  "deleted": 12,
+                  "freed_bytes": 4294967296
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/trash/{id}/restore": {
+      "post": {
+        "operationId": "restoreTrashItem",
+        "tags": [
+          "Trash"
+        ],
+        "summary": "Restore from trash",
+        "description": "Restores the entry (and its contents) to its original location, recreating missing parent folders.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Trashed entry ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "rename",
+            "in": "query",
+            "description": "`1` restores under a free name if the original name is taken.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restored entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Original name is taken; retry with `rename=1`."
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/trash/{id}": {
+      "delete": {
+        "operationId": "deleteTrashItem",
+        "tags": [
+          "Trash"
+        ],
+        "summary": "Delete permanently",
+        "description": "**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Trashed entry ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted from disk."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "tags": [
+          "Files"
+        ],
+        "summary": "Category taxonomy",
+        "description": "Categories and subcategories used to tag files (`movie`, `tv`, `music`, `image`, `game`, `document`, `software`, `other` by default).\n\n**Scope:** `auth`",
+        "x-scope": "auth",
+        "responses": {
+          "200": {
+            "description": "Taxonomy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FilesCategory"
+                  }
+                },
+                "example": [
+                  {
+                    "slug": "movie",
+                    "name": "Movies",
+                    "icon": "film",
+                    "subcategories": [
+                      {
+                        "slug": "feature",
+                        "name": "Feature"
+                      },
+                      {
+                        "slug": "short",
+                        "name": "Short"
+                      },
+                      {
+                        "slug": "documentary",
+                        "name": "Documentary"
+                      },
+                      {
+                        "slug": "animation",
+                        "name": "Animation"
+                      },
+                      {
+                        "slug": "concert",
+                        "name": "Concert"
+                      },
+                      {
+                        "slug": "trailer",
+                        "name": "Trailer"
+                      },
+                      {
+                        "slug": "other",
+                        "name": "Other"
+                      }
+                    ]
+                  },
+                  {
+                    "slug": "tv",
+                    "name": "TV",
+                    "icon": "tv",
+                    "subcategories": [
+                      {
+                        "slug": "episode",
+                        "name": "Episode"
+                      },
+                      {
+                        "slug": "special",
+                        "name": "Special"
+                      },
+                      {
+                        "slug": "miniseries",
+                        "name": "Miniseries"
+                      },
+                      {
+                        "slug": "documentary",
+                        "name": "Documentary"
+                      },
+                      {
+                        "slug": "animation",
+                        "name": "Animation"
+                      },
+                      {
+                        "slug": "kids",
+                        "name": "Kids"
+                      },
+                      {
+                        "slug": "news",
+                        "name": "News"
+                      },
+                      {
+                        "slug": "other",
+                        "name": "Other"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/categories": {
+      "put": {
+        "operationId": "adminReplaceCategories",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Replace the category taxonomy",
+        "description": "Replaces the whole taxonomy. Files keep their stored slugs even if a category is removed.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FilesCategory"
+                },
+                "maxItems": 100
+              },
+              "example": [
+                {
+                  "slug": "movie",
+                  "name": "Movies",
+                  "icon": "film",
+                  "subcategories": [
+                    {
+                      "slug": "feature",
+                      "name": "Feature"
+                    },
+                    {
+                      "slug": "short",
+                      "name": "Short"
+                    },
+                    {
+                      "slug": "documentary",
+                      "name": "Documentary"
+                    },
+                    {
+                      "slug": "animation",
+                      "name": "Animation"
+                    },
+                    {
+                      "slug": "concert",
+                      "name": "Concert"
+                    },
+                    {
+                      "slug": "trailer",
+                      "name": "Trailer"
+                    },
+                    {
+                      "slug": "other",
+                      "name": "Other"
+                    }
+                  ]
+                },
+                {
+                  "slug": "tv",
+                  "name": "TV",
+                  "icon": "tv",
+                  "subcategories": [
+                    {
+                      "slug": "episode",
+                      "name": "Episode"
+                    },
+                    {
+                      "slug": "special",
+                      "name": "Special"
+                    },
+                    {
+                      "slug": "miniseries",
+                      "name": "Miniseries"
+                    },
+                    {
+                      "slug": "documentary",
+                      "name": "Documentary"
+                    },
+                    {
+                      "slug": "animation",
+                      "name": "Animation"
+                    },
+                    {
+                      "slug": "kids",
+                      "name": "Kids"
+                    },
+                    {
+                      "slug": "news",
+                      "name": "News"
+                    },
+                    {
+                      "slug": "other",
+                      "name": "Other"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The stored taxonomy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FilesCategory"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/spaces": {
+      "get": {
+        "operationId": "adminListSpaces",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "List library spaces",
+        "description": "**Scope:** `admin`",
+        "x-scope": "admin",
+        "responses": {
+          "200": {
+            "description": "Library spaces with members.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FilesLibrarySpace"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "adminCreateSpace",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Create a library space",
+        "description": "Creates a shared library (e.g. \"Family Media\") with per-user or everyone (`*`) read/write access.\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesSpaceCreate"
+              },
+              "example": {
+                "name": "Family Media",
+                "members": [
+                  {
+                    "user_id": "*",
+                    "access": "read"
+                  },
+                  {
+                    "user_id": "vlciradn476k3k355ljxdjurp3",
+                    "access": "write"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Space created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesLibrarySpace"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A space with that name exists."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/spaces/{id}": {
+      "patch": {
+        "operationId": "adminUpdateSpace",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Rename a library / replace its members",
+        "description": "**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Space ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesSpaceUpdate"
+              },
+              "example": {
+                "members": [
+                  {
+                    "user_id": "*",
+                    "access": "read"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated space.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesLibrarySpace"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "adminDeleteSpace",
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete a library space",
+        "description": "Refused with 409 while the space contains files, unless `force=true` (which deletes the files permanently).\n\n**Scope:** `admin`",
+        "x-scope": "admin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Space ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "description": "Delete even if the space is not empty.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Space is not empty (`details.file_count`, `details.usage_bytes`)."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/backup/devices": {
+      "get": {
+        "operationId": "listBackupDevices",
+        "tags": [
+          "Backup"
+        ],
+        "summary": "List my backup devices",
+        "description": "**Scope:** `files:read`",
+        "x-scope": "files:read",
+        "responses": {
+          "200": {
+            "description": "Devices.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FilesBackupDevice"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "lzyagvwk6q53lqvwvzqq765wyg",
+                    "name": "Alice-PC",
+                    "platform": "windows",
+                    "folders": [
+                      {
+                        "local_path": "C:\\Users\\alice\\Pictures",
+                        "remote_space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                        "remote_path": "Backups/Alice-PC/Pictures"
+                      }
+                    ],
+                    "last_sync_at": "2026-10-26T12:30:00.000Z",
+                    "last_status": "ok",
+                    "last_error": null,
+                    "bytes_uploaded": 104857600,
+                    "files_uploaded": 42
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBackupDevice",
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Register a backup device",
+        "description": "**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesBackupDeviceCreate"
+              },
+              "example": {
+                "name": "Alice-PC",
+                "platform": "windows"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Device registered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesBackupDevice"
+                },
+                "example": {
+                  "id": "lzyagvwk6q53lqvwvzqq765wyg",
+                  "name": "Alice-PC",
+                  "platform": "windows",
+                  "folders": [],
+                  "last_sync_at": null,
+                  "last_status": null,
+                  "last_error": null,
+                  "bytes_uploaded": 0,
+                  "files_uploaded": 0
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/backup/devices/{id}": {
+      "put": {
+        "operationId": "updateBackupDevice",
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Update a backup device",
+        "description": "Renames the device and/or replaces its synced folder list.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Backup device ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesBackupDeviceUpdate"
+              },
+              "example": {
+                "folders": [
+                  {
+                    "local_path": "C:\\Users\\alice\\Pictures",
+                    "remote_space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                    "remote_path": "Backups/Alice-PC/Pictures"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilesBackupDevice"
+                },
+                "example": {
+                  "id": "lzyagvwk6q53lqvwvzqq765wyg",
+                  "name": "Alice-PC",
+                  "platform": "windows",
+                  "folders": [
+                    {
+                      "local_path": "C:\\Users\\alice\\Pictures",
+                      "remote_space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                      "remote_path": "Backups/Alice-PC/Pictures"
+                    }
+                  ],
+                  "last_sync_at": "2026-10-26T12:30:00.000Z",
+                  "last_status": "ok",
+                  "last_error": null,
+                  "bytes_uploaded": 104857600,
+                  "files_uploaded": 42
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBackupDevice",
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Forget a backup device",
+        "description": "Removes the device record. Already uploaded files are **not** touched.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Backup device ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/backup/devices/{id}/report": {
+      "post": {
+        "operationId": "reportBackupRun",
+        "tags": [
+          "Backup"
+        ],
+        "summary": "Report a sync run",
+        "description": "Called by the backup utility at the start (`running`) and end (`ok`/`error`) of a sync run; shown in the web UI.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Backup device ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilesBackupReport"
+              },
+              "example": {
+                "status": "ok",
+                "bytes_uploaded": 104857600,
+                "files_uploaded": 42,
+                "started_at": "2026-10-26T12:00:00.123Z",
+                "finished_at": "2026-10-26T12:30:00.000Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/": {
+      "options": {
+        "operationId": "tusOptions",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "tus capabilities",
+        "description": "Advertises the tus version, extensions, checksum algorithms and maximum size. (`Tus-Resumable` is not required on OPTIONS.)\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "responses": {
+          "204": {
+            "description": "Capabilities.",
+            "headers": {
+              "Tus-Resumable": {
+                "description": "Always `1.0.0`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                }
+              },
+              "Tus-Version": {
+                "description": "`1.0.0`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Tus-Extension": {
+                "description": "`creation,termination,checksum,expiration`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Tus-Checksum-Algorithm": {
+                "description": "`sha1,sha256`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Tus-Max-Size": {
+                "description": "Maximum upload size in bytes (only when `files.max_upload_bytes` > 0).",
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "operationId": "tusCreateUpload",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Create a resumable upload",
+        "description": "Creates an upload (tus `creation`). Send no body. `Upload-Metadata` is a comma-separated list of\n`key base64(value)` pairs with keys `filename` (required), `space_id` (required), `path` (target dir, default `\"\"`),\n`overwrite` (`1`/`0`), `mod_time` (RFC 3339), `category`, `subcategory`, `tags` (comma-separated) and `mime`.\n\nPermission, file name, quota and free disk space (`Upload-Length` + 1 GiB headroom) are checked **now**, so a\ntoo-large upload fails before any byte is sent. `Upload-Defer-Length` is not supported.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "Tus-Resumable",
+            "in": "header",
+            "required": true,
+            "description": "tus protocol version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          },
+          {
+            "name": "Upload-Length",
+            "in": "header",
+            "required": true,
+            "description": "Total size in bytes.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Upload-Metadata",
+            "in": "header",
+            "required": true,
+            "description": "e.g. `filename bW92aWUubWt2,space_id aDR0cTJybnh2N2tkM213ejVweWM2YjJqZmE=,path TW92aWVz`",
+            "schema": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Upload created. PATCH the data to `Location`.",
+            "headers": {
+              "Tus-Resumable": {
+                "description": "Always `1.0.0`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                }
+              },
+              "Location": {
+                "description": "`/api/v1/uploads/<id>`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Expires": {
+                "description": "RFC 7231 date after which the incomplete upload is purged (`files.upload_expiry_hours`).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Id": {
+                "description": "Only for `Upload-Length: 0`: the empty file is committed immediately.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Path": {
+                "description": "Space-relative path of the committed file, each segment percent-encoded (RFC 3986) so the header stays ASCII.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Upload-Offset": {
+                "description": "Only for `Upload-Length: 0`: `0`.",
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Invalid `Upload-Length`, malformed `Upload-Metadata`, `Upload-Defer-Length` sent, or a request body sent (creation-with-upload is not supported)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Target exists (or is a folder) and `overwrite` is not `1`, a path component is a file, or the caller already has 1000 incomplete uploads."
+          },
+          "412": {
+            "description": "Missing or unsupported `Tus-Resumable` (response carries `Tus-Version: 1.0.0`); error code `precondition_failed`.",
+            "headers": {
+              "Tus-Version": {
+                "description": "`1.0.0`",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "`Upload-Length` exceeds `Tus-Max-Size`."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded` (the quota counts every file the owner owns, trash included, plus their other incomplete uploads) or `insufficient_storage` (needs `Upload-Length` + 1 GiB free)."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads": {
+      "get": {
+        "operationId": "listUploads",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "List my incomplete uploads",
+        "description": "Non-tus convenience endpoint: the caller's unfinished, unexpired uploads (newest first, at most 1000) (to resume or cancel them).\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "responses": {
+          "200": {
+            "description": "Incomplete uploads.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FilesUpload"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "knxlraqn6ecy3zx5nk6aybbk2i",
+                    "filename": "movie.mkv",
+                    "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                    "path": "Movies",
+                    "offset": 268435456,
+                    "length": 4294967296,
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "expires_at": "2026-10-29T12:00:00.123Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/uploads/{id}": {
+      "head": {
+        "operationId": "tusGetUploadOffset",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Get upload offset (resume)",
+        "description": "Returns how many bytes the server has, so an interrupted upload can continue from there.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Upload ID (last segment of the `Location` returned at creation).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "Tus-Resumable",
+            "in": "header",
+            "required": true,
+            "description": "tus protocol version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current state. A completed upload stays queryable for 24 h; it reports `Upload-Offset` = `Upload-Length` plus the `Ludworks-File-*` headers, so a client whose final PATCH response was lost learns the result.",
+            "headers": {
+              "Tus-Resumable": {
+                "description": "Always `1.0.0`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                }
+              },
+              "Upload-Offset": {
+                "description": "Bytes received.",
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "Upload-Length": {
+                "description": "Total size.",
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "Upload-Expires": {
+                "description": "Expiry date.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`no-store`",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Id": {
+                "description": "ID of the committed `Entry` (only once the upload is complete).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Path": {
+                "description": "Space-relative path of the committed file, each segment percent-encoded (RFC 3986) so the header stays ASCII.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Unknown upload (or owned by another user)"
+          },
+          "410": {
+            "description": "Upload expired (it is purged)."
+          },
+          "412": {
+            "description": "Missing or unsupported `Tus-Resumable`."
+          },
+          "default": {
+            "description": "Unexpected error (no body for HEAD)"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "tusUploadChunk",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Upload a chunk",
+        "description": "Appends the body at `Upload-Offset` (which must equal the server's current offset, else 409). With\n`Upload-Checksum: sha256 <base64>` (or `sha1`) the chunk is verified and discarded on mismatch (status 460).\nData is fsynced at the end of each chunk. Recommended chunk size 8–64 MiB.\n\nWhen the final byte arrives the file is committed atomically into the target directory and the response carries\n`Ludworks-File-Id` and `Ludworks-File-Path` (percent-encoded segments). With `overwrite` an existing file keeps its entry ID and its\nprevious version goes to the trash. Repeating the final PATCH (empty body at `Upload-Offset` = `Upload-Length`) is idempotent and\nalso retries a commit that failed with 507.\n\nWithout `Upload-Checksum`, the bytes of an interrupted chunk that did arrive are kept (resume from HEAD); with a checksum an\nincomplete chunk is discarded. A stalled body times out after 2 minutes without data. Each successful PATCH extends `Upload-Expires`.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Upload ID (last segment of the `Location` returned at creation).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "Tus-Resumable",
+            "in": "header",
+            "required": true,
+            "description": "tus protocol version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          },
+          {
+            "name": "Upload-Offset",
+            "in": "header",
+            "required": true,
+            "description": "Offset this chunk starts at.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "Upload-Checksum",
+            "in": "header",
+            "description": "`<algorithm> <base64 digest>` of this chunk, algorithm `sha1` or `sha256`.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Chunk bytes (`Content-Type: application/offset+octet-stream`).",
+          "content": {
+            "application/offset+octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Chunk stored.",
+            "headers": {
+              "Tus-Resumable": {
+                "description": "Always `1.0.0`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                }
+              },
+              "Upload-Offset": {
+                "description": "New offset.",
+                "schema": {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              },
+              "Upload-Expires": {
+                "description": "Expiry date.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Id": {
+                "description": "Only on the final chunk: ID of the committed `Entry`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Ludworks-File-Path": {
+                "description": "Space-relative path of the committed file, each segment percent-encoded (RFC 3986) so the header stays ASCII.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Missing/invalid headers, an unsupported checksum algorithm, or a body that ended early (the client disconnected or sent fewer bytes than `Content-Length`; the bytes that arrived are kept or discarded as described above)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`Upload-Offset` does not match the server offset (the response carries the current `Upload-Offset`) — HEAD and resume. Also returned when the target name was taken by another file before the commit; the upload is then discarded."
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone",
+            "description": "Upload expired."
+          },
+          "412": {
+            "description": "Missing or unsupported `Tus-Resumable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "The chunk extends beyond `Upload-Length`; it was discarded."
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType",
+            "description": "Content-Type is not `application/offset+octet-stream`."
+          },
+          "423": {
+            "description": "Another request is currently writing to this upload (concurrent PATCH); retry shortly. Error code `locked`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "460": {
+            "description": "Checksum mismatch; the chunk was discarded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "checksum_mismatch",
+                    "message": "checksum mismatch"
+                  }
+                }
+              }
+            }
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "tusTerminateUpload",
+        "tags": [
+          "Uploads"
+        ],
+        "summary": "Cancel an upload",
+        "description": "tus `termination`: discards the partial data.\n\n**Scope:** `files:write`",
+        "x-scope": "files:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Upload ID (last segment of the `Location` returned at creation).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "Tus-Resumable",
+            "in": "header",
+            "required": true,
+            "description": "tus protocol version.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1.0.0"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Terminated.",
+            "headers": {
+              "Tus-Resumable": {
+                "description": "Always `1.0.0`.",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "1.0.0"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "412": {
+            "description": "Missing or unsupported `Tus-Resumable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "423": {
+            "description": "Another request is currently writing to this upload (concurrent PATCH); retry shortly. Error code `locked`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FilesBreadcrumb": {
+        "type": "object",
+        "required": [
+          "name",
+          "path"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "FilesListing": {
+        "type": "object",
+        "required": [
+          "dir",
+          "breadcrumbs",
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "dir": {
+            "$ref": "#/components/schemas/Entry"
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesBreadcrumb"
+            },
+            "description": "From the space root to `dir`."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            },
+            "description": "Children of `dir`; directories first, then the requested sort."
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "FilesTreeItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "is_dir",
+          "size",
+          "mod_time",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string"
+          },
+          "is_dir": {
+            "type": "boolean"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mod_time": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Hex SHA-256 or `\"\"` if not computed yet."
+          }
+        }
+      },
+      "FilesTree": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesTreeItem"
+            },
+            "description": "Every entry below `path` (recursive), at most 200 000."
+          }
+        }
+      },
+      "FilesEntryUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "New name (rename in place). File or folder name: ≤ 255 bytes UTF-8, no `/ \\ NUL` or control characters, not `.`/`..`, no trailing dot/space, not a Windows reserved device name (CON, NUL, COM1…).",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "category": {
+            "type": "string",
+            "description": "Category slug or `\"\"` to clear.",
+            "maxLength": 64
+          },
+          "subcategory": {
+            "type": "string",
+            "description": "Subcategory slug or `\"\"` to clear.",
+            "maxLength": 64
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Replaces all tags.",
+            "maxItems": 100,
+            "uniqueItems": true
+          }
+        }
+      },
+      "FilesFolderCreate": {
+        "type": "object",
+        "required": [
+          "space_id",
+          "path",
+          "name"
+        ],
+        "properties": {
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string",
+            "description": "Space-relative directory path, `/`-separated without leading slash; `\"\"` = space root.",
+            "maxLength": 4096
+          },
+          "name": {
+            "type": "string",
+            "description": "File or folder name: ≤ 255 bytes UTF-8, no `/ \\ NUL` or control characters, not `.`/`..`, no trailing dot/space, not a Windows reserved device name (CON, NUL, COM1…).",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "FilesTransferRequest": {
+        "type": "object",
+        "required": [
+          "ids",
+          "dest_space_id",
+          "dest_path"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Entries to move/copy (files or folders).",
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          },
+          "dest_space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "dest_path": {
+            "type": "string",
+            "description": "Space-relative directory path, `/`-separated without leading slash; `\"\"` = space root.",
+            "maxLength": 4096
+          },
+          "on_conflict": {
+            "type": "string",
+            "description": "What to do when the destination name exists: fail that item, rename (`name (1).ext`), or overwrite.",
+            "enum": [
+              "fail",
+              "rename",
+              "overwrite"
+            ],
+            "default": "fail"
+          }
+        }
+      },
+      "FilesItemError": {
+        "type": "object",
+        "description": "Per-item failure of a bulk operation.",
+        "required": [
+          "id",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "code": {
+            "type": "string",
+            "description": "Error code, e.g. `conflict`, `not_found`, `quota_exceeded`."
+          },
+          "error": {
+            "type": "string",
+            "description": "Human-readable reason."
+          }
+        }
+      },
+      "FilesMoveResult": {
+        "type": "object",
+        "required": [
+          "moved",
+          "errors"
+        ],
+        "properties": {
+          "moved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesItemError"
+            }
+          }
+        }
+      },
+      "FilesCopyResult": {
+        "type": "object",
+        "required": [
+          "copied",
+          "errors"
+        ],
+        "properties": {
+          "copied": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesItemError"
+            }
+          }
+        }
+      },
+      "FilesIdList": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          }
+        }
+      },
+      "FilesDeleteResult": {
+        "type": "object",
+        "required": [
+          "deleted",
+          "errors"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "IDs moved to the trash."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesItemError"
+            }
+          }
+        }
+      },
+      "FilesBulkMetaRequest": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          },
+          "category": {
+            "type": "string",
+            "description": "Set category (`\"\"` clears).",
+            "maxLength": 64
+          },
+          "subcategory": {
+            "type": "string",
+            "description": "Set subcategory (`\"\"` clears).",
+            "maxLength": 64
+          },
+          "add_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "maxItems": 100
+          },
+          "remove_tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "maxItems": 100
+          }
+        }
+      },
+      "FilesRescanRequest": {
+        "type": "object",
+        "required": [
+          "space_id"
+        ],
+        "properties": {
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string",
+            "description": "Subtree to rescan (default: whole space).",
+            "maxLength": 4096
+          }
+        }
+      },
+      "FilesJobAccepted": {
+        "type": "object",
+        "required": [
+          "job"
+        ],
+        "properties": {
+          "job": {
+            "type": "string",
+            "description": "Background job name.",
+            "const": "rescan"
+          }
+        }
+      },
+      "FilesTrashEntry": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Entry"
+          },
+          {
+            "type": "object",
+            "required": [
+              "trashed_at",
+              "original_path"
+            ],
+            "properties": {
+              "trashed_at": {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              "original_path": {
+                "type": "string",
+                "description": "Path the entry had before it was trashed."
+              }
+            }
+          }
+        ]
+      },
+      "FilesTrashPage": {
+        "type": "object",
+        "description": "A page of trashed entries, most recently trashed first.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesTrashEntry"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "FilesEmptyTrashResult": {
+        "type": "object",
+        "required": [
+          "deleted",
+          "freed_bytes"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "description": "Entries permanently deleted."
+          },
+          "freed_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "FilesSubcategory": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "FilesCategory": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "icon",
+          "subcategories"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Stable identifier stored on files.",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name.",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "icon": {
+            "type": "string",
+            "description": "Icon name from the web UI icon set (e.g. `film`, `tv`, `music`, `image`, `gamepad`).",
+            "maxLength": 64
+          },
+          "subcategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesSubcategory"
+            },
+            "maxItems": 100
+          }
+        }
+      },
+      "FilesSpaceMember": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "access"
+        ],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User ID, or `*` for every user.",
+            "pattern": "^(\\*|[A-Za-z0-9_-]{8,64})$"
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ]
+          },
+          "username": {
+            "type": "string",
+            "readOnly": true,
+            "description": "Username of `user_id` (responses only; empty for `*`)."
+          }
+        }
+      },
+      "FilesLibrarySpace": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Space"
+          },
+          {
+            "type": "object",
+            "required": [
+              "members",
+              "created_at",
+              "file_count"
+            ],
+            "properties": {
+              "members": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/FilesSpaceMember"
+                }
+              },
+              "created_at": {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              "file_count": {
+                "type": "integer",
+                "description": "Number of files (excluding folders and trash)."
+              }
+            }
+          }
+        ],
+        "description": "A library space as seen by admins (includes members)."
+      },
+      "FilesSpaceCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "members"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesSpaceMember"
+            },
+            "description": "Who may access the library. Admins always have write access.",
+            "maxItems": 10000
+          }
+        }
+      },
+      "FilesSpaceUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesSpaceMember"
+            },
+            "description": "Replaces the member list.",
+            "maxItems": 10000
+          }
+        }
+      },
+      "FilesBackupFolder": {
+        "type": "object",
+        "required": [
+          "local_path",
+          "remote_space_id",
+          "remote_path"
+        ],
+        "properties": {
+          "local_path": {
+            "type": "string",
+            "description": "Folder on the device, as the device reports it (e.g. `C:\\Users\\alice\\Pictures`).",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "remote_space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "remote_path": {
+            "type": "string",
+            "description": "Destination directory in the space.",
+            "maxLength": 4096
+          }
+        }
+      },
+      "FilesBackupDevice": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "platform",
+          "folders",
+          "last_sync_at",
+          "last_status",
+          "last_error",
+          "bytes_uploaded",
+          "files_uploaded"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "description": "Device name."
+          },
+          "platform": {
+            "type": "string",
+            "description": "Device platform as reported by the client.",
+            "examples": [
+              "windows",
+              "linux",
+              "macos"
+            ]
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesBackupFolder"
+            }
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ok",
+              "error",
+              "running",
+              null
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bytes_uploaded": {
+            "type": "integer",
+            "description": "Bytes uploaded by the last run.",
+            "format": "int64",
+            "minimum": 0
+          },
+          "files_uploaded": {
+            "type": "integer",
+            "description": "Files uploaded by the last run.",
+            "minimum": 0
+          }
+        }
+      },
+      "FilesBackupDeviceCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "platform"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          }
+        }
+      },
+      "FilesBackupDeviceUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesBackupFolder"
+            },
+            "description": "Replaces the folder list. Each remote space must be writable by the caller.",
+            "maxItems": 100
+          }
+        }
+      },
+      "FilesBackupReport": {
+        "type": "object",
+        "required": [
+          "status",
+          "started_at"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error",
+              "running"
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Error summary when `status` is `error`.",
+            "maxLength": 4000
+          },
+          "bytes_uploaded": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "files_uploaded": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "started_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "finished_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "FilesUpload": {
+        "type": "object",
+        "description": "An incomplete resumable upload of the caller.",
+        "required": [
+          "id",
+          "filename",
+          "space_id",
+          "path",
+          "offset",
+          "length",
+          "created_at",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string",
+            "description": "Target directory."
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Bytes received so far.",
+            "format": "int64"
+          },
+          "length": {
+            "type": "integer",
+            "description": "Declared total size.",
+            "format": "int64"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "expires_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "FilesBulkMetaResult": {
+        "type": "object",
+        "required": [
+          "updated",
+          "errors"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "description": "Entries whose metadata changed."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FilesItemError"
+            },
+            "description": "Entries that were not found, not writable or invalid (e.g. a subcategory that does not belong to their category)."
+          }
+        }
+      }
+    }
+  }
+}

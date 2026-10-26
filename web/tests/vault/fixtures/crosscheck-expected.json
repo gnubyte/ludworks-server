@@ -1,0 +1,68 @@
+{
+  "fixtures": [
+    {
+      "file": "crosscheck-argon2id-aes.kdbx",
+      "password": "crosscheck \u2713 p\u00e4ssword",
+      "keyfile": "crosscheck.keyx",
+      "cipher": "aes",
+      "kdf": {
+        "type": "argon2id",
+        "memory": 67108864,
+        "iterations": 2,
+        "parallelism": 2
+      }
+    },
+    {
+      "file": "crosscheck-aeskdf-chacha20.kdbx",
+      "password": "second fixture",
+      "keyfile": null,
+      "cipher": "chacha20",
+      "kdf": {
+        "type": "aes",
+        "rounds": 60000
+      }
+    }
+  ],
+  "database_name": "Cross-check DB",
+  "entries": [
+    {
+      "path": "",
+      "fields": {
+        "Title": "Root entry",
+        "UserName": "root",
+        "Password": "",
+        "URL": "",
+        "Notes": ""
+      },
+      "protected": [
+        "Password"
+      ],
+      "history_passwords": [],
+      "creation_time": "2026-10-26T11:11:46Z",
+      "modification_time": "2026-10-26T11:11:46Z"
+    },
+    {
+      "path": "Work/Email \u00b7 \u90ae\u4ef6",
+      "fields": {
+        "Title": "Mail \u2709",
+        "UserName": "me@example.com",
+        "Password": "p@ss \u00ab\u00fc\u00bb \ud83d\udd11 </Value> & more",
+        "URL": "https://mail.example.com",
+        "Notes": "multi\nline\r\nnotes",
+        "otp": "otpauth://totp/Mail:me?secret=JBSWY3DPEHPK3PXP&issuer=Mail",
+        "PIN": "0000",
+        "Region": "eu"
+      },
+      "protected": [
+        "Password",
+        "otp",
+        "PIN"
+      ],
+      "history_passwords": [
+        "previous-pw"
+      ],
+      "creation_time": "2024-01-01T00:00:00Z",
+      "modification_time": "2024-03-01T00:00:00Z"
+    }
+  ]
+}

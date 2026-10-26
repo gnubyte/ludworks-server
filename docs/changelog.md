@@ -1,0 +1,41 @@
+# Changelog
+
+All notable changes to Ludworks are listed here. Versions follow [Semantic Versioning](https://semver.org/);
+the HTTP API is versioned separately by its base path (`/api/v1`).
+
+## 0.1.0 — unreleased
+
+First release.
+
+### Server
+
+* Single static binary for Linux (`.deb` for amd64 and arm64 with a hardened systemd unit) and Windows (`.exe`,
+  console or Windows service; Inno Setup installer or zip with install scripts). Reproducible packages with
+  `SHA256SUMS` and signed build-provenance attestations. HTTPS by default with a self-signed certificate and fingerprint pinning; also custom certificates,
+  ACME and reverse-proxy mode with trusted proxies.
+* First-run setup protected by a one-time setup token.
+* Accounts with Argon2id passwords, sessions and personal access tokens with scopes, TOTP two-factor
+  authentication with recovery codes, optional self-registration with email verification, password reset by
+  email, rate limiting and lockout, CSRF protection, audit log.
+* Admin pages for users, settings (general, security, SMTP, IMAP, files, media, TV), libraries, categories and
+  database backups; storage overview per user, space, category and disk.
+* HTTP API v1 with an OpenAPI 3.1 description and Swagger UI at `/api/docs`.
+
+### Apps
+
+* **Files**: spaces and libraries with read/write sharing, resumable (tus) uploads of any size, categories,
+  subcategories and tags, search, thumbnails, Range streaming, ZIP downloads, trash, rescans, backup devices.
+* **TV**: media library with metadata editing, auto-tagging, probing, posters, TMDB; lineups; live and on-demand
+  channels with per-cycle or fixed shuffle; program guide; M3U, XMLTV and HDHomeRun emulation; optional ffmpeg
+  transcoding and live MPEG-TS.
+* **Notes**: folders, pinning, tags, full-text search, Markdown with task lists, tables and highlighted code
+  snippets, attachments, Markdown import/export, mail-in, offline sync API.
+* **Passwords**: end-to-end-encrypted vault; KeePass 2 and Bitwarden import/export; generator; TOTP. Vault key
+  rotation (re-encrypts everything atomically), key identity so devices holding a retired key are refused and
+  locked, URI matching by the Public Suffix List (incl. shared-hosting suffixes).
+* **Sheets**: workbooks with formulas and styles; XLSX, XLS and CSV import/export; cell-level API.
+
+### Clients
+
+* Python SDK and CLI, Chrome/Firefox password extension, Android TV/Notes/Passwords apps, Windows desktop app,
+  notes app and folder backup utility.

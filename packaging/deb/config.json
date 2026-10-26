@@ -1,0 +1,17 @@
+{
+  "data_dir": "/var/lib/ludworks",
+  "listen": ":8443",
+  "tls": {
+    "mode": "self-signed",
+    "cert_file": "",
+    "key_file": "",
+    "acme_domains": [],
+    "acme_email": "",
+    "redirect_listen": ""
+  },
+  "trusted_proxies": [],
+  "log": {
+    "level": "info",
+    "format": "text"
+  }
+}

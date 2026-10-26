@@ -1,0 +1,73 @@
+# MkDocs site for ReadTheDocs. Plain built-in "readthedocs" theme and Python-Markdown built-in
+# extensions only, so docs/requirements.txt pins nothing but mkdocs (minimal supply chain).
+site_name: Ludworks
+site_description: Self-hosted, security-first NAS multitool — files, virtual TV channels, notes, password vault and spreadsheets.
+site_author: Ludworks
+copyright: Copyright &copy; Ludworks. All rights reserved.
+repo_name: gnubyte/ludworks-server
+repo_url: https://github.com/gnubyte/ludworks-server
+edit_uri: edit/main/docs/
+docs_dir: docs
+exclude_docs: |
+  requirements.txt
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - powershell
+    - nginx
+  navigation_depth: 3
+  collapse_navigation: false
+  sticky_navigation: true
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - tables
+  - fenced_code
+  - def_list
+  - attr_list
+  - sane_lists
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - First-time setup: getting-started/first-run.md
+  - Security model: security.md
+  - Administration:
+      - Admin overview: admin/index.md
+      - Users & registration: admin/users.md
+      - Mail (SMTP, IMAP, mail-in): admin/mail.md
+      - Libraries & categories: admin/libraries.md
+      - Settings reference: admin/settings.md
+      - Backups & maintenance: admin/maintenance.md
+  - User guide:
+      - Files: guide/files.md
+      - TV: guide/tv.md
+      - TV integrations: guide/tv-integrations.md
+      - Notes: guide/notes.md
+      - Passwords: guide/passwords.md
+      - Sheets: guide/sheets.md
+      - Storage & system: guide/storage.md
+  - API:
+      - API overview: api/index.md
+      - Authentication: api/authentication.md
+      - Resumable uploads (tus): api/uploads.md
+      - Vault cryptography: api/vault-crypto.md
+      - Endpoint reference: api/reference.md
+  - Clients:
+      - Python SDK: clients/python.md
+      - Browser extension: clients/browser-extension.md
+      - Android apps: clients/android.md
+      - Desktop apps & backup: clients/desktop.md
+  - Development:
+      - Developer guide: development/index.md
+      - OpenAPI fragments: development/openapi.md
+      - "Contract: architecture": spec/ARCHITECTURE.md
+      - "Contract: HTTP API": spec/API.md
+      - "Contract: vault crypto": spec/VAULT-CRYPTO.md
+  - Changelog: changelog.md

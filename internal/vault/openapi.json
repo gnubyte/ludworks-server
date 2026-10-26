@@ -1,0 +1,1791 @@
+{
+  "tags": [
+    {
+      "name": "Vault",
+      "description": "End-to-end-encrypted password vault. The server only stores ciphertext (`v1.<nonce>.<ciphertext>`) and KDF parameters; see the Vault cryptography documentation."
+    }
+  ],
+  "paths": {
+    "/api/v1/vault": {
+      "get": {
+        "operationId": "getVault",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Vault key material",
+        "description": "KDF parameters and the wrapped vault key. Clients derive the wrap key from the master password locally and unwrap the vault key; a GCM tag failure means a wrong master password.\n\n**Scope:** `vault:read`",
+        "x-scope": "vault:read",
+        "responses": {
+          "200": {
+            "description": "Vault state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultState"
+                },
+                "example": {
+                  "initialized": true,
+                  "kdf": "pbkdf2-sha256",
+                  "kdf_iterations": 600000,
+                  "kdf_salt": "AAECAwQFBgcICQoLDA0ODw==",
+                  "wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+                  "key_id": "6f1c2a9e-3b7d-4e5f-9a1b-2c3d4e5f6a7b",
+                  "key_check": "v1.0NHS09TV1tfY2drb.mBz0FvM3pVEmdQqzVfMMlg==",
+                  "updated_at": "2026-10-26T12:00:00.123Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/init": {
+      "post": {
+        "operationId": "initVault",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Initialise the vault",
+        "description": "Stores the KDF parameters and wrapped key generated client-side (VAULT-CRYPTO.md §1). The master password never leaves the client. The server validates the shape only: `kdf` must be `pbkdf2-sha256`, `kdf_iterations` 600 000-10 000 000, `kdf_salt` 16-64 bytes of base64 and `wrapped_key` a sealed 32-byte key.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultKdf"
+              },
+              "example": {
+                "kdf": "pbkdf2-sha256",
+                "kdf_iterations": 600000,
+                "kdf_salt": "AAECAwQFBgcICQoLDA0ODw==",
+                "wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Initialised.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultState"
+                },
+                "example": {
+                  "initialized": true,
+                  "kdf": "pbkdf2-sha256",
+                  "kdf_iterations": 600000,
+                  "kdf_salt": "AAECAwQFBgcICQoLDA0ODw==",
+                  "wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+                  "updated_at": "2026-10-26T12:00:00.123Z",
+                  "key_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                  "key_check": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The vault is already initialised."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/key": {
+      "put": {
+        "operationId": "changeVaultKey",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Change the master password",
+        "description": "Replaces KDF parameters and wrapped key. `previous_wrapped_key` must equal the stored value (protects against concurrent changes). Items, `key_id` and `key_check` are untouched because the vault key itself does not change — so this does not lock out anyone who already has an old wrapped key and the old password; `POST /vault/rekey` does. A lower `kdf_iterations` than stored is refused (422) unless `allow_kdf_downgrade` is true.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultKeyChange"
+              },
+              "example": {
+                "kdf": "pbkdf2-sha256",
+                "kdf_iterations": 800000,
+                "kdf_salt": "EBESExQVFhcYGRobHB0eHw==",
+                "wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+                "previous_wrapped_key": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Changed."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`previous_wrapped_key` does not match the stored key (changed on another device), or the vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/key-check": {
+      "put": {
+        "operationId": "setVaultKeyCheck",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Store the key check of an older vault",
+        "description": "Stores `key_check` for a vault created before key checks existed. Only a client that has just unwrapped the vault key with the master password should call it. It can be set once: repeating the stored value is a no-op, a different value is a 409. A key rotation replaces it.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultKeyCheckSet"
+              },
+              "example": {
+                "key_id": "6f1c2a9e-3b7d-4e5f-9a1b-2c3d4e5f6a7b",
+                "key_check": "v1.0NHS09TV1tfY2drb.mBz0FvM3pVEmdQqzVfMMlg=="
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Stored (or already stored with the same value)."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A different key check is already stored, or the vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/rekey": {
+      "post": {
+        "operationId": "rekeyVault",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Rotate the vault key",
+        "description": "Replaces the vault key and every live record in one transaction (VAULT-CRYPTO.md §2.3). `previous_wrapped_key` and `key_id` must be current and the submitted items and folders must be exactly the live ones at their current revisions; otherwise nothing is changed (409, sync and retry). On success every record's revision is bumped, the vault gets a new `key_id` (writes naming the old one are refused with 409 `vault_key_changed`) and a new sync horizon (every device's next delta sync answers 410). Body limit 64 MiB; larger vaults rotate by export, reset and import.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultRekey"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated; the new vault state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultState"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The vault changed meanwhile (`details.reason` = `records_changed`), `previous_wrapped_key` does not match, or the vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded`: the vault item or size limit is reached."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/reset": {
+      "post": {
+        "operationId": "resetVault",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Delete the whole vault",
+        "description": "For a forgotten master password: after confirming the **account login password**, irreversibly deletes the key material and every item and folder (tombstones included). Wrong passwords are locked out exponentially per user (5 free failures, then 2^n s up to 15 min) and every attempt is audited (`vault.reset`, `vault.reset_failed`).\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultResetRequest"
+              },
+              "example": {
+                "password": "correct horse battery staple"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Vault deleted."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized",
+            "description": "`invalid_credentials`: wrong account password."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/sync": {
+      "get": {
+        "operationId": "syncVault",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Sync encrypted items",
+        "description": "Every live folder and item (without `since`), or the folders and items changed after `since` plus the ids of those deleted after it. Pass the previous response's `server_time` as `since`: stamps increase strictly per user, so no change is ever missed. The response is streamed.\n\nA `since` from before the vault was (re-)initialised, older than purged deletion records (tombstones are kept for 180 days), later than the server's clock, or sent while no vault exists (before init, or after a reset) gets **410 `gone`**: sync again without `since` and replace the local copy.\n\n**Scope:** `vault:read`",
+        "x-scope": "vault:read",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "description": "`server_time` of the previous sync (RFC 3339).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultSync"
+                },
+                "example": {
+                  "folders": [
+                    {
+                      "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                      "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                      "revision": 1,
+                      "updated_at": "2026-10-26T12:00:00.123Z"
+                    }
+                  ],
+                  "items": [
+                    {
+                      "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+                      "folder_id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                      "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+                      "revision": 3,
+                      "created_at": "2026-10-26T12:00:00.123Z",
+                      "updated_at": "2026-10-26T12:30:00.000Z"
+                    }
+                  ],
+                  "deleted_item_ids": [
+                    "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
+                  ],
+                  "deleted_folder_ids": [],
+                  "server_time": "2026-10-26T12:30:00.000Z",
+                  "key_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "`since` is not an RFC 3339 timestamp."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone",
+            "description": "`since` is no longer a valid sync position: sync again without it."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/items": {
+      "post": {
+        "operationId": "createVaultItem",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Create an item",
+        "description": "Stores a new encrypted item under a client-generated id. Limits per user: 50 000 live items and 256 MiB of item data.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultItemCreate"
+              },
+              "example": {
+                "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+                "folder_id": null,
+                "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw=="
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Item stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                },
+                "example": {
+                  "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+                  "folder_id": null,
+                  "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+                  "revision": 1,
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:00:00.123Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "An item with this id exists (or existed: its tombstone keeps the id taken), or the vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Malformed id or `data`, or `folder_id` names no live folder of yours."
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded`: the vault item or size limit is reached."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/vault/items/{id}": {
+      "put": {
+        "operationId": "updateVaultItem",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Update an item",
+        "description": "Replaces the encrypted data (optimistic concurrency via `base_revision`). Absent `folder_id` keeps the folder; null un-files the item.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Item ID.",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultItemUpdate"
+              },
+              "example": {
+                "folder_id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+                "base_revision": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultItem"
+                },
+                "example": {
+                  "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+                  "folder_id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                  "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw==",
+                  "revision": 4,
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "No such item (or it was deleted)."
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Malformed `data`, missing `base_revision`, or `folder_id` names no live folder of yours."
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded`: the vault size limit is reached."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteVaultItem",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Delete an item",
+        "description": "Deletes the ciphertext; a tombstone is kept (180 days) so other devices learn about the deletion on sync. Deleting an already deleted item answers 404.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Item ID.",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/vault/items/batch": {
+      "post": {
+        "operationId": "batchCreateVaultItems",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Create many items (import)",
+        "description": "Inserts up to 1000 new items in one transaction (used by KeePass/Bitwarden import, which runs client-side). Invalid entries, ids that already exist (also deleted ones), unknown folders and entries beyond the vault limits are skipped and reported in `errors`; the rest are stored. The request body may be up to 32 MiB.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultItemBatch"
+              },
+              "example": {
+                "items": [
+                  {
+                    "id": "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e",
+                    "folder_id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                    "data": "v1.sLGys7S1tre4ubq7.UQWOMg1abMrMcVOlI4d+71SW0cstFhanfHHYsiIVhT0Ye3TxFoBjDizmBTmPNLixpm0I2aBTN6eGXQobu5aDAeqNzhPzjrSdeQX75WUi1l3fgY2wMRPptYkvOcWhH0iU8piN0gqhCSPn75o+yTNreRf+LfK8wE/uMcEwFsH6qnirtSMhVKVySL6vuJFf4pe0FojoyqIV/b5oGIVGU5Sb0uXSaeNrom6eaoEocwE/oMxErSGUZz9B95qCiz+61vHzk5KxdLJ7Qc1AY8rHj9MqOZMYLfKCU69VNOZxjOSb//7D8qQ/oAxWqNsYhNr9Mljmom53apykX9AUgkorZht8QiO0DLLSvntecSb3OWykO0PH94AhjkYc6Zj91oR/nSKvZRu0WNX5D4smrlItZ4A7tqKGoa+/rctsK8qHaCxyEDloNg3XsqIL7vxygv9qXygmPU4dqqnaHhClVDp4qxmD8qqXodYOp81UbFXHCzc5McjEPVvPMtQbQ5KU9l8136RO5prLurIu/ej9FluqtkvBlhQN8cDqjSAjGLfufkjyOKJ+uEWVUzLNCpjNrSppx5lzBMRZy9MqVhEqpNp30TJKfrhSq+R32ivMjSMx5k13SRPQEUfMhHcO5F3IQSwZubDXuJ3dIdwHZRpcVogRuDiJmVM4wZdFW3kEKw=="
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultBatchResult"
+                },
+                "example": {
+                  "created": 1,
+                  "errors": []
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "The request body exceeds 32 MiB."
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`items` is empty or holds more than 1000 entries."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/vault/folders": {
+      "get": {
+        "operationId": "listVaultFolders",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "List folders",
+        "description": "All live folders (names encrypted), ordered by id.\n\n**Scope:** `vault:read`",
+        "x-scope": "vault:read",
+        "responses": {
+          "200": {
+            "description": "Folders (names encrypted).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VaultFolder"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                    "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                    "revision": 1,
+                    "updated_at": "2026-10-26T12:00:00.123Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createVaultFolder",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Create a folder",
+        "description": "Creates a folder under a client-generated id (limit: 10 000 live folders per user).\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultFolderCreate"
+              },
+              "example": {
+                "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA="
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Folder stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultFolder"
+                },
+                "example": {
+                  "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                  "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                  "revision": 1,
+                  "updated_at": "2026-10-26T12:00:00.123Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A folder with this id exists (or existed), or the vault is not initialised. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded`: the folder limit is reached."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/vault/folders/{id}": {
+      "put": {
+        "operationId": "updateVaultFolder",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Rename a folder",
+        "description": "**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultFolderUpdate"
+              },
+              "example": {
+                "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                "base_revision": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultFolder"
+                },
+                "example": {
+                  "id": "b2d4f6a8-1c3e-4f5a-8b7c-9d0e1f2a3b4c",
+                  "name": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                  "revision": 2,
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "No such folder (or it was deleted)."
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteVaultFolder",
+        "tags": [
+          "Vault"
+        ],
+        "summary": "Delete a folder",
+        "description": "Deletes the folder (a tombstone is kept for sync); its items become unfiled (`folder_id: null`, revision bumped). Sub-folders (names are full paths) are separate folders and are not affected.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": false,
+            "description": "The `key_id` of the vault key the client holds (VAULT-CRYPTO.md §2.2); a retired key gives 409 `vault_key_changed`. JSON writes may send it in the body instead (both must agree).",
+            "schema": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VaultId": {
+        "type": "string",
+        "description": "Client-generated lowercase UUID with hyphens (clients generate version 4; any version is accepted). It is bound into the encryption AAD. Ids are scoped per user, and an id stays taken while its tombstone exists.",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "examples": [
+          "3f0c9a52-7d1e-4b6a-9c2f-8e5d4a1b0c7e"
+        ]
+      },
+      "VaultSealed": {
+        "type": "string",
+        "description": "Sealed string `v1.<base64 12-byte nonce>.<base64 ciphertext+16-byte tag>` (AES-256-GCM, standard base64 with padding). Opaque to the server, which checks only this shape and the size limits.",
+        "pattern": "^v1\\.[A-Za-z0-9+/]{16}\\.[A-Za-z0-9+/]+={0,2}$",
+        "examples": [
+          "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA="
+        ]
+      },
+      "VaultKdf": {
+        "type": "object",
+        "description": "KDF parameters and the wrapped vault key, generated client-side at init.",
+        "required": [
+          "kdf",
+          "kdf_iterations",
+          "kdf_salt",
+          "wrapped_key"
+        ],
+        "properties": {
+          "kdf": {
+            "type": "string",
+            "description": "Key-derivation function.",
+            "const": "pbkdf2-sha256"
+          },
+          "kdf_iterations": {
+            "type": "integer",
+            "description": "PBKDF2 iterations (≥ 600 000; clients accept up to 10 000 000).",
+            "minimum": 600000,
+            "maximum": 10000000
+          },
+          "kdf_salt": {
+            "type": "string",
+            "description": "16-64 random bytes (clients generate 16), standard base64 with padding.",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "minLength": 24,
+            "maxLength": 88
+          },
+          "wrapped_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "The random 32-byte vault key sealed with the wrap key derived from the master password (AAD `ludworks/vault/key/v1`): exactly 48 bytes of ciphertext+tag."
+          },
+          "key_check": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "Optional (older clients omit it): the key commitment `Seal(vault_key, \"\", AAD \"ludworks/vault/check/v1\")`, exactly 16 bytes of ciphertext."
+          }
+        }
+      },
+      "VaultState": {
+        "type": "object",
+        "description": "Key material needed to unlock the vault client-side. Contains no plaintext. Before init `initialized` is false and every other field is null. `key_id` names the current vault key; `key_check` commits to it.",
+        "required": [
+          "initialized",
+          "kdf",
+          "kdf_iterations",
+          "kdf_salt",
+          "wrapped_key",
+          "key_id",
+          "key_check",
+          "updated_at"
+        ],
+        "properties": {
+          "initialized": {
+            "type": "boolean"
+          },
+          "kdf": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`pbkdf2-sha256`; `null` before init."
+          },
+          "kdf_iterations": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "kdf_salt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wrapped_key": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Server-assigned id of the current vault key: new at init and at every key rotation, unchanged by a master-password change. Send it with every write (VAULT-CRYPTO.md §2.2)."
+          },
+          "key_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`Seal(vault_key, \"\", AAD \"ludworks/vault/check/v1\")` (exactly 16 bytes of ciphertext): lets a client holding a remembered vault key check that it is the current one. `null` for vaults created before key checks existed until a client stores one."
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "VaultKeyChange": {
+        "type": "object",
+        "description": "New KDF parameters and the **same** vault key re-sealed under the new master password. `kdf_iterations` must not be lower than the stored count unless `allow_kdf_downgrade` is set (clients keep max(current, 600000)).",
+        "required": [
+          "kdf",
+          "kdf_iterations",
+          "kdf_salt",
+          "wrapped_key",
+          "previous_wrapped_key"
+        ],
+        "properties": {
+          "kdf": {
+            "type": "string",
+            "description": "Key-derivation function.",
+            "const": "pbkdf2-sha256"
+          },
+          "kdf_iterations": {
+            "type": "integer",
+            "description": "PBKDF2 iterations (≥ 600 000; clients accept up to 10 000 000).",
+            "minimum": 600000,
+            "maximum": 10000000
+          },
+          "kdf_salt": {
+            "type": "string",
+            "description": "16-64 random bytes (clients generate 16), standard base64 with padding.",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "minLength": 24,
+            "maxLength": 88
+          },
+          "wrapped_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "The random 32-byte vault key sealed with the wrap key derived from the master password (AAD `ludworks/vault/key/v1`): exactly 48 bytes of ciphertext+tag."
+          },
+          "previous_wrapped_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "The currently stored `wrapped_key` (optimistic concurrency, compared in constant time)."
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          },
+          "allow_kdf_downgrade": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set only when the user explicitly chose a lower work factor; otherwise a lower `kdf_iterations` than stored is refused with 422."
+          }
+        }
+      },
+      "VaultResetRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "The account **login** password (not the master password).",
+            "format": "password",
+            "maxLength": 1024
+          }
+        }
+      },
+      "VaultItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "folder_id",
+          "data",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "Encrypted item JSON (AAD `ludworks/vault/item/v1:<id>`), at most 262 144 characters."
+          },
+          "revision": {
+            "type": "integer",
+            "description": "Incremented by the server on every change (including being un-filed when its folder is deleted).",
+            "minimum": 1
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Change stamp: strictly increasing per user, so it doubles as the sync position."
+          }
+        }
+      },
+      "VaultItemCreate": {
+        "type": "object",
+        "required": [
+          "id",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A live folder of yours, or null/absent for no folder."
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 262144
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          }
+        }
+      },
+      "VaultItemUpdate": {
+        "type": "object",
+        "required": [
+          "data",
+          "base_revision"
+        ],
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent keeps the current folder, null un-files the item, an id moves it to that live folder."
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 262144
+          },
+          "base_revision": {
+            "type": "integer",
+            "description": "The `revision` the client edited.",
+            "minimum": 1
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          }
+        }
+      },
+      "VaultItemBatch": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultItemCreate"
+            },
+            "description": "Up to 1000 new items (import). Existing ids (also deleted ones) are reported in `errors`, never overwritten. The whole request body is limited to 32 MiB: chunk large imports by size too.",
+            "minItems": 1,
+            "maxItems": 1000
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          }
+        }
+      },
+      "VaultBatchError": {
+        "type": "object",
+        "required": [
+          "id",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The id as sent (at most 64 characters)."
+          },
+          "error": {
+            "type": "string",
+            "description": "Why the item was skipped, e.g. `an item with this id already exists`, `folder does not exist`, `data must carry ...`, `vault limit reached ...`."
+          }
+        }
+      },
+      "VaultBatchResult": {
+        "type": "object",
+        "required": [
+          "created",
+          "errors"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultBatchError"
+            }
+          }
+        }
+      },
+      "VaultFolder": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "Encrypted `{\"name\": \"...\"}` (AAD `ludworks/vault/folder/v1:<id>`)."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "VaultFolderCreate": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 4096,
+            "description": "Encrypted `{\"name\": \"...\"}` (AAD `ludworks/vault/folder/v1:<id>`), at most 4096 characters. Names are full `/`-separated paths."
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          }
+        }
+      },
+      "VaultFolderUpdate": {
+        "type": "object",
+        "required": [
+          "name",
+          "base_revision"
+        ],
+        "properties": {
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 4096,
+            "description": "Encrypted `{\"name\": \"...\"}` (AAD `ludworks/vault/folder/v1:<id>`), at most 4096 characters. Names are full `/`-separated paths."
+          },
+          "base_revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The `key_id` of the vault key this record was sealed under (VAULT-CRYPTO.md §2.2). When it is not the current key the write is refused with 409 `vault_key_changed`. Optional for older clients; current clients always send it."
+          }
+        }
+      },
+      "VaultSync": {
+        "type": "object",
+        "required": [
+          "folders",
+          "items",
+          "deleted_item_ids",
+          "deleted_folder_ids",
+          "key_id",
+          "server_time"
+        ],
+        "properties": {
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultFolder"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultItem"
+            }
+          },
+          "deleted_item_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          "deleted_folder_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultId"
+            }
+          },
+          "key_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The vault key every record in this response is sealed under (`null` without a vault). A client holding a key with another `key_id` must lock instead of using the records."
+          },
+          "server_time": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "The user's change clock: the stamp of the newest change included. Pass it as `since` next time; changes committed concurrently with this sync always get a later stamp, so none is missed."
+          }
+        },
+        "description": "Records changed after `since` (all live records without it) and the ids of records deleted after it. A full sync never lists deletions."
+      },
+      "VaultConflictError": {
+        "type": "object",
+        "description": "409 body for a stale `base_revision`: `details.current` is the server copy.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "details"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "conflict"
+                  },
+                  "details": {
+                    "type": "object",
+                    "required": [
+                      "current"
+                    ],
+                    "properties": {
+                      "current": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/components/schemas/VaultItem"
+                          },
+                          {
+                            "$ref": "#/components/schemas/VaultFolder"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "VaultKeyCheckSet": {
+        "type": "object",
+        "required": [
+          "key_id",
+          "key_check"
+        ],
+        "properties": {
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The current `key_id` (required)."
+          },
+          "key_check": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "`Seal(vault_key, \"\", AAD \"ludworks/vault/check/v1\")`, exactly 16 bytes of ciphertext."
+          }
+        }
+      },
+      "VaultRekeyItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "base_revision",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "base_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The item's current `revision` (the version the client re-sealed)."
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 262144,
+            "description": "The item re-sealed under the new vault key (same AAD)."
+          }
+        }
+      },
+      "VaultRekeyFolder": {
+        "type": "object",
+        "required": [
+          "id",
+          "base_revision",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/VaultId"
+          },
+          "base_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The folder's current `revision`."
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "maxLength": 4096,
+            "description": "The folder name re-sealed under the new vault key."
+          }
+        }
+      },
+      "VaultRekey": {
+        "type": "object",
+        "description": "A new vault key: KDF parameters, the new key wrapped under the (new or unchanged) master password, its key check, and every live item and folder re-sealed under it (VAULT-CRYPTO.md §2.3).",
+        "required": [
+          "kdf",
+          "kdf_iterations",
+          "kdf_salt",
+          "wrapped_key",
+          "key_check",
+          "previous_wrapped_key",
+          "key_id",
+          "items",
+          "folders"
+        ],
+        "properties": {
+          "kdf": {
+            "type": "string",
+            "description": "Key-derivation function.",
+            "const": "pbkdf2-sha256"
+          },
+          "kdf_iterations": {
+            "type": "integer",
+            "description": "PBKDF2 iterations (≥ 600 000; clients accept up to 10 000 000).",
+            "minimum": 600000,
+            "maximum": 10000000
+          },
+          "kdf_salt": {
+            "type": "string",
+            "description": "16-64 random bytes (clients generate 16), standard base64 with padding.",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "minLength": 24,
+            "maxLength": 88
+          },
+          "wrapped_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "The random 32-byte vault key sealed with the wrap key derived from the master password (AAD `ludworks/vault/key/v1`): exactly 48 bytes of ciphertext+tag."
+          },
+          "key_check": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "Key commitment of the NEW vault key (required)."
+          },
+          "previous_wrapped_key": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultSealed"
+              }
+            ],
+            "description": "The currently stored `wrapped_key` (optimistic concurrency, compared in constant time)."
+          },
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VaultId"
+              }
+            ],
+            "description": "The current `key_id` (required)."
+          },
+          "allow_kdf_downgrade": {
+            "type": "boolean",
+            "default": false,
+            "description": "Set only when the user explicitly chose a lower work factor; otherwise a lower `kdf_iterations` than stored is refused with 422."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultRekeyItem"
+            },
+            "description": "Exactly the live items, each at its current revision."
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VaultRekeyFolder"
+            },
+            "description": "Exactly the live folders, each at its current revision."
+          }
+        }
+      }
+    }
+  }
+}

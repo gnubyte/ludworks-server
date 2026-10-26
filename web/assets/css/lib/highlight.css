@@ -1,0 +1,76 @@
+/* Syntax colours for lib/highlight.js tokens (hl-*). One-Light / One-Dark inspired palettes that
+   follow the app theme: OS preference unless <html data-theme> overrides it. */
+
+:root {
+  --hl-keyword: #a626a4;
+  --hl-string: #3f8f3e;
+  --hl-number: #b76b01;
+  --hl-comment: #8a8f98;
+  --hl-function: #3b6fe0;
+  --hl-type: #b08000;
+  --hl-operator: #0b84b5;
+  --hl-punctuation: #6b7280;
+  --hl-variable: #d6453a;
+  --hl-tag: #d6453a;
+  --hl-attr: #b76b01;
+  --hl-meta: #8d5a2b;
+  --hl-inserted-fg: #22863a;
+  --hl-inserted-bg: rgba(46, 160, 67, 0.12);
+  --hl-deleted-fg: #cb2431;
+  --hl-deleted-bg: rgba(248, 81, 73, 0.12);
+}
+
+:root[data-theme="dark"] {
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-comment: #7f848e;
+  --hl-function: #61afef;
+  --hl-type: #e5c07b;
+  --hl-operator: #56b6c2;
+  --hl-punctuation: #9aa2b1;
+  --hl-variable: #e06c75;
+  --hl-tag: #e06c75;
+  --hl-attr: #d19a66;
+  --hl-meta: #d7ba7d;
+  --hl-inserted-fg: #98c379;
+  --hl-inserted-bg: rgba(152, 195, 121, 0.14);
+  --hl-deleted-fg: #e06c75;
+  --hl-deleted-bg: rgba(224, 108, 117, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --hl-keyword: #c678dd;
+    --hl-string: #98c379;
+    --hl-number: #d19a66;
+    --hl-comment: #7f848e;
+    --hl-function: #61afef;
+    --hl-type: #e5c07b;
+    --hl-operator: #56b6c2;
+    --hl-punctuation: #9aa2b1;
+    --hl-variable: #e06c75;
+    --hl-tag: #e06c75;
+    --hl-attr: #d19a66;
+    --hl-meta: #d7ba7d;
+    --hl-inserted-fg: #98c379;
+    --hl-inserted-bg: rgba(152, 195, 121, 0.14);
+    --hl-deleted-fg: #e06c75;
+    --hl-deleted-bg: rgba(224, 108, 117, 0.14);
+  }
+}
+
+.hl-keyword { color: var(--hl-keyword); }
+.hl-string { color: var(--hl-string); }
+.hl-number { color: var(--hl-number); }
+.hl-comment { color: var(--hl-comment); font-style: italic; }
+.hl-function { color: var(--hl-function); }
+.hl-type { color: var(--hl-type); }
+.hl-operator { color: var(--hl-operator); }
+.hl-punctuation { color: var(--hl-punctuation); }
+.hl-variable { color: var(--hl-variable); }
+.hl-tag { color: var(--hl-tag); }
+.hl-attr { color: var(--hl-attr); }
+.hl-meta { color: var(--hl-meta); }
+.hl-inserted { color: var(--hl-inserted-fg); background: var(--hl-inserted-bg); }
+.hl-deleted { color: var(--hl-deleted-fg); background: var(--hl-deleted-bg); }

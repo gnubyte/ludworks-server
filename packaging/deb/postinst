@@ -1,0 +1,161 @@
+#!/bin/sh
+# postinst for ludworks: create the service account and data directory, then enable and
+# start the service on a fresh install or restart it after an upgrade.
+set -e
+
+SERVICE=ludworks.service
+SVC_USER=ludworks
+DATA_DIR=/var/lib/ludworks
+CONFIG=/etc/ludworks/config.json
+# Written by our prerm when it stopped a running service for an upgrade or removal.
+RESTART_MARKER=/run/ludworks.dpkg-restart
+
+systemd_running() {
+	[ -d /run/systemd/system ]
+}
+
+# Honour policy-rc.d (image builders use it to forbid starting services: exit code 101).
+start_allowed() {
+	if [ -x /usr/sbin/policy-rc.d ]; then
+		rc=0
+		/usr/sbin/policy-rc.d ludworks "$1" >/dev/null 2>&1 || rc=$?
+		[ "$rc" -ne 101 ]
+		return
+	fi
+	return 0
+}
+
+# $1: the previously configured version ("" on a fresh install or a reinstall after purge).
+create_account() {
+	if ! getent group "$SVC_USER" >/dev/null; then
+		addgroup --system --quiet "$SVC_USER"
+	fi
+	if ! getent passwd "$SVC_USER" >/dev/null; then
+		adduser --system --quiet --ingroup "$SVC_USER" --home "$DATA_DIR" \
+			--no-create-home --shell /usr/sbin/nologin "$SVC_USER"
+	elif [ -z "$1" ]; then
+		# Reinstall after a purge, which kept the account (to reserve its uid while the
+		# data directory exists) but expired it: make it usable again.
+		usermod --expiredate '' "$SVC_USER"
+	fi
+}
+
+# Set to "no" when the data directory belongs to another account; the service is then
+# neither enabled nor started.
+DATA_DIR_OK=yes
+
+prepare_data_dir() {
+	if [ ! -d "$DATA_DIR" ]; then
+		install -d -m 0750 -o "$SVC_USER" -g "$SVC_USER" "$DATA_DIR"
+		return
+	fi
+	owner=$(stat -c %U "$DATA_DIR")
+	if [ "$owner" = "$SVC_USER" ]; then
+		return
+	fi
+	if [ "$owner" = "UNKNOWN" ]; then
+		# Data kept from an install by an older package, whose purge deleted the account:
+		# the recreated account may have a different uid, so hand the tree over to it.
+		# No account has held that uid since. (-R does not follow symlinks.)
+		echo "ludworks: taking ownership of $DATA_DIR (left over from a previous installation)"
+		chown -R "$SVC_USER:$SVC_USER" "$DATA_DIR"
+		return
+	fi
+	# Another existing account owns the data: typically one created after an older package's
+	# purge freed the ludworks uid, which it then inherited. It could read and change
+	# everything (database, secret.key, TLS keys, files), so never adopt the tree silently.
+	DATA_DIR_OK=no
+	cat >&2 <<EOF
+ludworks: ERROR: $DATA_DIR is owned by the account '$owner', not '$SVC_USER'.
+ludworks: That account could read and change the data in it (database, keys, files).
+ludworks: The ludworks service was NOT started. Check the data, or restore it
+ludworks: from a backup you trust, then hand it over and start the service with:
+ludworks:   sudo chown -R $SVC_USER:$SVC_USER $DATA_DIR
+ludworks:   sudo systemctl enable --now ludworks
+EOF
+}
+
+# The configuration is readable by root and the service group only. A statoverride makes
+# dpkg keep that ownership when it replaces the conffile on upgrades.
+protect_config() {
+	if ! dpkg-statoverride --list "$CONFIG" >/dev/null 2>&1; then
+		dpkg-statoverride --update --add root "$SVC_USER" 0640 "$CONFIG"
+	fi
+}
+
+print_first_run_notice() {
+	host=$(uname -n)
+	cat <<EOF
+
+  Ludworks is installed and running as the systemd service "$SERVICE".
+
+  Finish the setup in a web browser:
+    1. Read the one-time setup token:  sudo cat $DATA_DIR/setup-token.txt
+       (it is also in the log:         sudo journalctl -u ludworks)
+    2. Open https://$host:8443/ (the listen address is configured in $CONFIG)
+       and compare the certificate's SHA-256 fingerprint with the one in the log.
+    3. Create the first administrator with the setup token.
+
+  Documentation: https://ludworks.readthedocs.io
+
+EOF
+}
+
+case "$1" in
+configure)
+	create_account "$2"
+	prepare_data_dir
+	protect_config
+
+	if systemd_running; then
+		systemctl daemon-reload || true
+	fi
+
+	if [ "$DATA_DIR_OK" != yes ]; then
+		# prepare_data_dir printed the error: leave the service down (prerm already stopped
+		# it on an upgrade), and do not enable it on a fresh install.
+		rm -f "$RESTART_MARKER"
+	elif [ -z "$2" ]; then
+		# Fresh install (or reinstall after a purge): enable at boot and start now.
+		if command -v systemctl >/dev/null 2>&1; then
+			systemctl enable "$SERVICE" >/dev/null 2>&1 ||
+				echo "ludworks: could not enable $SERVICE; enable it with: sudo systemctl enable --now ludworks" >&2
+		fi
+		if systemd_running && start_allowed start; then
+			if systemctl start "$SERVICE"; then
+				print_first_run_notice
+			else
+				echo "ludworks: $SERVICE failed to start; see: sudo journalctl -u ludworks" >&2
+			fi
+		else
+			echo "ludworks: systemd is not running here; start the server with: sudo systemctl start ludworks"
+		fi
+	elif systemd_running && start_allowed restart; then
+		# Upgrade, or reinstall after "remove": bring the service back if our prerm stopped
+		# it, otherwise restart it only if it is running (try-restart).
+		if [ -e "$RESTART_MARKER" ]; then
+			rm -f "$RESTART_MARKER"
+			systemctl restart "$SERVICE" ||
+				echo "ludworks: $SERVICE failed to start; see: sudo journalctl -u ludworks" >&2
+		else
+			systemctl try-restart "$SERVICE" || true
+		fi
+		if [ -e "$DATA_DIR/setup-token.txt" ]; then
+			echo "ludworks: setup is not finished yet; the setup token is in $DATA_DIR/setup-token.txt"
+		fi
+	fi
+	;;
+abort-upgrade | abort-remove | abort-deconfigure)
+	# The prerm of this version stopped the service; start it again.
+	if [ -e "$RESTART_MARKER" ] && systemd_running && start_allowed start; then
+		rm -f "$RESTART_MARKER"
+		systemctl start "$SERVICE" || true
+	fi
+	;;
+*)
+	echo "postinst called with unknown argument '$1'" >&2
+	exit 1
+	;;
+esac
+
+exit 0

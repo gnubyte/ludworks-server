@@ -1,0 +1,24 @@
+Package: ludworks
+Version: ${VERSION}
+Architecture: ${ARCH}
+Maintainer: Ludworks Project <maintainers@ludworks.invalid>
+Depends: adduser
+Recommends: ffmpeg
+Section: net
+Priority: optional
+Homepage: https://ludworks.readthedocs.io
+Description: self-hosted, security-first NAS multitool
+ Ludworks is a single server program that turns a disk into a private cloud:
+ a web file manager with resumable uploads, retro "virtual TV channels" for a
+ video library (with M3U, XMLTV and HDHomeRun tuner output), a notes app, an
+ end-to-end-encrypted password vault and a lightweight spreadsheet app, behind
+ one web UI and a documented HTTP API.
+ .
+ This package installs a hardened systemd service that runs as the
+ unprivileged "ludworks" system user, serves HTTPS on port 8443 with a
+ self-signed certificate and keeps its data in /var/lib/ludworks. The
+ one-time setup token for the first administrator is written to
+ /var/lib/ludworks/setup-token.txt.
+ .
+ ffmpeg is optional; it enables video thumbnails, transcoding and live
+ MPEG-TS channel streams.

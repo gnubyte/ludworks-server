@@ -1,0 +1,56 @@
+{
+  "tags": [
+    {
+      "name": "Mail",
+      "description": "Outgoing mail (SMTP) for verification and password-reset emails, and incoming mail (IMAP) that turns emails from users into notes (\"mail-in\"). Configured through the `smtp`, `imap` and `mail_in` settings namespaces. Mail-in imports a message only when a trusted receiving mail server (`mail_in.trusted_authserv_ids`) reports `dmarc=pass` for the From domain in its Authentication-Results header; with no trusted server configured nothing is imported."
+    }
+  ],
+  "paths": {},
+  "components": {
+    "schemas": {
+      "AdminSettingsMailIn": {
+        "type": "object",
+        "description": "Settings namespace `mail_in`: sender authentication for mail-in. The From address selects the account a message is written to, so a message is imported only when the topmost Authentication-Results headers (RFC 8601) carry an authserv-id listed here and report `dmarc=pass` with `header.from` equal to the From domain, and none of them reports another DMARC result. Missing headers, `dmarc=none`/`temperror`/`permerror`/`bestguesspass`, and verdicts from other servers are skipped. While the list is empty and `allow_unauthenticated_senders` is false, the mailbox is not polled at all.",
+        "required": [
+          "trusted_authserv_ids",
+          "allow_unauthenticated_senders"
+        ],
+        "properties": {
+          "trusted_authserv_ids": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^(\\*\\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$"
+            },
+            "description": "Authserv-ids (first token of Authentication-Results) of the mail servers that receive mail for the mailbox, e.g. `mx.google.com`; `*.example.net` matches any subdomain. Values are lower-cased, a trailing dot is removed and duplicates are dropped. The server must remove incoming Authentication-Results headers that claim its own authserv-id.",
+            "default": []
+          },
+          "allow_unauthenticated_senders": {
+            "type": "boolean",
+            "description": "Unsafe: import messages without a trusted `dmarc=pass` (only an explicit topmost `dmarc=fail` is skipped). Anyone who can send to the mailbox can then write notes and files into the account of a user whose address they put in From.",
+            "default": false
+          }
+        }
+      },
+      "AdminSettingsMailInPatch": {
+        "type": "object",
+        "description": "Partial update of settings namespace `mail_in`.",
+        "properties": {
+          "trusted_authserv_ids": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 253
+            }
+          },
+          "allow_unauthenticated_senders": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

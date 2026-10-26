@@ -1,0 +1,84 @@
+#!/bin/sh
+# postrm for ludworks. "purge" removes the configuration but NEVER the data directory: it
+# holds the users' files, database and keys. While that directory exists the service account
+# is kept too (locked and expired): deleting it would free its uid/gid, the next system
+# account created by any package would be given the same ids, and with them the ownership
+# of all Ludworks data. The account is removed only once the data directory is gone.
+set -e
+
+SVC_USER=ludworks
+DATA_DIR=/var/lib/ludworks
+CONF_DIR=/etc/ludworks
+CONFIG=/etc/ludworks/config.json
+RESTART_MARKER=/run/ludworks.dpkg-restart
+
+reload_systemd() {
+	if [ -d /run/systemd/system ]; then
+		systemctl daemon-reload || true
+	fi
+}
+
+# Keeps the uid and gid reserved. Expired (and with a locked password and no login shell)
+# the account cannot be used to log in; postinst re-enables it on a reinstall.
+lock_account() {
+	if getent passwd "$SVC_USER" >/dev/null; then
+		usermod --lock --expiredate 1 --shell /usr/sbin/nologin "$SVC_USER" || true
+	fi
+}
+
+remove_account() {
+	if getent passwd "$SVC_USER" >/dev/null; then
+		if command -v deluser >/dev/null 2>&1; then
+			deluser --system --quiet "$SVC_USER" || true
+		else
+			userdel "$SVC_USER" || true
+		fi
+	fi
+	if getent group "$SVC_USER" >/dev/null; then
+		if command -v delgroup >/dev/null 2>&1; then
+			delgroup --system --quiet "$SVC_USER" || true
+		else
+			groupdel "$SVC_USER" || true
+		fi
+	fi
+}
+
+case "$1" in
+remove)
+	reload_systemd
+	;;
+purge)
+	# The unit file is gone, so "systemctl disable" cannot be used: drop the boot symlink.
+	rm -f /etc/systemd/system/multi-user.target.wants/ludworks.service
+	rm -f "$RESTART_MARKER"
+	if dpkg-statoverride --list "$CONFIG" >/dev/null 2>&1; then
+		dpkg-statoverride --remove "$CONFIG" || true
+	fi
+	rm -rf "$CONF_DIR"
+	if [ -d "$DATA_DIR" ]; then
+		lock_account
+	else
+		remove_account
+	fi
+	reload_systemd
+	if [ -d "$DATA_DIR" ]; then
+		cat <<EOF
+
+  ludworks was purged. Your data was KEPT in $DATA_DIR
+  (files, database, keys and backups). Reinstalling the package picks it up again.
+  The system account "$SVC_USER" was kept as well (locked), so that no other
+  account can inherit its user ID and with it access to the data.
+  To delete both for good:  sudo rm -rf $DATA_DIR && sudo deluser --system $SVC_USER
+
+EOF
+	fi
+	;;
+upgrade | failed-upgrade | abort-install | abort-upgrade | disappear)
+	;;
+*)
+	echo "postrm called with unknown argument '$1'" >&2
+	exit 1
+	;;
+esac
+
+exit 0

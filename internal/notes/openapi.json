@@ -1,0 +1,1784 @@
+{
+  "tags": [
+    {
+      "name": "Notes",
+      "description": "iOS-Notes-style Markdown notes with folders, tags, pinning, full-text search, code snippets, attachments, sync and bulk Markdown import/export."
+    }
+  ],
+  "paths": {
+    "/api/v1/notes/folders": {
+      "get": {
+        "operationId": "listNoteFolders",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "List folders",
+        "description": "Ordered by parent, position and name.\n\n**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "responses": {
+          "200": {
+            "description": "All folders of the caller (flat; build the tree from `parent_id`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotesFolder"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "kswcwfxoasahesvymknomdfoee",
+                    "name": "Homelab",
+                    "parent_id": null,
+                    "position": 0,
+                    "note_count": 12
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNoteFolder",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Create a folder",
+        "description": "Creates a folder at the end of its siblings. Names are unique per parent (case-insensitive); nesting is limited to 32 levels and 5000 folders per user.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotesFolderCreate"
+              },
+              "example": {
+                "name": "Homelab",
+                "parent_id": null
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Folder created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A sibling folder has the same name, or the folder limit is reached."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/folders/{id}": {
+      "patch": {
+        "operationId": "updateNoteFolder",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Rename / move / reorder a folder",
+        "description": "`parent_id` moves the folder (null = top level; cycles are refused with 409). `position` places it at that index among its siblings (siblings are renumbered 0..n-1); a moved folder without `position` goes last.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotesFolderUpdate"
+              },
+              "example": {
+                "name": "Home lab",
+                "position": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesFolder"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The move would create a cycle, or a sibling folder has the same name."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteNoteFolder",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Delete a folder",
+        "description": "Deletes the folder and its subfolders recursively; notes inside are moved to the trash (restorable).\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Folder ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes": {
+      "get": {
+        "operationId": "listNotes",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "List / search notes",
+        "description": "Pinned notes first, then the chosen sort with the note id as tie-breaker; every sort is cursor-paginated (keyset, stable under concurrent edits). `q` searches title, body text (including code) and tags with SQLite FTS5: terms are ANDed, the last term is a prefix, case and diacritics are ignored and FTS operators in the input are treated literally. With `q` and no `sort` the results are ordered by search rank (best first, pinned not hoisted; each user has a separate search index, so ranking and cursors depend only on the caller's own notes); `snippet` then holds the best-matching fragment and `highlights` the matched ranges.\n\n**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "query",
+            "description": "Folder ID (direct children only), or `none` for notes without a folder. Omit for all notes. An unknown folder yields an empty page.",
+            "schema": {
+              "type": "string",
+              "pattern": "^(none|[A-Za-z0-9_-]{8,64})$"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Full-text search query.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "Only notes with this tag (case-insensitive, a leading `#` is ignored).",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "pinned",
+            "in": "query",
+            "description": "Only pinned (true) or unpinned (false) notes. Accepts 1/true/yes/on as true, anything else as false.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trashed",
+            "in": "query",
+            "description": "`true` lists the trash instead of live notes.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort key. Default `updated`; with `q` the default is search rank.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "updated",
+                "created",
+                "title"
+              ],
+              "default": "updated"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort order. Default `desc` for `updated`/`created`, `asc` for `title`; ignored for search rank.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of note summaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesNotePage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "hatx3k3xatvi4b6xkov52jrzdu",
+                      "folder_id": null,
+                      "title": "Backup rotation",
+                      "snippet": "…Weekly rsync to the cold-storage disk, then verify the backups…",
+                      "pinned": false,
+                      "tags": [
+                        "ops"
+                      ],
+                      "created_at": "2026-10-26T12:00:00.123Z",
+                      "updated_at": "2026-10-26T12:30:00.000Z",
+                      "version": 3,
+                      "has_code": false,
+                      "trashed_at": null,
+                      "highlights": {
+                        "title": [
+                          [
+                            0,
+                            6
+                          ]
+                        ],
+                        "snippet": [
+                          [
+                            44,
+                            51
+                          ]
+                        ]
+                      }
+                    }
+                  ],
+                  "next_cursor": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Create a note",
+        "description": "`body` defaults to an empty note. Tags are normalised (trimmed, lower-cased, leading `#` removed, de-duplicated). `folder_id` must be one of your folders (404 otherwise).\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotesNoteCreate"
+              },
+              "example": {
+                "body": "# Shopping\n\n- [ ] coffee\n- [ ] HDMI cable",
+                "folder_id": null,
+                "tags": [
+                  "home"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Note created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesNote"
+                },
+                "example": {
+                  "id": "hatx3k3xatvi4b6xkov52jrzdu",
+                  "folder_id": "kswcwfxoasahesvymknomdfoee",
+                  "title": "Backup rotation",
+                  "snippet": "Weekly: rsync to the cold-storage disk, then verify with sha256sum…",
+                  "pinned": true,
+                  "tags": [
+                    "ops",
+                    "backup"
+                  ],
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "version": 7,
+                  "has_code": true,
+                  "trashed_at": null,
+                  "body": "# Backup rotation\n\nWeekly: rsync to the cold-storage disk, then verify:\n\n```bash\nsha256sum -c manifest.sha256\n```\n\n- [x] Monday\n- [ ] Thursday\n"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/{id}": {
+      "get": {
+        "operationId": "getNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Get a note",
+        "description": "**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesNote"
+                },
+                "example": {
+                  "id": "hatx3k3xatvi4b6xkov52jrzdu",
+                  "folder_id": "kswcwfxoasahesvymknomdfoee",
+                  "title": "Backup rotation",
+                  "snippet": "Weekly: rsync to the cold-storage disk, then verify with sha256sum…",
+                  "pinned": true,
+                  "tags": [
+                    "ops",
+                    "backup"
+                  ],
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "version": 7,
+                  "has_code": true,
+                  "trashed_at": null,
+                  "body": "# Backup rotation\n\nWeekly: rsync to the cold-storage disk, then verify:\n\n```bash\nsha256sum -c manifest.sha256\n```\n\n- [x] Monday\n- [ ] Thursday\n"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Update a note",
+        "description": "Partial update. `title: \"\"` (or null) clears the explicit title so it is derived from the body again; `folder_id: null` moves the note out of its folder. Send `base_version` (the `version` you edited) to avoid overwriting edits from another device: on mismatch the response is 409 with `details.current`. A patch that changes nothing returns the note unchanged (no version bump). Trashed notes can be edited.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotesNoteUpdate"
+              },
+              "example": {
+                "body": "# Shopping\n\n- [x] coffee\n- [ ] HDMI cable",
+                "base_version": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated note.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`conflict`: the note changed since `base_version`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesConflictError"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Trash or delete a note",
+        "description": "Moves the note to the trash (idempotent). With `permanent=1` the note and its attachments are deleted for good and the id is reported in `deleted_note_ids` of the changes feed.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "description": "`1` deletes permanently (with attachments) instead of trashing.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Trashed or deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/{id}/restore": {
+      "post": {
+        "operationId": "restoreNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Restore from trash",
+        "description": "Restores a trashed note (to \"Notes\" if its folder no longer exists).\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restored note.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesNote"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/tags": {
+      "get": {
+        "operationId": "listNoteTags",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Tags with counts",
+        "description": "**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "responses": {
+          "200": {
+            "description": "Tags.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotesTagCount"
+                  }
+                },
+                "example": [
+                  {
+                    "tag": "ops",
+                    "count": 5
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/changes": {
+      "get": {
+        "operationId": "getNoteChanges",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Incremental sync",
+        "description": "Everything that changed since `since` (omit for a full snapshot), including trashed notes. Pass `server_time` back as `since`: the server clock is strictly monotonic per commit, so no change is ever missed. Deleted ids are kept for 365 days. When `since` predates deletions that have been forgotten since, or is later than the server's clock (for example after a database backup was restored), the response is a full snapshot with `reset: true` (replace local state). Used by the Android and desktop notes apps for offline sync.\n\n**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "description": "`server_time` from the previous sync.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesChanges"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/import": {
+      "post": {
+        "operationId": "importNotes",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Import Markdown",
+        "description": "Raw body: a `.zip` of `.md`/`.markdown`/`.txt` files (directories become note folders, merged with existing folders of the same name) or a single Markdown/text file (pass `filename`). Front-matter keys `title`, `tags`, `created`, `updated` and `pinned` are honoured. Without a front-matter title the note title is the first heading/line, or the file name when the file does not start with a heading and its first line differs from the name.\nUnsafe archive paths (`..`, absolute paths, drive letters) are rejected per entry and reported in `errors`; other file types are reported and skipped; hidden files and `__MACOSX` are ignored. Text is decoded as UTF-8 (BOM/UTF-16 honoured, Latin-1 fallback) with line endings normalised.\nLimits: 50 MiB body, 10 000 archive entries, 5 MiB per note, 256 MiB of decompressed Markdown per import; entry sizes are checked before decompression.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "description": "Name of a single uploaded Markdown file (e.g. `todo.md`); omit for ZIP.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "folder_id",
+            "in": "query",
+            "description": "Import into this folder (default: top level).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "ZIP archive or Markdown file.",
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/markdown": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesImportResult"
+                },
+                "example": {
+                  "imported": 128,
+                  "folders_created": 6,
+                  "errors": [
+                    {
+                      "file": "broken/huge.md",
+                      "error": "note exceeds 5 MiB"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/export": {
+      "get": {
+        "operationId": "exportNotes",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Export as Markdown ZIP",
+        "description": "ZIP of `.md` files with YAML front matter (`title` when set explicitly, `tags`, `created`, `updated`, `pinned`) laid out in the folder hierarchy; empty folders are included as directory entries. Trashed notes and attachments are not included. File and directory names are made portable (characters invalid on Windows become `_`, duplicates get a ` (2)` suffix). With `folder_id` the archive contains that folder and its subtree under a top-level directory named after it.\n\n**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "parameters": [
+          {
+            "name": "folder_id",
+            "in": "query",
+            "description": "Export only this folder (and subfolders).",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Archive format.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "zip"
+              ],
+              "default": "zip"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ZIP archive.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/{id}/export.md": {
+      "get": {
+        "operationId": "exportNoteMarkdown",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Export one note as Markdown",
+        "description": "The note as a Markdown file with the same front matter as the ZIP export.\n\n**Scope:** `notes:read`",
+        "x-scope": "notes:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Markdown with front matter.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/{id}/attachments": {
+      "post": {
+        "operationId": "uploadNoteAttachment",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Attach a file or image",
+        "description": "Raw body up to 25 MiB. The MIME type is sniffed from the content (the client Content-Type is ignored); the file name is reduced to its base name. Returns a URL to embed in the note body. Attachments are deleted together with their note.\n\n**Scope:** `notes:write`",
+        "x-scope": "notes:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Note ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "description": "Original file name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "File bytes.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "*/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attachment stored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesAttachment"
+                },
+                "example": {
+                  "id": "neznq7uearkhmdlzpfea65yeeu",
+                  "url": "/api/v1/notes/attachments/neznq7uearkhmdlzpfea65yeeu",
+                  "filename": "rack.jpg",
+                  "mime": "image/jpeg",
+                  "size": 482113
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/notes/attachments/{id}": {
+      "get": {
+        "operationId": "getNoteAttachment",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Download an attachment",
+        "description": "PNG, JPEG, GIF, WebP, BMP, AVIF and ICO images are served inline; everything else (including SVG and HTML) as an attachment, with unknown types as `application/octet-stream`. Responses carry a sandboxing CSP and an ETag, and support Range requests.\n\n**Scope:** `notes:read` · also accepts `?access_token=`",
+        "x-scope": "notes:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content (Range request).",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NotesFolder": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "parent_id",
+          "position",
+          "note_count"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "position": {
+            "type": "integer",
+            "description": "Sort position among siblings."
+          },
+          "note_count": {
+            "type": "integer",
+            "description": "Non-trashed notes directly in the folder.",
+            "minimum": 0
+          }
+        }
+      },
+      "NotesFolderCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "NotesFolderUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Move under another folder (`null` = top level). Cycles are rejected."
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "NotesNoteSummary": {
+        "type": "object",
+        "description": "A note without its body (list views). `title` is the explicit title or the first non-empty line of the body (Markdown removed, at most 200 characters); `snippet` is the following text.",
+        "required": [
+          "id",
+          "folder_id",
+          "title",
+          "snippet",
+          "pinned",
+          "tags",
+          "created_at",
+          "updated_at",
+          "version",
+          "has_code",
+          "trashed_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` = no folder (\"Notes\")."
+          },
+          "title": {
+            "type": "string",
+            "description": "Explicit title, or the first non-empty line of the body."
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Plain-text preview, at most 200 characters (never HTML). With `q` it is the best-matching fragment of the note.",
+            "maxLength": 200
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Pinned notes are listed first."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Last change of title, body or tags (pinning, moving and trashing do not count)."
+          },
+          "version": {
+            "type": "integer",
+            "description": "Incremented on every change (including pin, move, trash, restore); send it back as `base_version` for conflict detection.",
+            "minimum": 1
+          },
+          "has_code": {
+            "type": "boolean",
+            "description": "The body contains a fenced code block."
+          },
+          "trashed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "highlights": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotesHighlights"
+              }
+            ],
+            "description": "Only present on search results (`q`)."
+          }
+        }
+      },
+      "NotesNote": {
+        "type": "object",
+        "required": [
+          "id",
+          "folder_id",
+          "title",
+          "snippet",
+          "pinned",
+          "tags",
+          "created_at",
+          "updated_at",
+          "version",
+          "has_code",
+          "trashed_at",
+          "body"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` = no folder (\"Notes\")."
+          },
+          "title": {
+            "type": "string",
+            "description": "Explicit title, or the first non-empty line of the body."
+          },
+          "snippet": {
+            "type": "string",
+            "description": "Plain-text preview, at most 200 characters (never HTML). With `q` it is the best-matching fragment of the note.",
+            "maxLength": 200
+          },
+          "pinned": {
+            "type": "boolean",
+            "description": "Pinned notes are listed first."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Last change of title, body or tags (pinning, moving and trashing do not count)."
+          },
+          "version": {
+            "type": "integer",
+            "description": "Incremented on every change (including pin, move, trash, restore); send it back as `base_version` for conflict detection.",
+            "minimum": 1
+          },
+          "has_code": {
+            "type": "boolean",
+            "description": "The body contains a fenced code block."
+          },
+          "trashed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown: CommonMark + GFM tables, task lists, strikethrough, autolinks and fenced code blocks with a language (```` ```python ````).",
+            "maxLength": 5242880
+          }
+        },
+        "examples": [
+          {
+            "id": "hatx3k3xatvi4b6xkov52jrzdu",
+            "folder_id": "kswcwfxoasahesvymknomdfoee",
+            "title": "Backup rotation",
+            "snippet": "Weekly: rsync to the cold-storage disk, then verify with sha256sum…",
+            "pinned": true,
+            "tags": [
+              "ops",
+              "backup"
+            ],
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "updated_at": "2026-10-26T12:30:00.000Z",
+            "version": 7,
+            "has_code": true,
+            "trashed_at": null,
+            "body": "# Backup rotation\n\nWeekly: rsync to the cold-storage disk, then verify:\n\n```bash\nsha256sum -c manifest.sha256\n```\n\n- [x] Monday\n- [ ] Thursday\n"
+          }
+        ]
+      },
+      "NotesNotePage": {
+        "type": "object",
+        "description": "A page of notes.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesNoteSummary"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "NotesNoteCreate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Optional explicit title.",
+            "maxLength": 500
+          },
+          "body": {
+            "type": "string",
+            "description": "Markdown body (at most 5 MiB; larger bodies are refused with 413). Defaults to \"\".",
+            "maxLength": 5242880
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "pinned": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "NotesNoteUpdate": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit title; \"\" or null clears it."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 5242880
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "maxItems": 100,
+            "uniqueItems": true
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "base_version": {
+            "type": "integer",
+            "description": "The `version` the client edited. If the note changed since, the update is refused with 409 and `details.current`.",
+            "minimum": 1
+          }
+        }
+      },
+      "NotesConflictError": {
+        "type": "object",
+        "description": "409 body for a stale `base_version`: `details.current` is the server copy to merge with.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "details"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "conflict"
+                  },
+                  "details": {
+                    "type": "object",
+                    "required": [
+                      "current"
+                    ],
+                    "properties": {
+                      "current": {
+                        "$ref": "#/components/schemas/NotesNote"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "NotesTagCount": {
+        "type": "object",
+        "required": [
+          "tag",
+          "count"
+        ],
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "NotesChanges": {
+        "type": "object",
+        "required": [
+          "notes",
+          "folders",
+          "deleted_note_ids",
+          "deleted_folder_ids",
+          "server_time",
+          "reset"
+        ],
+        "properties": {
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesNote"
+            },
+            "description": "Notes created or changed since `since` (including trashed ones), oldest change first."
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesFolder"
+            },
+            "description": "Folders created, renamed, moved or reordered since `since`."
+          },
+          "deleted_note_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Permanently deleted notes."
+          },
+          "deleted_folder_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          "server_time": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Pass as `since` next time."
+          },
+          "reset": {
+            "type": "boolean",
+            "description": "`true` when `since` predates forgotten deletions or lies after the server's clock: the response is a full snapshot and the client must drop notes/folders it does not contain."
+          }
+        }
+      },
+      "NotesImportError": {
+        "type": "object",
+        "required": [
+          "file",
+          "error"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path inside the archive (or the file name)."
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "NotesImportResult": {
+        "type": "object",
+        "required": [
+          "imported",
+          "folders_created",
+          "errors"
+        ],
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "folders_created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesImportError"
+            }
+          }
+        }
+      },
+      "NotesAttachment": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "filename",
+          "mime",
+          "size"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "url": {
+            "type": "string",
+            "description": "Relative URL to embed in Markdown, e.g. `![](/api/v1/notes/attachments/<id>)`."
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "NotesHighlights": {
+        "type": "object",
+        "description": "Search matches as `[start, end)` offsets in Unicode code points (not UTF-16 units) into `title` and `snippet`.",
+        "required": [
+          "title",
+          "snippet"
+        ],
+        "properties": {
+          "title": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesRange"
+            }
+          },
+          "snippet": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotesRange"
+            }
+          }
+        }
+      },
+      "NotesRange": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "`[start, end)`"
+      }
+    }
+  }
+}

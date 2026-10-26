@@ -1,0 +1,2660 @@
+{
+  "tags": [
+    {
+      "name": "Media",
+      "description": "Media library on top of Files: metadata (titles, shows, seasons, episodes, genres), probing, posters, playback streams, ffmpeg transcoding, subtitles, watch progress and TMDB lookups."
+    }
+  ],
+  "paths": {
+    "/api/v1/media": {
+      "get": {
+        "operationId": "listMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Browse the media library",
+        "description": "Media items (movie/tv category or video files) across the caller's home and the libraries they can read — other users' homes only with an explicit `space_id` (admins). Keyset pagination; `sort=random` with a `seed` gives a stable shuffled order across pages (a random seed is chosen and kept in the cursor otherwise).\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Category slug or comma list; `none` = no category. Default: `movie`, `tv` and uncategorized video files.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subcategory",
+            "in": "query",
+            "description": "Subcategory slug (or comma list).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "description": "Genre (case-insensitive).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "description": "Release year.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "show",
+            "in": "query",
+            "description": "Show title or show key — episodes of one show.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "query",
+            "description": "Season number.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Full-text search (prefix match on the last word) on title, show, episode title, description and file name.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "description": "File tag (case-insensitive).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Restrict to one space.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "watched",
+            "in": "query",
+            "description": "Filter by the caller's watched flag (`true`/`false`; omit for all).",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "in_progress",
+            "in": "query",
+            "description": "Only items the caller started but has not finished (for \"continue watching\").",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort key. `episode` = show, season, episode; `progress` = when the caller last watched (use `order=desc`). Missing values sort last.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "title",
+                "added",
+                "year",
+                "duration",
+                "random",
+                "episode",
+                "progress"
+              ],
+              "default": "title"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "Sort order.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          },
+          {
+            "name": "seed",
+            "in": "query",
+            "description": "Seed for `sort=random` (keep it constant while paging).",
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of media.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                      "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                      "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                      "path": "Movies/Night of the Living Dead (1968).mp4",
+                      "name": "Night of the Living Dead (1968).mp4",
+                      "is_dir": false,
+                      "size": 1468006400,
+                      "mime": "video/mp4",
+                      "mod_time": "2026-10-26T12:00:00.123Z",
+                      "category": "movie",
+                      "subcategory": "feature",
+                      "tags": [
+                        "horror",
+                        "public-domain"
+                      ],
+                      "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                      "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                      "created_at": "2026-10-26T12:00:00.123Z",
+                      "updated_at": "2026-10-26T12:30:00.000Z",
+                      "has_thumbnail": true,
+                      "media": {
+                        "title": "Night of the Living Dead",
+                        "sort_title": "night of the living dead",
+                        "year": 1968,
+                        "description": "A group of people hide from bloodthirsty zombies in a farmhouse.",
+                        "genres": [
+                          "Horror"
+                        ],
+                        "content_rating": "NR",
+                        "show_title": "",
+                        "season": null,
+                        "episode": null,
+                        "episode_title": "",
+                        "duration_seconds": 5760.4,
+                        "width": 1440,
+                        "height": 1080,
+                        "video_codec": "h264",
+                        "audio_codec": "aac",
+                        "container": "mp4",
+                        "browser_playable": true,
+                        "poster_url": "/api/v1/media/o336gvfc4vph3sqcpfhdwyr2r5/poster",
+                        "backdrop_url": null,
+                        "tmdb_id": 10331,
+                        "imdb_id": "tt0063350",
+                        "added_at": "2026-10-26T12:00:00.123Z",
+                        "watched": false,
+                        "position_seconds": 1234.5,
+                        "subtitles": [
+                          {
+                            "index": 0,
+                            "language": "en",
+                            "label": "English",
+                            "format": "srt"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "next_cursor": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/facets": {
+      "get": {
+        "operationId": "getMediaFacets",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Filter facets",
+        "description": "Filter values with counts over the same items as `GET /api/v1/media` (category filter and spaces only).\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Category slug or comma list; `none` = no category. Default: `movie`, `tv` and uncategorized video files.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "space_id",
+            "in": "query",
+            "description": "Restrict to one space.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Facets.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaFacets"
+                },
+                "example": {
+                  "genres": [
+                    {
+                      "value": "Horror",
+                      "count": 12
+                    }
+                  ],
+                  "years": [
+                    {
+                      "value": 1968,
+                      "count": 3
+                    }
+                  ],
+                  "shows": [
+                    {
+                      "value": "The Twilight Zone",
+                      "count": 156
+                    }
+                  ],
+                  "subcategories": [
+                    {
+                      "value": "feature",
+                      "count": 40
+                    }
+                  ],
+                  "tags": [
+                    {
+                      "value": "classic",
+                      "count": 5
+                    }
+                  ],
+                  "categories": [
+                    {
+                      "value": "movie",
+                      "count": 40
+                    },
+                    {
+                      "value": "none",
+                      "count": 2
+                    }
+                  ],
+                  "spaces": [
+                    {
+                      "value": "rn6jbqcz4uzhddgdsb7ujseqro",
+                      "count": 42
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/shows": {
+      "get": {
+        "operationId": "listShows",
+        "tags": [
+          "Media"
+        ],
+        "summary": "List TV shows",
+        "description": "Episodes (items with a `show_title`) grouped by `show_key`, sorted by title, across the caller's home and readable libraries.\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Filter by show title.",
+            "schema": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shows sorted by title.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaShowPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/shows/{show_key}": {
+      "get": {
+        "operationId": "getShow",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Show with seasons and episodes",
+        "description": "All episodes of a show the caller can read (up to 5000), grouped by season and ordered by episode.\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "show_key",
+            "in": "path",
+            "required": true,
+            "description": "Show key from the show list.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The show.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaShow"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}": {
+      "get": {
+        "operationId": "getMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Get a media item",
+        "description": "A readable media item. Files that are not media items (not movie/tv and not video) are 404.\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The media item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItem"
+                },
+                "example": {
+                  "id": "o336gvfc4vph3sqcpfhdwyr2r5",
+                  "space_id": "rn6jbqcz4uzhddgdsb7ujseqro",
+                  "parent_id": "u7bu4l6p4sdhlu5eu4xg3myfr6",
+                  "path": "Movies/Night of the Living Dead (1968).mp4",
+                  "name": "Night of the Living Dead (1968).mp4",
+                  "is_dir": false,
+                  "size": 1468006400,
+                  "mime": "video/mp4",
+                  "mod_time": "2026-10-26T12:00:00.123Z",
+                  "category": "movie",
+                  "subcategory": "feature",
+                  "tags": [
+                    "horror",
+                    "public-domain"
+                  ],
+                  "sha256": "9f2c1b4f8a3d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z",
+                  "has_thumbnail": true,
+                  "media": {
+                    "title": "Night of the Living Dead",
+                    "sort_title": "night of the living dead",
+                    "year": 1968,
+                    "description": "A group of people hide from bloodthirsty zombies in a farmhouse.",
+                    "genres": [
+                      "Horror"
+                    ],
+                    "content_rating": "NR",
+                    "show_title": "",
+                    "season": null,
+                    "episode": null,
+                    "episode_title": "",
+                    "duration_seconds": 5760.4,
+                    "width": 1440,
+                    "height": 1080,
+                    "video_codec": "h264",
+                    "audio_codec": "aac",
+                    "container": "mp4",
+                    "browser_playable": true,
+                    "poster_url": "/api/v1/media/o336gvfc4vph3sqcpfhdwyr2r5/poster",
+                    "backdrop_url": null,
+                    "tmdb_id": 10331,
+                    "imdb_id": "tt0063350",
+                    "added_at": "2026-10-26T12:00:00.123Z",
+                    "watched": false,
+                    "position_seconds": 1234.5,
+                    "subtitles": [
+                      {
+                        "index": 0,
+                        "language": "en",
+                        "label": "English",
+                        "format": "srt"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Edit metadata",
+        "description": "Updates editable metadata (write access to the space), and optionally the file `category`/`subcategory` and the caller's `watched` flag (read access suffices for `watched` alone). Manually edited values are kept by later auto-tagging unless `overwrite` is requested.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdate"
+              },
+              "example": {
+                "title": "Night of the Living Dead",
+                "year": 1968,
+                "genres": [
+                  "Horror",
+                  "Classic"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/bulk": {
+      "post": {
+        "operationId": "bulkUpdateMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Bulk edit metadata",
+        "description": "Applies the same fields (plus file `category`/`subcategory` and the caller's `watched`) to up to 1000 items, e.g. `show_title` and `season` for a folder of episodes. Items that are missing or not writable are reported in `errors`.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaBulkRequest"
+              },
+              "example": {
+                "file_ids": [
+                  "jcww3klp6yhuldzde3mpqdf64l",
+                  "muzbwfhg6xrttupegwead5zt54"
+                ],
+                "set": {
+                  "show_title": "The Twilight Zone",
+                  "season": 1,
+                  "category": "tv",
+                  "subcategory": "episode"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Items changed and per-item failures.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaBulkResult"
+                },
+                "example": {
+                  "updated": 2,
+                  "errors": []
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/auto-tag": {
+      "post": {
+        "operationId": "autoTagMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Auto-tag from file names",
+        "description": "Parses file and folder names such as `Show.Name.S01E02.Title.mkv`, `Show Name - 1x02`, `Movie Name (2010).mp4`,\n`Movie.Name.2010.1080p.mkv` and `Show/Season 1/…`, and reads Kodi `.nfo` sidecars (`<video>.nfo`, `movie.nfo`, and `tvshow.nfo` in the folder or any parent folder), to fill title, show, season, episode, year, plot, genres, rating and IDs, and sets the file category (`movie/feature` or `tv/episode`) when it is empty. Needs write access to the space; at most 20000 media files per request (422 otherwise). New uploads already get a guess from their file name.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaAutoTagRequest"
+              },
+              "example": {
+                "space_id": "xre6wf2g4rngtfuewxpxnfm2ro",
+                "path": "TV/The Twilight Zone",
+                "recursive": true,
+                "overwrite": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAutoTagResult"
+                },
+                "example": {
+                  "updated": 156,
+                  "skipped": 2
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/probe": {
+      "post": {
+        "operationId": "probeMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Re-probe a file",
+        "description": "Re-reads duration, dimensions, codecs and subtitle tracks now (`ffprobe` when available, else the pure-Go MP4/MOV, Matroska/WebM, AVI, MPEG-TS and audio parsers) and regenerates the thumbnail when `media.auto_thumbnails` is on. Needs write access to the space. One manual probe per user runs at a time (four server-wide): 429 `rate_limited` with `Retry-After` otherwise. The built-in parsers are bounded in reads and work and give up after 60 s.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/poster": {
+      "put": {
+        "operationId": "setMediaPoster",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Upload a custom poster",
+        "description": "Raw JPEG, PNG or GIF body (at most 20 MiB and 50 megapixels), stored as a normalized JPEG (≤ 1280 px). The format is detected from the content; WebP cannot be decoded and is rejected with 415.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Poster image.",
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/gif": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMediaPoster",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Remove the custom poster",
+        "description": "Removes the custom poster (the thumbnail is used again). Idempotent.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed; the thumbnail is used again."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getMediaPoster",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Poster image",
+        "description": "JPEG of the custom poster, else the file thumbnail (video frame with ffmpeg). 404 if neither exists, 422 for an unknown `size`.\n\n**Scope:** `media:read` · also accepts `?access_token=`",
+        "x-scope": "media:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Size class (`sm` 160 px, `md` 320 px, `lg` 640 px longest edge).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sm",
+                "md",
+                "lg"
+              ],
+              "default": "md"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/stream": {
+      "get": {
+        "operationId": "streamMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Direct stream",
+        "description": "The original bytes with Range/If-Range/ETag support and `Content-Disposition: inline` (sandboxing CSP, `nosniff`) — use when `browser_playable` is true, or for external players. Only media items can be streamed.\n\n**Scope:** `media:read` · also accepts `?access_token=`",
+        "x-scope": "media:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfRange"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media bytes.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content for a satisfiable `Range` request.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              },
+              "Content-Range": {
+                "$ref": "#/components/headers/ContentRange"
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "#/components/responses/RangeNotSatisfiable"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/transcode": {
+      "get": {
+        "operationId": "transcodeMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Live transcode to fragmented MP4",
+        "description": "Transcodes with ffmpeg to H.264/AAC fragmented MP4 starting at `start` seconds, at most `height` lines (never upscaled). Not seekable (no Range): to seek, request again with a new `start`. At most two transcodes run at once server-wide and one per user (a request waits up to 5 s for a slot, e.g. while a seek replaces the previous stream, then gets 429 with `Retry-After`). ffmpeg is stopped when the client disconnects or stops reading for 60 s (a long-paused player must request again with `start` at its position). Needs ffmpeg and `media.transcode_enabled`, otherwise `501 ffmpeg_unavailable`.\n\n**Scope:** `media:read` · also accepts `?access_token=`",
+        "x-scope": "media:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start position in seconds.",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0,
+              "maximum": 10000000
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Target height (never upscaled).",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                360,
+                480,
+                720,
+                1080
+              ],
+              "default": 720
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fragmented MP4 stream (chunked).",
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/subtitles/{index}.vtt": {
+      "get": {
+        "operationId": "getMediaSubtitle",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Subtitle track as WebVTT",
+        "description": "Sidecar `.srt`/`.vtt`/`.ass` files are converted to WebVTT (styles and markup other than `<b>`/`<i>`/`<u>` are dropped); embedded text tracks are extracted with ffmpeg and cached (501 `ffmpeg_unavailable` without it). Unknown index or an unreadable track: 404.\n\n**Scope:** `media:read` · also accepts `?access_token=`",
+        "x-scope": "media:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "description": "`index` from `media.subtitles`.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WebVTT.",
+            "content": {
+              "text/vtt": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/progress": {
+      "put": {
+        "operationId": "setMediaProgress",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Save watch progress",
+        "description": "Stores the caller's resume position and watched flag (see `completed`). Only needs read scope and read access because it is per-user state.\n\n**Scope:** `media:read`",
+        "x-scope": "media:read",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaProgressUpdate"
+              },
+              "example": {
+                "position_seconds": 1234.5
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Saved."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/tmdb/search": {
+      "get": {
+        "operationId": "searchTmdb",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Search TMDB",
+        "description": "Searches The Movie Database with the server's `media.tmdb_api_key` (never exposed; a v3 key or a v4 read access token). 10 s timeout, at most 20 results. 501 when no key is configured, 502 `tmdb_failed` when TMDB fails or rejects the key.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Title to search.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Movie or TV show.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "movie",
+                "tv"
+              ],
+              "default": "movie"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "description": "Release / first-air year.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1800,
+              "maximum": 3000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaTmdbSearchResponse"
+                },
+                "example": {
+                  "results": [
+                    {
+                      "tmdb_id": 10331,
+                      "type": "movie",
+                      "title": "Night of the Living Dead",
+                      "original_title": "Night of the Living Dead",
+                      "year": 1968,
+                      "overview": "…",
+                      "poster_url": "https://image.tmdb.org/t/p/w342/…jpg"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "description": "TMDB request failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "tmdb_failed",
+                    "message": "tmdb: request failed"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/identify": {
+      "post": {
+        "operationId": "identifyMedia",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Apply TMDB metadata",
+        "description": "Fetches details for `tmdb_id` and fills title, sort title, year, description, genres, US content rating, IMDb/TMDB IDs, poster and backdrop (downloaded, at most 10 MiB each, re-encoded), and sets the category (`movie/feature` or `tv/episode`). For `tv`, the episode title and overview are fetched when the item has a season and episode. Needs write access; 502 `tmdb_failed` on upstream errors, 404 when TMDB does not know the id.\n\n**Scope:** `media:write`",
+        "x-scope": "media:write",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaIdentifyRequest"
+              },
+              "example": {
+                "tmdb_id": 10331,
+                "type": "movie"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated item.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "description": "TMDB request failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "tmdb_failed",
+                    "message": "tmdb: request failed"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/media/{file_id}/backdrop": {
+      "get": {
+        "operationId": "getMediaBackdrop",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Backdrop image",
+        "description": "JPEG backdrop downloaded by TMDB identify (`sm` 480 px, `md` 960 px, `lg` 1920 px wide). 404 when there is none.\n\n**Scope:** `media:read` · also accepts `?access_token=`",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Size class.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sm",
+                "md",
+                "lg"
+              ],
+              "default": "lg"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-scope": "media:read"
+      },
+      "delete": {
+        "operationId": "deleteMediaBackdrop",
+        "tags": [
+          "Media"
+        ],
+        "summary": "Remove the backdrop",
+        "description": "Idempotent.\n\n**Scope:** `media:write`",
+        "parameters": [
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of the media item.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-scope": "media:write"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "MediaSubtitle": {
+        "type": "object",
+        "required": [
+          "index",
+          "language",
+          "label",
+          "format"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "description": "Index used in the subtitle URL.",
+            "minimum": 0
+          },
+          "language": {
+            "type": "string",
+            "description": "BCP-47/ISO 639 language or `\"\"`."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable label."
+          },
+          "format": {
+            "type": "string",
+            "description": "Source format.",
+            "enum": [
+              "srt",
+              "vtt",
+              "ass",
+              "embedded"
+            ]
+          }
+        }
+      },
+      "MediaInfo": {
+        "type": "object",
+        "description": "Media metadata attached to a file.",
+        "required": [
+          "title",
+          "sort_title",
+          "year",
+          "description",
+          "genres",
+          "content_rating",
+          "show_title",
+          "season",
+          "episode",
+          "episode_title",
+          "duration_seconds",
+          "width",
+          "height",
+          "video_codec",
+          "audio_codec",
+          "container",
+          "browser_playable",
+          "poster_url",
+          "backdrop_url",
+          "tmdb_id",
+          "imdb_id",
+          "added_at",
+          "watched",
+          "position_seconds",
+          "subtitles"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Display title.",
+            "maxLength": 500
+          },
+          "sort_title": {
+            "type": "string",
+            "description": "Title used for sorting (e.g. without leading \"The\").",
+            "maxLength": 500
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Release year.",
+            "minimum": 1800,
+            "maximum": 3000
+          },
+          "description": {
+            "type": "string",
+            "description": "Plot / description.",
+            "maxLength": 20000
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Genres.",
+            "maxItems": 50
+          },
+          "content_rating": {
+            "type": "string",
+            "description": "e.g. `PG-13`, `TV-MA`.",
+            "maxLength": 32
+          },
+          "show_title": {
+            "type": "string",
+            "description": "Series name for TV episodes.",
+            "maxLength": 500
+          },
+          "season": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Season number (0 = specials).",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "episode": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Episode number within the season.",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "episode_title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "tmdb_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The Movie Database ID.",
+            "minimum": 1
+          },
+          "imdb_id": {
+            "type": "string",
+            "description": "IMDb ID (e.g. `tt0063350`) or `\"\"`.",
+            "maxLength": 16
+          },
+          "watched": {
+            "type": "boolean",
+            "description": "Watched flag of the **caller** (per user)."
+          },
+          "duration_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Duration (probed)."
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Video width (probed)."
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Video height (probed)."
+          },
+          "video_codec": {
+            "type": "string",
+            "description": "Probed video codec, e.g. `h264`, `hevc`, `vp9`, `av1`."
+          },
+          "audio_codec": {
+            "type": "string",
+            "description": "Probed audio codec, e.g. `aac`, `ac3`, `opus`."
+          },
+          "container": {
+            "type": "string",
+            "description": "Container, e.g. `mp4`, `matroska`, `webm`, `avi`."
+          },
+          "browser_playable": {
+            "type": "boolean",
+            "description": "MP4/M4V/MOV with H.264/AV1/VP9 + AAC/MP3/Opus, or WebM VP8/VP9/AV1 + Vorbis/Opus. Otherwise use the transcode URL."
+          },
+          "poster_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Relative poster URL (custom poster, else the thumbnail when one can be produced) carrying a cache-busting version query (?v=…) that changes with the image; append &size=sm|md|lg."
+          },
+          "backdrop_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Relative backdrop URL (set by TMDB identify) with a version query (?v=…); append &size=sm|md|lg."
+          },
+          "added_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "position_seconds": {
+            "type": "number",
+            "description": "Resume position of the caller.",
+            "minimum": 0
+          },
+          "subtitles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaSubtitle"
+            },
+            "description": "Text subtitle tracks: sidecar files next to the video (same base name) first, then embedded text tracks (`format` `embedded`, need ffmpeg). Image-based tracks (PGS, VobSub) are not listed."
+          },
+          "show_key": {
+            "type": "string",
+            "description": "Stable key of `show_title` (`[a-z0-9-]`, `\"\"` when not an episode); use with `/api/v1/media/shows/{show_key}`."
+          },
+          "last_watched_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the caller last saved progress for this item (null = never)."
+          },
+          "probe_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ok",
+              "failed"
+            ],
+            "description": "State of technical probing (duration, codecs, subtitles)."
+          }
+        },
+        "examples": [
+          {
+            "title": "Night of the Living Dead",
+            "sort_title": "night of the living dead",
+            "year": 1968,
+            "description": "A group of people hide from bloodthirsty zombies in a farmhouse.",
+            "genres": [
+              "Horror"
+            ],
+            "content_rating": "NR",
+            "show_title": "",
+            "season": null,
+            "episode": null,
+            "episode_title": "",
+            "duration_seconds": 5760.4,
+            "width": 1440,
+            "height": 1080,
+            "video_codec": "h264",
+            "audio_codec": "aac",
+            "container": "mp4",
+            "browser_playable": true,
+            "poster_url": "/api/v1/media/o336gvfc4vph3sqcpfhdwyr2r5/poster?v=3f9a1c07d2",
+            "backdrop_url": null,
+            "tmdb_id": 10331,
+            "imdb_id": "tt0063350",
+            "added_at": "2026-10-26T12:00:00.123Z",
+            "watched": false,
+            "position_seconds": 1234.5,
+            "subtitles": [
+              {
+                "index": 0,
+                "language": "en",
+                "label": "English",
+                "format": "srt"
+              }
+            ]
+          }
+        ]
+      },
+      "MediaItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Entry"
+          },
+          {
+            "type": "object",
+            "required": [
+              "media"
+            ],
+            "properties": {
+              "media": {
+                "$ref": "#/components/schemas/MediaInfo"
+              }
+            }
+          }
+        ],
+        "description": "A file entry with its media metadata."
+      },
+      "MediaPage": {
+        "type": "object",
+        "description": "A page of media items.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaItem"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "MediaFacetValue": {
+        "type": "object",
+        "required": [
+          "value",
+          "count"
+        ],
+        "properties": {
+          "value": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "MediaFacets": {
+        "type": "object",
+        "description": "Filter values with counts for building library filters.",
+        "required": [
+          "genres",
+          "years",
+          "shows",
+          "subcategories",
+          "tags"
+        ],
+        "properties": {
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            }
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            }
+          },
+          "shows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            },
+            "description": "Show titles (use `show=` with the title or its key)."
+          },
+          "subcategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            },
+            "description": "File categories; `none` = uncategorized videos."
+          },
+          "spaces": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaFacetValue"
+            },
+            "description": "Space ids with item counts."
+          }
+        }
+      },
+      "MediaShowSummary": {
+        "type": "object",
+        "required": [
+          "show_key",
+          "show_title",
+          "seasons",
+          "episodes",
+          "poster_url",
+          "year"
+        ],
+        "properties": {
+          "show_key": {
+            "type": "string",
+            "description": "Stable key of the show (use in `/api/v1/media/shows/{show_key}`)."
+          },
+          "show_title": {
+            "type": "string"
+          },
+          "seasons": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "episodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "poster_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Poster of the first episode with a custom poster, else the first episode's thumbnail."
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "watched": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Episodes the caller has watched."
+          },
+          "added_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "MediaShowPage": {
+        "type": "object",
+        "description": "A page of TV shows.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaShowSummary"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "MediaShowSeason": {
+        "type": "object",
+        "required": [
+          "season",
+          "episodes"
+        ],
+        "properties": {
+          "season": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Season number; episodes without a season are grouped under 0."
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaItem"
+            },
+            "description": "Ordered by episode number, then title."
+          }
+        }
+      },
+      "MediaShow": {
+        "type": "object",
+        "required": [
+          "show_title",
+          "poster_url",
+          "description",
+          "seasons"
+        ],
+        "properties": {
+          "show_key": {
+            "type": "string"
+          },
+          "show_title": {
+            "type": "string"
+          },
+          "poster_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "backdrop_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Backdrop of the first episode that has one."
+          },
+          "description": {
+            "type": "string",
+            "description": "Series overview (from `tvshow.nfo` or TMDB)."
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Earliest year of the episodes."
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "episodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "watched": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Episodes the caller has watched."
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaShowSeason"
+            }
+          }
+        }
+      },
+      "MediaUpdate": {
+        "type": "object",
+        "description": "Editable media fields. Computed fields (duration, codecs, URLs, …) and unknown fields are ignored. `null` clears nullable fields; an empty `sort_title` is derived from `title`.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Display title.",
+            "maxLength": 500
+          },
+          "sort_title": {
+            "type": "string",
+            "description": "Title used for sorting (e.g. without leading \"The\").",
+            "maxLength": 500
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Release year.",
+            "minimum": 1800,
+            "maximum": 3000
+          },
+          "description": {
+            "type": "string",
+            "description": "Plot / description.",
+            "maxLength": 20000
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Genres.",
+            "maxItems": 50
+          },
+          "content_rating": {
+            "type": "string",
+            "description": "e.g. `PG-13`, `TV-MA`.",
+            "maxLength": 32
+          },
+          "show_title": {
+            "type": "string",
+            "description": "Series name for TV episodes.",
+            "maxLength": 500
+          },
+          "season": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Season number (0 = specials).",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "episode": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Episode number within the season.",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "episode_title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "tmdb_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The Movie Database ID.",
+            "minimum": 1
+          },
+          "imdb_id": {
+            "type": "string",
+            "description": "IMDb ID (e.g. `tt0063350`) or `\"\"`.",
+            "maxLength": 16
+          },
+          "watched": {
+            "type": "boolean",
+            "description": "Watched flag of the **caller** (per user; marking watched resets the resume position). Needs only read access to the space."
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "File category (validated against the taxonomy)."
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "MediaBulkSet": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Display title.",
+            "maxLength": 500
+          },
+          "sort_title": {
+            "type": "string",
+            "description": "Title used for sorting (e.g. without leading \"The\").",
+            "maxLength": 500
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Release year.",
+            "minimum": 1800,
+            "maximum": 3000
+          },
+          "description": {
+            "type": "string",
+            "description": "Plot / description.",
+            "maxLength": 20000
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "description": "Genres.",
+            "maxItems": 50
+          },
+          "content_rating": {
+            "type": "string",
+            "description": "e.g. `PG-13`, `TV-MA`.",
+            "maxLength": 32
+          },
+          "show_title": {
+            "type": "string",
+            "description": "Series name for TV episodes.",
+            "maxLength": 500
+          },
+          "season": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Season number (0 = specials).",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "episode": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Episode number within the season.",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "episode_title": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "tmdb_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The Movie Database ID.",
+            "minimum": 1
+          },
+          "imdb_id": {
+            "type": "string",
+            "description": "IMDb ID (e.g. `tt0063350`) or `\"\"`.",
+            "maxLength": 16
+          },
+          "watched": {
+            "type": "boolean",
+            "description": "Watched flag of the **caller** (per user)."
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "subcategory": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "MediaBulkRequest": {
+        "type": "object",
+        "required": [
+          "file_ids",
+          "set"
+        ],
+        "properties": {
+          "file_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "minItems": 1,
+            "maxItems": 1000,
+            "uniqueItems": true
+          },
+          "set": {
+            "$ref": "#/components/schemas/MediaBulkSet"
+          }
+        }
+      },
+      "MediaAutoTagRequest": {
+        "type": "object",
+        "required": [
+          "space_id",
+          "path"
+        ],
+        "properties": {
+          "space_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory to scan (`\"\"` = space root).",
+            "maxLength": 4096
+          },
+          "recursive": {
+            "type": "boolean",
+            "default": true
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "Replace metadata that was set manually, by TMDB or by an earlier auto-tag. Without it only empty fields are filled (guesses made from the file name at upload are always replaced).",
+            "default": false
+          }
+        }
+      },
+      "MediaAutoTagResult": {
+        "type": "object",
+        "required": [
+          "updated",
+          "skipped"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "MediaProgressUpdate": {
+        "type": "object",
+        "required": [
+          "position_seconds"
+        ],
+        "properties": {
+          "position_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Resume position in seconds (clamped to the duration)."
+          },
+          "completed": {
+            "type": "boolean",
+            "description": "`true` marks watched and resets the position; `false` clears the watched flag. Omitted: the item becomes watched once the position reaches 90% of the duration (and stays watched)."
+          }
+        }
+      },
+      "MediaTmdbResult": {
+        "type": "object",
+        "required": [
+          "tmdb_id",
+          "type",
+          "title",
+          "year",
+          "overview"
+        ],
+        "properties": {
+          "tmdb_id": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "movie",
+              "tv"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "original_title": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "overview": {
+            "type": "string"
+          },
+          "poster_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Absolute TMDB image URL (informational; the web UI does not load third-party images)."
+          }
+        }
+      },
+      "MediaTmdbSearchResponse": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaTmdbResult"
+            }
+          }
+        }
+      },
+      "MediaIdentifyRequest": {
+        "type": "object",
+        "required": [
+          "tmdb_id",
+          "type"
+        ],
+        "properties": {
+          "tmdb_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "movie",
+              "tv"
+            ]
+          },
+          "apply_to_show": {
+            "type": "boolean",
+            "default": false,
+            "description": "For `type` `tv`: also apply the series (title, overview, genres, rating, poster, backdrop) to the other episodes of the same show in the same space."
+          }
+        }
+      },
+      "MediaBulkResult": {
+        "type": "object",
+        "required": [
+          "updated",
+          "errors"
+        ],
+        "properties": {
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaItemError"
+            },
+            "description": "Items that were not found, not media items or not writable."
+          }
+        }
+      },
+      "MediaItemError": {
+        "type": "object",
+        "required": [
+          "id",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "error": {
+            "type": "string",
+            "description": "Human-readable reason."
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code, e.g. not_found or forbidden."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+5.34.0
+source: https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.34.0.tgz
+npm dist.integrity (verified before extraction): sha512-H6tAIjr3XqE31PbkZl0OFya1ziRLDfTwh3J6OHdumPtPCLfjTnyLeagl/55kFNZcTOz9a9QI9WP0FXldwiGJag==
+files: swagger-ui-bundle.js swagger-ui.css LICENSE NOTICE swagger-ui-bundle.js.LICENSE.txt (unmodified; see SHA256SUMS)

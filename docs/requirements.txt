@@ -1,0 +1,3 @@
+# Docs build dependencies. Only MkDocs itself is pinned: the site uses the built-in "readthedocs" theme and
+# Python-Markdown built-in extensions, so no themes or plugins are pulled in.
+mkdocs==1.6.1

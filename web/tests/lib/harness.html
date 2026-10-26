@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Same policy the server sends (minus frame-ancestors, which meta tags cannot set). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>Markdown libs harness</title>
+  <link rel="stylesheet" href="../../assets/css/app.css">
+  <link rel="stylesheet" href="../../assets/css/lib/markdown.css">
+  <link rel="stylesheet" href="../../assets/css/lib/highlight.css">
+  <link rel="stylesheet" href="../../assets/css/lib/editor.css">
+  <link rel="stylesheet" href="harness.css">
+  <script type="module" src="harness.js"></script>
+</head>
+<body>
+  <header class="hx-bar">
+    <strong>Markdown libs harness</strong>
+    <button type="button" id="theme">Toggle theme</button>
+    <span id="csp" class="hx-ok">CSP: no violations</span>
+  </header>
+  <main class="hx-grid">
+    <section class="hx-panel">
+      <h2>Rich editor</h2>
+      <div id="rich" class="hx-editor"></div>
+      <h3>getMarkdown()</h3>
+      <pre id="rich-md" class="hx-out"></pre>
+    </section>
+    <section class="hx-panel">
+      <h2>Markdown source editor</h2>
+      <div id="source" class="hx-editor"></div>
+    </section>
+    <section class="hx-panel">
+      <h2>renderToDOM</h2>
+      <div id="view" class="md hx-view"></div>
+    </section>
+  </main>
+</body>
+</html>

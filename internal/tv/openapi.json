@@ -1,0 +1,3658 @@
+{
+  "tags": [
+    {
+      "name": "TV",
+      "description": "Retro \"virtual TV\": lineups (ordered program sources), channels that play a lineup on a deterministic schedule (optionally shuffled), now-playing and the program guide."
+    },
+    {
+      "name": "TV Feeds",
+      "description": "Integrations for external players and media servers: M3U playlist, XMLTV guide, MPEG-TS live streams and HDHomeRun tuner emulation (Plex, Jellyfin, VLC, Kodi)."
+    }
+  ],
+  "paths": {
+    "/api/v1/tv/lineups": {
+      "get": {
+        "operationId": "listLineups",
+        "tags": [
+          "TV"
+        ],
+        "summary": "List lineups",
+        "description": "Own lineups plus the lineups of channels shared by other users, sorted by name.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of lineups.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineupPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createLineup",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Create a lineup",
+        "description": "A lineup is an ordered list of program sources (files, shows, seasons, folders, library queries). Channels play lineups.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvLineupCreate"
+              },
+              "example": {
+                "name": "Saturday Night Horror",
+                "description": "Classic horror, back to back.",
+                "items": [
+                  {
+                    "kind": "show",
+                    "show_title": "The Twilight Zone",
+                    "order": "random",
+                    "limit": 4
+                  },
+                  {
+                    "kind": "query",
+                    "query": {
+                      "category": "movie",
+                      "genre": "Horror"
+                    },
+                    "order": "random"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lineup created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                },
+                "example": {
+                  "id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                  "name": "Saturday Night Horror",
+                  "description": "Classic horror, back to back.",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "items": [
+                    {
+                      "id": "mjymapci7lwpd6rl6hrq375h76",
+                      "kind": "show",
+                      "show_title": "The Twilight Zone",
+                      "order": "random",
+                      "limit": 4,
+                      "label": "Twilight Zone ×4"
+                    },
+                    {
+                      "id": "p33w3k677japlpiladjbozq47p",
+                      "kind": "query",
+                      "query": {
+                        "category": "movie",
+                        "subcategory": "",
+                        "genre": "Horror",
+                        "tag": "",
+                        "year": null
+                      },
+                      "order": "random"
+                    }
+                  ],
+                  "item_count": 168,
+                  "total_duration_seconds": 287940.5,
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/lineups/{id}": {
+      "get": {
+        "operationId": "getLineup",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Get a lineup",
+        "description": "**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                },
+                "example": {
+                  "id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                  "name": "Saturday Night Horror",
+                  "description": "Classic horror, back to back.",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "items": [
+                    {
+                      "id": "mjymapci7lwpd6rl6hrq375h76",
+                      "kind": "show",
+                      "show_title": "The Twilight Zone",
+                      "order": "random",
+                      "limit": 4,
+                      "label": "Twilight Zone ×4"
+                    },
+                    {
+                      "id": "p33w3k677japlpiladjbozq47p",
+                      "kind": "query",
+                      "query": {
+                        "category": "movie",
+                        "subcategory": "",
+                        "genre": "Horror",
+                        "tag": "",
+                        "year": null
+                      },
+                      "order": "random"
+                    }
+                  ],
+                  "item_count": 168,
+                  "total_duration_seconds": 287940.5,
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateLineup",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Rename / describe a lineup",
+        "description": "**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvLineupUpdate"
+              },
+              "example": {
+                "name": "Friday Fright Night"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteLineup",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Delete a lineup",
+        "description": "409 `conflict` (with `details.channels`: the channel ids) while channels use the lineup, unless `force=1`, which deletes those channels too.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "description": "`1` also deletes channels that use the lineup.",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Used by a channel; pass `force=1`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/lineups/{id}/items": {
+      "put": {
+        "operationId": "replaceLineupItems",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Replace all items",
+        "description": "Replaces the ordered item list (at most 5000). Items that echo an existing `id` keep it. Only the owner may change a lineup (403 for a shared one).\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvLineupItemsReplace"
+              },
+              "example": {
+                "items": [
+                  {
+                    "kind": "season",
+                    "show_title": "The Twilight Zone",
+                    "season": 1
+                  },
+                  {
+                    "kind": "file",
+                    "file_id": "o336gvfc4vph3sqcpfhdwyr2r5"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "insertLineupItems",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Insert or append items",
+        "description": "Inserts items at `position` (default: append). A lineup holds at most 5000 items. Only the owner may change a lineup (403 for a shared one).\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvLineupItemsInsert"
+              },
+              "example": {
+                "items": [
+                  {
+                    "kind": "folder",
+                    "space_id": "xre6wf2g4rngtfuewxpxnfm2ro",
+                    "path": "Cartoons",
+                    "recursive": true,
+                    "order": "random"
+                  }
+                ],
+                "position": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/lineups/{id}/items/{item_id}": {
+      "delete": {
+        "operationId": "deleteLineupItem",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Remove one item",
+        "description": "**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup item ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineup"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/lineups/{id}/expanded": {
+      "get": {
+        "operationId": "expandLineup",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Preview the expanded lineup",
+        "description": "Expansion of API.md §7.1 step 1 with the lineup owner's permissions. Skipped files are reported with a reason. Cached in memory; invalidated on lineup changes, file events and after 2 minutes.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Lineup ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expanded lineup.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvLineupExpanded"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "file_id": "jcww3klp6yhuldzde3mpqdf64l",
+                      "title": "Walking Distance",
+                      "duration_seconds": 1512,
+                      "source_item_id": "mjymapci7lwpd6rl6hrq375h76"
+                    }
+                  ],
+                  "total_duration_seconds": 1512,
+                  "skipped": [
+                    {
+                      "file_id": "qg4lqae46v3t3fgfjs3svwmi5m",
+                      "reason": "unknown_duration"
+                    }
+                  ],
+                  "skipped_count": 1,
+                  "truncated": false
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels": {
+      "get": {
+        "operationId": "listChannels",
+        "tags": [
+          "TV"
+        ],
+        "summary": "List channels",
+        "description": "The caller's channels plus shared channels, sorted by number.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "responses": {
+          "200": {
+            "description": "Channels.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TvChannel"
+                  }
+                },
+                "example": [
+                  {
+                    "id": "ilumq7au7armmx4rt5hnbhnfbr",
+                    "number": 13,
+                    "name": "Fright TV",
+                    "description": "Horror all night.",
+                    "group": "Movies",
+                    "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+                    "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                    "lineup_name": "Saturday Night Horror",
+                    "shuffle": true,
+                    "shuffle_mode": "per_cycle",
+                    "playback_mode": "live",
+                    "anchor_at": "2026-10-26T12:00:00.123Z",
+                    "visibility": "shared",
+                    "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "updated_at": "2026-10-26T12:30:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Create a channel",
+        "description": "`lineup_id` must be one of the caller's own lineups (404 otherwise). The number is auto-assigned (highest + 1) when omitted; 409 when taken. `shuffle_seed` is generated server-side and never exposed.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvChannelCreate"
+              },
+              "example": {
+                "name": "Fright TV",
+                "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                "shuffle": true,
+                "shuffle_mode": "per_cycle",
+                "playback_mode": "live",
+                "visibility": "shared",
+                "group": "Movies"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Channel created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                },
+                "example": {
+                  "id": "ilumq7au7armmx4rt5hnbhnfbr",
+                  "number": 13,
+                  "name": "Fright TV",
+                  "description": "Horror all night.",
+                  "group": "Movies",
+                  "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+                  "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                  "lineup_name": "Saturday Night Horror",
+                  "shuffle": true,
+                  "shuffle_mode": "per_cycle",
+                  "playback_mode": "live",
+                  "anchor_at": "2026-10-26T12:00:00.123Z",
+                  "visibility": "shared",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Channel number already taken."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}": {
+      "get": {
+        "operationId": "getChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Get a channel",
+        "description": "**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The channel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                },
+                "example": {
+                  "id": "ilumq7au7armmx4rt5hnbhnfbr",
+                  "number": 13,
+                  "name": "Fright TV",
+                  "description": "Horror all night.",
+                  "group": "Movies",
+                  "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+                  "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                  "lineup_name": "Saturday Night Horror",
+                  "shuffle": true,
+                  "shuffle_mode": "per_cycle",
+                  "playback_mode": "live",
+                  "anchor_at": "2026-10-26T12:00:00.123Z",
+                  "visibility": "shared",
+                  "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                  "created_at": "2026-10-26T12:00:00.123Z",
+                  "updated_at": "2026-10-26T12:30:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Edit a channel",
+        "description": "Owner only (403 for someone else's shared channel). 409 when the new number is taken; 422 when `lineup_id` is not one of the caller's lineups.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvChannelUpdate"
+              },
+              "example": {
+                "shuffle": true,
+                "shuffle_mode": "fixed"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated channel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Channel number already taken."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Delete a channel",
+        "description": "Deletes the channel (not its lineup).\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/logo": {
+      "put": {
+        "operationId": "setChannelLogo",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Upload a channel logo",
+        "description": "Raw JPEG, PNG or GIF body (≤ 20 MiB, ≤ 50 megapixels; format detected from the content, not the Content-Type). The image is decoded and re-encoded server-side as a JPEG of at most 512 px; anything else (WebP, SVG, …) is 415.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Logo image.",
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/gif": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated channel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChannelLogo",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Remove the channel logo",
+        "description": "**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "getChannelLogo",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Channel logo",
+        "description": "**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logo.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/reshuffle": {
+      "post": {
+        "operationId": "reshuffleChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Reshuffle the slate",
+        "description": "Picks a new random shuffle seed so the channel feels fresh. Viewers jump to whatever the new order puts on air now.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated channel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/restart": {
+      "post": {
+        "operationId": "restartChannel",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Restart from the top",
+        "description": "Sets `anchor_at` to now: the lineup starts again from its first program.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated channel.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvChannel"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/now": {
+      "get": {
+        "operationId": "getChannelNow",
+        "tags": [
+          "TV"
+        ],
+        "summary": "What is on now",
+        "description": "Live channels: the deterministic broadcast position (same for every viewer). On-demand channels: the caller's saved position (`PUT …/position`); it does not advance while nobody watches.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Now playing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvNowPlaying"
+                },
+                "example": {
+                  "channel": {
+                    "id": "ilumq7au7armmx4rt5hnbhnfbr",
+                    "number": 13,
+                    "name": "Fright TV",
+                    "description": "Horror all night.",
+                    "group": "Movies",
+                    "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+                    "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                    "lineup_name": "Saturday Night Horror",
+                    "shuffle": true,
+                    "shuffle_mode": "per_cycle",
+                    "playback_mode": "live",
+                    "anchor_at": "2026-10-26T12:00:00.123Z",
+                    "visibility": "shared",
+                    "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                    "created_at": "2026-10-26T12:00:00.123Z",
+                    "updated_at": "2026-10-26T12:30:00.000Z"
+                  },
+                  "program": {
+                    "file_id": "jcww3klp6yhuldzde3mpqdf64l",
+                    "title": "Walking Distance",
+                    "show_title": "The Twilight Zone",
+                    "season": 1,
+                    "episode": 5,
+                    "episode_title": "Walking Distance",
+                    "starts_at": "2026-10-26T20:00:00.000Z",
+                    "ends_at": "2026-10-26T20:25:12.000Z",
+                    "duration_seconds": 1512,
+                    "poster_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/poster",
+                    "stream_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/stream",
+                    "transcode_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/transcode",
+                    "browser_playable": true,
+                    "subtitles": []
+                  },
+                  "offset_seconds": 312.4,
+                  "server_time": "2026-10-26T20:05:12.400Z",
+                  "next": [],
+                  "index": 17
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/programs/{file_id}/stream": {
+      "get": {
+        "operationId": "streamChannelProgram",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Stream a program",
+        "description": "Range-capable byte stream of a program (`Program.stream_url` always uses this form). Authorised by the **channel** (the caller owns it or it is `shared`) and by the file being part of the channel's expanded lineup — viewers of a shared channel need no read access to the owner's files. Any other file ID answers 404.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of a program in the channel's expanded lineup.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfRange"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media bytes (`Content-Disposition: inline`).",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content for a satisfiable `Range` request.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Last-Modified": {
+                "$ref": "#/components/headers/LastModified"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              },
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              },
+              "Content-Range": {
+                "$ref": "#/components/headers/ContentRange"
+              }
+            },
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/webm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "video/x-matroska": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/mpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "416": {
+            "$ref": "#/components/responses/RangeNotSatisfiable"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/programs/{file_id}/transcode": {
+      "get": {
+        "operationId": "transcodeChannelProgram",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Transcode a program (fMP4)",
+        "description": "ffmpeg H.264/AAC fragmented-MP4 variant of the program stream (`Program.transcode_url`); not seekable — request again with a new `start`. 501 `ffmpeg_unavailable` without ffmpeg. Shares the media transcode limits, charged to the **caller** (not the channel owner): two transcodes server-wide and one per user, waiting up to 5 s for a slot before 429; a client that stops reading for 60 s is dropped. Authorised by the **channel** (the caller owns it or it is `shared`) and by the file being part of the channel's expanded lineup — viewers of a shared channel need no read access to the owner's files. Any other file ID answers 404.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of a program in the channel's expanded lineup.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Start position in seconds (use `offset_seconds` from `/now`).",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Target height (never upscaled).",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                360,
+                480,
+                720,
+                1080
+              ],
+              "default": 720
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fragmented MP4 stream (chunked).",
+            "content": {
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/programs/{file_id}/poster": {
+      "get": {
+        "operationId": "getChannelProgramPoster",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Program poster",
+        "description": "Poster (custom, else the generated thumbnail) of a program of the channel, served with the channel owner's permissions. `size` other than sm/md/lg is 422.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of a program in the channel's expanded lineup.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Size class (`sm` 160 px, `md` 320 px, `lg` 640 px longest edge).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sm",
+                "md",
+                "lg"
+              ],
+              "default": "md"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/programs/{file_id}/subtitles/{index}.vtt": {
+      "get": {
+        "operationId": "getChannelProgramSubtitle",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Program subtitles (WebVTT)",
+        "description": "Subtitle track `index` of a program as WebVTT (sidecar files converted; embedded tracks need ffmpeg, else 501). Authorised by the **channel** (the caller owns it or it is `shared`) and by the file being part of the channel's expanded lineup — viewers of a shared channel need no read access to the owner's files. Any other file ID answers 404.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "file_id",
+            "in": "path",
+            "required": true,
+            "description": "File ID of a program in the channel's expanded lineup.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "index",
+            "in": "path",
+            "required": true,
+            "description": "`index` from the media item's `subtitles`.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WebVTT.",
+            "content": {
+              "text/vtt": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/position": {
+      "put": {
+        "operationId": "setChannelPosition",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Save on-demand position",
+        "description": "Only for `playback_mode: on_demand` channels: stores where the caller is (program index in the cycle and offset). Per-user state, so read scope suffices.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvPositionUpdate"
+              },
+              "example": {
+                "index": 17,
+                "offset_seconds": 312.4
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Saved."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The channel is `live`."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/guide": {
+      "get": {
+        "operationId": "getGuide",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Program guide (EPG)",
+        "description": "Programs overlapping the window per channel (the first may have started before `start`). On-demand channels show the caller's own continuation from their saved position (programs back to back from now on). At most 20 000 programs per response.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Guide start (RFC 3339, within a year of now; default: now rounded down to 30 minutes).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "description": "Window length in hours (1–72, fractions allowed).",
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 72,
+              "default": 6
+            }
+          },
+          {
+            "name": "channel_ids",
+            "in": "query",
+            "description": "Comma-separated channel IDs (default: all visible channels; at most 200 channels per response).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Guide.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvGuide"
+                },
+                "example": {
+                  "start": "2026-10-26T20:00:00.000Z",
+                  "end": "2026-10-27T02:00:00.000Z",
+                  "channels": [
+                    {
+                      "channel": {
+                        "id": "ilumq7au7armmx4rt5hnbhnfbr",
+                        "number": 13,
+                        "name": "Fright TV",
+                        "description": "Horror all night.",
+                        "group": "Movies",
+                        "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+                        "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+                        "lineup_name": "Saturday Night Horror",
+                        "shuffle": true,
+                        "shuffle_mode": "per_cycle",
+                        "playback_mode": "live",
+                        "anchor_at": "2026-10-26T12:00:00.123Z",
+                        "visibility": "shared",
+                        "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+                        "created_at": "2026-10-26T12:00:00.123Z",
+                        "updated_at": "2026-10-26T12:30:00.000Z"
+                      },
+                      "programs": [
+                        {
+                          "file_id": "jcww3klp6yhuldzde3mpqdf64l",
+                          "title": "Walking Distance",
+                          "show_title": "The Twilight Zone",
+                          "season": 1,
+                          "episode": 5,
+                          "episode_title": "Walking Distance",
+                          "starts_at": "2026-10-26T20:00:00.000Z",
+                          "ends_at": "2026-10-26T20:25:12.000Z",
+                          "duration_seconds": 1512,
+                          "poster_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/poster",
+                          "stream_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/stream",
+                          "transcode_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/transcode",
+                          "browser_playable": true,
+                          "subtitles": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/auto-generate": {
+      "post": {
+        "operationId": "autoGenerateChannels",
+        "tags": [
+          "TV"
+        ],
+        "summary": "Auto-generate channels",
+        "description": "Builds lineups and channels from the library in one go (one channel per show, per genre, all movies, or all TV). Numbers are auto-assigned.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TvAutoGenerateRequest"
+              },
+              "example": {
+                "strategy": "per_show",
+                "shuffle": true,
+                "min_items": 6
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created channels.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvAutoGenerateResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/feeds": {
+      "get": {
+        "operationId": "getTvFeeds",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "Feed URLs for external players",
+        "description": "Creates the feed token on first call. The caller's credential must hold `tv:read` (403 otherwise), so a narrower token cannot reveal a broader one. Feed tokens minted before this change carried `media:read` too; they are narrowed to `tv:read` in place on upgrade (URLs keep working), and one found with any other scopes is replaced.\n\n**Scope:** `tv:read`",
+        "x-scope": "tv:read",
+        "responses": {
+          "200": {
+            "description": "Feed URLs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvFeeds"
+                },
+                "example": {
+                  "m3u_url": "https://nas.example.com:8443/api/v1/tv/channels.m3u?access_token=lwp_…",
+                  "xmltv_url": "https://nas.example.com:8443/api/v1/tv/xmltv.xml?access_token=lwp_…",
+                  "hdhr_url": null
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/feeds/rotate": {
+      "post": {
+        "operationId": "rotateTvFeedToken",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "Rotate the feed token",
+        "description": "Revokes the current feed token and mints a new one (every old feed URL stops working). The caller's credential must also hold `tv:read`.\n\n**Scope:** `tv:write`",
+        "x-scope": "tv:write",
+        "responses": {
+          "200": {
+            "description": "New feed URLs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvFeeds"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels.m3u": {
+      "get": {
+        "operationId": "getChannelsM3u",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "M3U playlist",
+        "description": "M3U playlist of the caller's visible channels with `tvg-id` (channel id), `tvg-chno`, `tvg-name`, `tvg-logo` and `group-title`. Stream URLs point to `live.ts` when ffmpeg is available, else to `/play`. URLs embed the request's own `access_token` (or, for cookie/bearer requests, the user's feed token).\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Playlist.",
+            "content": {
+              "audio/x-mpegurl": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "#EXTM3U\n#EXTINF:-1 tvg-id=\"13\" tvg-name=\"Fright TV\" group-title=\"Movies\",Fright TV\nhttps://nas.example.com:8443/api/v1/tv/channels/…/live.ts?access_token=lwp_…\n"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/xmltv.xml": {
+      "get": {
+        "operationId": "getXmltv",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "XMLTV guide",
+        "description": "XMLTV guide for `tv.guide_days` days from the current hour (live schedules; at most 10 000 programmes per channel). Channel ids match the M3U `tvg-id`.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "XMLTV document.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/live.ts": {
+      "get": {
+        "operationId": "getChannelLiveTs",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "Continuous MPEG-TS stream",
+        "description": "Plays the channel like a broadcast: the current program from the live offset, then the following ones, each transcoded by ffmpeg (720p H.264/AAC) into one continuous MPEG-TS stream with increasing timestamps. On-demand channels use their live schedule here. `501 ffmpeg_unavailable` without ffmpeg; 429 when all tuners are busy (per user: `tv.hdhr_tuner_count`; 16 server-wide). Stops when the client disconnects or stops reading for 30 s.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MPEG-TS stream (chunked, endless).",
+            "content": {
+              "video/mp2t": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/tv/channels/{id}/play": {
+      "get": {
+        "operationId": "playChannel",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "Redirect to the current program",
+        "description": "302 to the current program's channel-scoped stream URL with `#t=<offset>` (on-demand channels: the caller's position). When the request used `?access_token=`, the redirect carries it. 404 when nothing is on air.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "x-scope": "tv:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Channel ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect.",
+            "headers": {
+              "Location": {
+                "description": "Stream URL of the current program, e.g. `/api/v1/tv/channels/<id>/programs/<file_id>/stream?access_token=…#t=312.4`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/hdhr/{feed_token}/discover.json": {
+      "get": {
+        "operationId": "hdhrDiscover",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "HDHomeRun discover.json",
+        "description": "HDHomeRun tuner emulation for Plex / Jellyfin / Emby. 404 unless `tv.hdhr_enabled` and the path holds the user's current feed token (any other token, revoked or unknown, is 404). The feed token in the path is the credential.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "parameters": [
+          {
+            "name": "feed_token",
+            "in": "path",
+            "required": true,
+            "description": "Feed token from `GET /api/v1/tv/feeds`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^lwp_[A-Za-z0-9_-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device description.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvHdhrDiscover"
+                },
+                "example": {
+                  "FriendlyName": "Ludworks TV",
+                  "Manufacturer": "Ludworks",
+                  "ModelNumber": "HDTC-2US",
+                  "FirmwareName": "hdhomeruntc_atsc",
+                  "FirmwareVersion": "20200101",
+                  "DeviceID": "1234ABCD",
+                  "DeviceAuth": "",
+                  "BaseURL": "https://nas.example.com:8443/api/v1/hdhr/lwp_…",
+                  "LineupURL": "https://nas.example.com:8443/api/v1/hdhr/lwp_…/lineup.json",
+                  "TunerCount": 2
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/hdhr/{feed_token}/lineup.json": {
+      "get": {
+        "operationId": "hdhrLineup",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "HDHomeRun lineup.json",
+        "description": "HDHomeRun tuner emulation for Plex / Jellyfin / Emby. 404 unless `tv.hdhr_enabled` and the path holds the user's current feed token (any other token, revoked or unknown, is 404). The feed token in the path is the credential.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "parameters": [
+          {
+            "name": "feed_token",
+            "in": "path",
+            "required": true,
+            "description": "Feed token from `GET /api/v1/tv/feeds`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^lwp_[A-Za-z0-9_-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Channel list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TvHdhrLineupEntry"
+                  }
+                },
+                "example": [
+                  {
+                    "GuideNumber": "13",
+                    "GuideName": "Fright TV",
+                    "URL": "https://nas.example.com:8443/api/v1/tv/channels/…/live.ts?access_token=lwp_…"
+                  }
+                ]
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/hdhr/{feed_token}/lineup_status.json": {
+      "get": {
+        "operationId": "hdhrLineupStatus",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "HDHomeRun lineup_status.json",
+        "description": "HDHomeRun tuner emulation for Plex / Jellyfin / Emby. 404 unless `tv.hdhr_enabled` and the path holds the user's current feed token (any other token, revoked or unknown, is 404). The feed token in the path is the credential.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "parameters": [
+          {
+            "name": "feed_token",
+            "in": "path",
+            "required": true,
+            "description": "Feed token from `GET /api/v1/tv/feeds`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^lwp_[A-Za-z0-9_-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TvHdhrLineupStatus"
+                },
+                "example": {
+                  "ScanInProgress": 0,
+                  "ScanPossible": 1,
+                  "Source": "Cable",
+                  "SourceList": [
+                    "Cable"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/hdhr/{feed_token}/device.xml": {
+      "get": {
+        "operationId": "hdhrDeviceXml",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "HDHomeRun UPnP device.xml",
+        "description": "HDHomeRun tuner emulation for Plex / Jellyfin / Emby. 404 unless `tv.hdhr_enabled` and the path holds the user's current feed token (any other token, revoked or unknown, is 404). The feed token in the path is the credential.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "parameters": [
+          {
+            "name": "feed_token",
+            "in": "path",
+            "required": true,
+            "description": "Feed token from `GET /api/v1/tv/feeds`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^lwp_[A-Za-z0-9_-]{8,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UPnP device description.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/hdhr/{feed_token}/lineup.post": {
+      "post": {
+        "operationId": "hdhrLineupPost",
+        "tags": [
+          "TV Feeds"
+        ],
+        "summary": "HDHomeRun channel scan (no-op)",
+        "description": "Plex and Jellyfin POST `lineup.post?scan=start` while adding the tuner. The lineup is always current, so this only acknowledges the request with an empty 200. Same 404 rules as the other HDHomeRun endpoints.\n\n**Scope:** `public`",
+        "x-scope": "public",
+        "security": [],
+        "parameters": [
+          {
+            "name": "feed_token",
+            "in": "path",
+            "required": true,
+            "description": "Feed token from `GET /api/v1/tv/feeds`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^lwp_[A-Za-z0-9_-]{8,128}$"
+            }
+          },
+          {
+            "name": "scan",
+            "in": "query",
+            "description": "Ignored (`start` / `abort`).",
+            "schema": {
+              "type": "string",
+              "maxLength": 16
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Acknowledged (empty body)."
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TvLineupQuery": {
+        "type": "object",
+        "description": "`kind=query`: library filter (same semantics as `GET /api/v1/media`). Empty strings are ignored.",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Category slug or comma-separated list (default `movie,tv`)."
+          },
+          "subcategory": {
+            "type": "string",
+            "description": "Subcategory slug or comma-separated list."
+          },
+          "genre": {
+            "type": "string",
+            "description": "Genre (case-insensitive exact match)."
+          },
+          "tag": {
+            "type": "string",
+            "description": "File tag (case-insensitive exact match)."
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1800,
+            "maximum": 3000
+          }
+        }
+      },
+      "TvLineupItem": {
+        "type": "object",
+        "description": "One program source of a lineup. Which fields apply depends on `kind`.",
+        "required": [
+          "id",
+          "kind",
+          "order"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Source type: `file` (one file), `show` (all episodes of a show), `season` (one season of a show), `folder` (media files under a folder), `query` (library query).",
+            "enum": [
+              "file",
+              "show",
+              "season",
+              "folder",
+              "query"
+            ]
+          },
+          "file_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "`kind=file`: the file."
+          },
+          "show_title": {
+            "type": "string",
+            "description": "`kind=show|season`: show title (case-insensitive).",
+            "maxLength": 500
+          },
+          "season": {
+            "type": "integer",
+            "description": "`kind=season`: season number.",
+            "minimum": 0
+          },
+          "space_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "`kind=folder`: space of the folder."
+          },
+          "path": {
+            "type": "string",
+            "description": "`kind=folder`: folder path in the space (`\"\"` = the space root; no `.`/`..` segments).",
+            "maxLength": 4096
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "`kind=folder`: include subfolders.",
+            "default": true
+          },
+          "query": {
+            "$ref": "#/components/schemas/TvLineupQuery"
+          },
+          "order": {
+            "type": "string",
+            "description": "`default` keeps the natural order (episodes by season/episode/title, folders by natural path order, queries by show/sort title then season/episode); `random` shuffles within this item every cycle (deterministically, from the channel seed).",
+            "enum": [
+              "default",
+              "random"
+            ],
+            "default": "default"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Use at most this many playable files from the item (with `random`, a fixed pseudo-random subset).",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "label": {
+            "type": "string",
+            "description": "Optional label shown in the editor.",
+            "maxLength": 200
+          }
+        }
+      },
+      "TvLineupItemInput": {
+        "type": "object",
+        "description": "A lineup item to create. Fields that do not apply to `kind` are ignored.",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "`PUT …/items` only: id of an existing item of this lineup to keep (ignored elsewhere)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Source type: `file` (one file), `show` (all episodes of a show), `season` (one season of a show), `folder` (media files under a folder), `query` (library query).",
+            "enum": [
+              "file",
+              "show",
+              "season",
+              "folder",
+              "query"
+            ]
+          },
+          "file_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "`kind=file`: the file."
+          },
+          "show_title": {
+            "type": "string",
+            "description": "`kind=show|season`: show title (case-insensitive).",
+            "maxLength": 500
+          },
+          "season": {
+            "type": "integer",
+            "description": "`kind=season`: season number.",
+            "minimum": 0
+          },
+          "space_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "`kind=folder`: space of the folder."
+          },
+          "path": {
+            "type": "string",
+            "description": "`kind=folder`: folder path in the space (`\"\"` = the space root; no `.`/`..` segments).",
+            "maxLength": 4096
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "`kind=folder`: include subfolders.",
+            "default": true
+          },
+          "query": {
+            "$ref": "#/components/schemas/TvLineupQuery"
+          },
+          "order": {
+            "type": "string",
+            "description": "`default` keeps the natural order (episodes by season/episode/title, folders by natural path order, queries by show/sort title then season/episode); `random` shuffles within this item every cycle (deterministically, from the channel seed).",
+            "enum": [
+              "default",
+              "random"
+            ],
+            "default": "default"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Use at most this many playable files from the item (with `random`, a fixed pseudo-random subset).",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "label": {
+            "type": "string",
+            "description": "Optional label shown in the editor.",
+            "maxLength": 200
+          }
+        }
+      },
+      "TvLineup": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "owner_id",
+          "items",
+          "item_count",
+          "total_duration_seconds",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvLineupItem"
+            }
+          },
+          "item_count": {
+            "type": "integer",
+            "description": "Number of playable files after expansion.",
+            "minimum": 0
+          },
+          "total_duration_seconds": {
+            "type": "number",
+            "description": "Length of one cycle.",
+            "minimum": 0
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "examples": [
+          {
+            "id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+            "name": "Saturday Night Horror",
+            "description": "Classic horror, back to back.",
+            "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+            "items": [
+              {
+                "id": "mjymapci7lwpd6rl6hrq375h76",
+                "kind": "show",
+                "show_title": "The Twilight Zone",
+                "order": "random",
+                "limit": 4,
+                "label": "Twilight Zone ×4"
+              },
+              {
+                "id": "p33w3k677japlpiladjbozq47p",
+                "kind": "query",
+                "query": {
+                  "category": "movie",
+                  "subcategory": "",
+                  "genre": "Horror",
+                  "tag": "",
+                  "year": null
+                },
+                "order": "random"
+              }
+            ],
+            "item_count": 168,
+            "total_duration_seconds": 287940.5,
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "updated_at": "2026-10-26T12:30:00.000Z"
+          }
+        ]
+      },
+      "TvLineupPage": {
+        "type": "object",
+        "description": "A page of lineups.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvLineup"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "TvLineupCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvLineupItemInput"
+            },
+            "maxItems": 5000
+          }
+        }
+      },
+      "TvLineupUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "TvLineupItemsReplace": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvLineupItemInput"
+            },
+            "description": "Full ordered replacement (at most 5000 items per lineup). Echo an existing item's `id` to keep its identity (and the seed of its `random` order); other items get new ids.",
+            "maxItems": 5000
+          }
+        }
+      },
+      "TvLineupItemsInsert": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvLineupItemInput"
+            },
+            "minItems": 1,
+            "maxItems": 5000
+          },
+          "position": {
+            "type": "integer",
+            "description": "0-based insert position; omit (or pass a value past the end) to append.",
+            "minimum": 0
+          }
+        }
+      },
+      "TvExpandedItem": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "title",
+          "duration_seconds",
+          "source_item_id"
+        ],
+        "properties": {
+          "file_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title (`Show · S1E2 · Episode` for episodes)."
+          },
+          "duration_seconds": {
+            "type": "number"
+          },
+          "source_item_id": {
+            "$ref": "#/components/schemas/Id"
+          }
+        }
+      },
+      "TvSkippedItem": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "reason"
+        ],
+        "properties": {
+          "file_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "The skipped file (for `not_found`: the lineup item id)."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "unreadable",
+              "unknown_duration",
+              "not_found"
+            ],
+            "description": "`unreadable`: missing, trashed or not readable by the lineup owner; `unknown_duration`: no (or a zero) duration yet; `not_found`: a folder item whose folder does not exist or is not readable."
+          },
+          "source_item_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "Lineup item the file came from."
+          },
+          "title": {
+            "type": "string",
+            "description": "Display title when known."
+          }
+        }
+      },
+      "TvLineupExpanded": {
+        "type": "object",
+        "description": "The lineup expanded to playable files in default order (items with `order: random` appear in natural order here; channels shuffle them per cycle). Expansion uses the lineup owner's read permissions. A source referenced by several items (same file, show, season, folder or query) is looked up once.",
+        "required": [
+          "items",
+          "total_duration_seconds",
+          "skipped",
+          "skipped_count",
+          "truncated"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvExpandedItem"
+            }
+          },
+          "total_duration_seconds": {
+            "type": "number"
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvSkippedItem"
+            },
+            "description": "Skipped files, at most the first 1 000 (`skipped_count` has the total).",
+            "maxItems": 1000
+          },
+          "skipped_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of skipped files (may exceed the length of `skipped`)."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when a resource limit stopped the expansion before the end of the lineup: 50 000 playable files, or 100 000 files examined in all (every item and each file it yields counts, playable or not, repeated sources included). Later items contribute nothing."
+          }
+        }
+      },
+      "TvChannel": {
+        "type": "object",
+        "required": [
+          "id",
+          "number",
+          "name",
+          "description",
+          "group",
+          "logo_url",
+          "lineup_id",
+          "lineup_name",
+          "shuffle",
+          "shuffle_mode",
+          "playback_mode",
+          "anchor_at",
+          "visibility",
+          "owner_id",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "number": {
+            "type": "integer",
+            "description": "Channel number (unique per owner).",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string",
+            "description": "Guide/M3U group, e.g. \"Movies\"."
+          },
+          "logo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Relative logo URL (`/api/v1/tv/channels/{id}/logo?v=…`) or `null`."
+          },
+          "lineup_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "lineup_name": {
+            "type": "string"
+          },
+          "shuffle": {
+            "type": "boolean",
+            "description": "Shuffle the slate."
+          },
+          "shuffle_mode": {
+            "type": "string",
+            "description": "`per_cycle`: a new (deterministic) order every time the lineup loops; `fixed`: one shuffled order until reshuffled.",
+            "enum": [
+              "per_cycle",
+              "fixed"
+            ]
+          },
+          "playback_mode": {
+            "type": "string",
+            "description": "`live`: everyone sees the same thing at the same time (like broadcast TV); `on_demand`: each user resumes where they left off.",
+            "enum": [
+              "live",
+              "on_demand"
+            ]
+          },
+          "anchor_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Moment the schedule started (cycle 0, position 0)."
+          },
+          "visibility": {
+            "type": "string",
+            "description": "`private`: only the owner; `shared`: listed for and playable by every user of this server (through channel-scoped program URLs, without access to the owner's files).",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        },
+        "examples": [
+          {
+            "id": "ilumq7au7armmx4rt5hnbhnfbr",
+            "number": 13,
+            "name": "Fright TV",
+            "description": "Horror all night.",
+            "group": "Movies",
+            "logo_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/logo",
+            "lineup_id": "ixvbgvgs7mmq3n3k3mz6jfjr7o",
+            "lineup_name": "Saturday Night Horror",
+            "shuffle": true,
+            "shuffle_mode": "per_cycle",
+            "playback_mode": "live",
+            "anchor_at": "2026-10-26T12:00:00.123Z",
+            "visibility": "shared",
+            "owner_id": "sy76wfhw4aultzf42qrfqqa4pl",
+            "created_at": "2026-10-26T12:00:00.123Z",
+            "updated_at": "2026-10-26T12:30:00.000Z"
+          }
+        ]
+      },
+      "TvChannelCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "lineup_id"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "description": "Omit to auto-assign the next free number.",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "lineup_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "shuffle": {
+            "type": "boolean",
+            "default": false
+          },
+          "shuffle_mode": {
+            "type": "string",
+            "enum": [
+              "per_cycle",
+              "fixed"
+            ],
+            "default": "per_cycle"
+          },
+          "playback_mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "on_demand"
+            ],
+            "default": "live"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ],
+            "default": "private",
+            "description": "`private`: only the owner; `shared`: listed for and playable by every user of this server (through channel-scoped program URLs, without access to the owner's files)."
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "TvChannelUpdate": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "lineup_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "shuffle_mode": {
+            "type": "string",
+            "enum": [
+              "per_cycle",
+              "fixed"
+            ]
+          },
+          "playback_mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "on_demand"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "group": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "TvProgram": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "title",
+          "show_title",
+          "season",
+          "episode",
+          "episode_title",
+          "starts_at",
+          "ends_at",
+          "duration_seconds",
+          "poster_url",
+          "stream_url",
+          "transcode_url",
+          "browser_playable",
+          "subtitles"
+        ],
+        "properties": {
+          "file_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "title": {
+            "type": "string"
+          },
+          "show_title": {
+            "type": "string"
+          },
+          "season": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "episode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "episode_title": {
+            "type": "string"
+          },
+          "starts_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "ends_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "duration_seconds": {
+            "type": "number"
+          },
+          "poster_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Relative channel-scoped poster URL (`/api/v1/tv/channels/{id}/programs/{file_id}/poster?size=md`); `null` when no poster or thumbnail is available."
+          },
+          "stream_url": {
+            "type": "string",
+            "description": "Relative channel-scoped direct stream URL (`/api/v1/tv/channels/{id}/programs/{file_id}/stream`). Viewers of shared channels need no read access to the owner's files."
+          },
+          "transcode_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Relative channel-scoped transcode URL (`…/programs/{file_id}/transcode`); `null` without ffmpeg."
+          },
+          "browser_playable": {
+            "type": "boolean",
+            "description": "Play `stream_url` directly when true, otherwise `transcode_url`."
+          },
+          "subtitles": {
+            "type": "array",
+            "maxItems": 32,
+            "description": "Subtitle tracks (sidecar files and embedded text tracks; embedded ones only when ffmpeg is available). At most 32 per program; empty when there are none.",
+            "items": {
+              "$ref": "#/components/schemas/TvProgramSubtitle"
+            }
+          }
+        },
+        "examples": [
+          {
+            "file_id": "jcww3klp6yhuldzde3mpqdf64l",
+            "title": "Walking Distance",
+            "show_title": "The Twilight Zone",
+            "season": 1,
+            "episode": 5,
+            "episode_title": "Walking Distance",
+            "starts_at": "2026-10-26T20:00:00.000Z",
+            "ends_at": "2026-10-26T20:25:12.000Z",
+            "duration_seconds": 1512,
+            "poster_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/poster",
+            "stream_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/stream",
+            "transcode_url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/transcode",
+            "browser_playable": true,
+            "subtitles": [
+              {
+                "index": 0,
+                "language": "en",
+                "label": "English",
+                "url": "/api/v1/tv/channels/ilumq7au7armmx4rt5hnbhnfbr/programs/jcww3klp6yhuldzde3mpqdf64l/subtitles/0.vtt"
+              }
+            ]
+          }
+        ]
+      },
+      "TvNowPlaying": {
+        "type": "object",
+        "required": [
+          "channel",
+          "program",
+          "offset_seconds",
+          "server_time",
+          "next"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/TvChannel"
+          },
+          "program": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TvProgram"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` when nothing is on air (empty lineup)."
+          },
+          "offset_seconds": {
+            "type": "number",
+            "description": "Seconds into `program` — seek the player here (live: the broadcast position; on_demand: the caller's saved position).",
+            "minimum": 0
+          },
+          "server_time": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "next": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvProgram"
+            },
+            "description": "The next programs (up to 3).",
+            "maxItems": 3
+          },
+          "index": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Absolute program counter of `program` (`cycle × n + position in the cycle`); `null` when nothing is on air. On `on_demand` channels send it back with `PUT …/position`."
+          }
+        }
+      },
+      "TvPositionUpdate": {
+        "type": "object",
+        "required": [
+          "index",
+          "offset_seconds"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "`index` from `/now` (absolute program counter).",
+            "maximum": 1125899906842624
+          },
+          "offset_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds into that program; at or past its end the next program starts."
+          }
+        }
+      },
+      "TvGuideChannel": {
+        "type": "object",
+        "required": [
+          "channel",
+          "programs"
+        ],
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/TvChannel"
+          },
+          "programs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvProgram"
+            }
+          }
+        }
+      },
+      "TvGuide": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "channels"
+        ],
+        "properties": {
+          "start": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "end": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvGuideChannel"
+            }
+          }
+        }
+      },
+      "TvAutoGenerateRequest": {
+        "type": "object",
+        "required": [
+          "strategy",
+          "shuffle",
+          "min_items"
+        ],
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "description": "`per_show`: one channel per show; `per_genre`: one per movie genre; `movies`: one all-movies channel; `all_tv`: one channel with every episode. Shows/genres whose name matches an existing channel of the caller are skipped, so repeating a call only adds new ones.",
+            "enum": [
+              "per_show",
+              "per_genre",
+              "movies",
+              "all_tv"
+            ]
+          },
+          "shuffle": {
+            "type": "boolean"
+          },
+          "min_items": {
+            "type": "integer",
+            "description": "Skip shows/genres with fewer playable files.",
+            "minimum": 1,
+            "default": 1,
+            "maximum": 50000
+          }
+        }
+      },
+      "TvAutoGenerateResult": {
+        "type": "object",
+        "required": [
+          "created"
+        ],
+        "properties": {
+          "created": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TvChannel"
+            }
+          }
+        }
+      },
+      "TvFeeds": {
+        "type": "object",
+        "description": "Feed URLs for external players. They embed a dedicated `lwp_` token with only `tv:read` (no `media:read`: a leaked feed URL can watch your channels and read their guide, but cannot list or stream the rest of your library) (listed among the account's tokens; revoking it there or rotating it here invalidates every URL) — treat them like passwords. Origin: `general.public_url` when set, else the request origin.",
+        "required": [
+          "m3u_url",
+          "xmltv_url",
+          "hdhr_url"
+        ],
+        "properties": {
+          "m3u_url": {
+            "type": "string",
+            "description": "Absolute M3U playlist URL including the feed token."
+          },
+          "xmltv_url": {
+            "type": "string",
+            "description": "Absolute XMLTV guide URL including the feed token."
+          },
+          "hdhr_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "HDHomeRun base URL (`…/api/v1/hdhr/<feed_token>`) when `tv.hdhr_enabled`, else `null`. Add it to Plex/Jellyfin as the tuner address."
+          }
+        }
+      },
+      "TvHdhrDiscover": {
+        "type": "object",
+        "description": "HDHomeRun `discover.json` (field names as expected by Plex/Jellyfin).",
+        "required": [
+          "FriendlyName",
+          "ModelNumber",
+          "DeviceID",
+          "BaseURL",
+          "LineupURL",
+          "TunerCount"
+        ],
+        "properties": {
+          "FriendlyName": {
+            "type": "string"
+          },
+          "Manufacturer": {
+            "type": "string"
+          },
+          "ModelNumber": {
+            "type": "string"
+          },
+          "FirmwareName": {
+            "type": "string"
+          },
+          "FirmwareVersion": {
+            "type": "string"
+          },
+          "DeviceID": {
+            "type": "string"
+          },
+          "DeviceAuth": {
+            "type": "string"
+          },
+          "BaseURL": {
+            "type": "string"
+          },
+          "LineupURL": {
+            "type": "string"
+          },
+          "TunerCount": {
+            "type": "integer"
+          }
+        }
+      },
+      "TvHdhrLineupEntry": {
+        "type": "object",
+        "required": [
+          "GuideNumber",
+          "GuideName",
+          "URL"
+        ],
+        "properties": {
+          "GuideNumber": {
+            "type": "string"
+          },
+          "GuideName": {
+            "type": "string"
+          },
+          "URL": {
+            "type": "string",
+            "description": "Stream URL (`live.ts` with the feed token)."
+          }
+        }
+      },
+      "TvHdhrLineupStatus": {
+        "type": "object",
+        "required": [
+          "ScanInProgress",
+          "ScanPossible",
+          "Source",
+          "SourceList"
+        ],
+        "properties": {
+          "ScanInProgress": {
+            "type": "integer"
+          },
+          "ScanPossible": {
+            "type": "integer"
+          },
+          "Source": {
+            "type": "string"
+          },
+          "SourceList": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TvProgramSubtitle": {
+        "type": "object",
+        "description": "A subtitle track of a program.",
+        "required": [
+          "index",
+          "language",
+          "label",
+          "url"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The media item's subtitle index (as in `media.subtitles`)."
+          },
+          "language": {
+            "type": "string",
+            "description": "ISO 639-1 code (`en`, `pt-BR`) when known, else the tag as found; `\"\"` when unknown."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable name (track title, or language plus flags)."
+          },
+          "url": {
+            "type": "string",
+            "description": "Relative channel-scoped WebVTT URL (`/api/v1/tv/channels/{id}/programs/{file_id}/subtitles/{index}.vtt`). Viewers of shared channels need no read access to the owner's files."
+          }
+        }
+      }
+    }
+  }
+}

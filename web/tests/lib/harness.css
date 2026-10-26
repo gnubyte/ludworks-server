@@ -1,0 +1,12 @@
+/* Test-harness layout only (not shipped with the app). */
+body { margin: 0; background: var(--c-bg, #fbfbfc); color: var(--c-text, #17171c); font-family: var(--md-font); }
+.hx-bar { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--md-border); }
+.hx-ok { color: var(--md-success); font-size: 13px; }
+.hx-bad { color: var(--md-danger); font-size: 13px; font-weight: 600; }
+.hx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 16px; padding: 16px; }
+.hx-panel { min-width: 0; }
+.hx-panel h2 { font-size: 15px; margin: 0 0 8px; }
+.hx-panel h3 { font-size: 13px; margin: 12px 0 6px; color: var(--md-muted); }
+.hx-editor { height: 560px; border: 1px solid var(--md-border); border-radius: 12px; overflow: hidden; background: var(--md-bg); }
+.hx-out { max-height: 260px; overflow: auto; margin: 0; padding: 10px; font: 12px/1.5 var(--md-mono); background: var(--md-code-bg); border-radius: 8px; white-space: pre-wrap; }
+.hx-view { height: 560px; overflow: auto; padding: 16px 24px; border: 1px solid var(--md-border); border-radius: 12px; background: var(--md-bg); }
