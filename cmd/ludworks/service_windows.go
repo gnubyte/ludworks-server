@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"unicode/utf16"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
@@ -150,6 +152,19 @@ func installService(m *mgr.Mgr, cfg *config.Config, f config.Flags, out io.Write
 	if exe, err = filepath.Abs(exe); err != nil {
 		return err
 	}
+	// The service runs this file as NT SERVICE\Ludworks (and the uninstaller runs elevated):
+	// nobody but administrators may be able to replace it.
+	if err := config.CheckServiceProgram(exe); err != nil {
+		return err
+	}
+	// Secure the data directory before anything points at it. A directory another user
+	// created first (any user may create folders in %ProgramData%) or left files in is
+	// refused, never adopted; a new one is created owned by Administrators with a protected
+	// DACL in one step. The virtual account's SID is known before the service exists.
+	svcSID := config.ServiceSID(serviceName)
+	if err := config.PrepareServiceDataDir(cfg.DataDir, svcSID); err != nil {
+		return fmt.Errorf("data directory: %w", err)
+	}
 	args := []string{"serve", "--data", cfg.DataDir}
 	if f.ConfigFile != "" {
 		abs, err := filepath.Abs(f.ConfigFile)
@@ -175,29 +190,62 @@ func installService(m *mgr.Mgr, cfg *config.Config, f config.Flags, out io.Write
 		return fmt.Errorf("create service: %w", err)
 	}
 	defer s.Close()
+	fail := func(err error) error {
+		_ = s.Delete()
+		return err
+	}
+	if err := restrictServicePrivileges(s.Handle, serviceRequiredPrivileges); err != nil {
+		return fail(fmt.Errorf("restrict service privileges: %w", err))
+	}
+	sid, _, _, err := windows.LookupSID("", serviceAccount)
+	if err != nil {
+		return fail(fmt.Errorf("look up %s: %w", serviceAccount, err))
+	}
+	if sid.String() != svcSID {
+		return fail(fmt.Errorf("%s has SID %s, expected %s", serviceAccount, sid, svcSID))
+	}
 	_ = s.SetRecoveryActions([]mgr.RecoveryAction{
 		{Type: mgr.ServiceRestart, Delay: 5 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 30 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 2 * time.Minute},
 	}, 24*60*60)
-
-	// The virtual account exists once the service does; give it (and only it, SYSTEM and
-	// Administrators) access to the data directory.
-	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
-		return err
-	}
-	sid, _, _, err := windows.LookupSID("", serviceAccount)
-	if err != nil {
-		_ = s.Delete()
-		return fmt.Errorf("look up %s: %w", serviceAccount, err)
-	}
-	if err := config.RestrictDirTo(cfg.DataDir, sid.String()); err != nil {
-		_ = s.Delete()
-		return fmt.Errorf("set data directory permissions: %w", err)
-	}
 	fmt.Fprintf(out, "Service %s installed (account %s, data %s).\nStart it with: ludworks service start\n",
 		serviceName, serviceAccount, cfg.DataDir)
 	return nil
+}
+
+// serviceRequiredPrivileges is the complete list of privileges the service process keeps; the
+// service control manager removes every other one from its token. In particular the SERVICE
+// group's SeImpersonatePrivilege and SeCreateGlobalPrivilege are gone, so code execution in
+// the server (it parses untrusted uploads) cannot be escalated to SYSTEM through token
+// impersonation. Verify with: sc.exe qprivs Ludworks. The Linux unit drops all capabilities
+// for the same reason. The installers apply the same list to services registered by older
+// versions (sc.exe privs).
+var serviceRequiredPrivileges = []string{"SeChangeNotifyPrivilege"}
+
+// serviceRequiredPrivilegesInfo is SERVICE_REQUIRED_PRIVILEGES_INFOW.
+type serviceRequiredPrivilegesInfo struct {
+	requiredPrivileges *uint16 // REG_MULTI_SZ list
+}
+
+// multiSZ encodes ss as a REG_MULTI_SZ: each string NUL-terminated, then a final NUL.
+func multiSZ(ss []string) []uint16 {
+	var b []uint16
+	for _, s := range ss {
+		b = append(b, utf16.Encode([]rune(s))...)
+		b = append(b, 0)
+	}
+	if len(ss) == 0 {
+		b = append(b, 0)
+	}
+	return append(b, 0)
+}
+
+// restrictServicePrivileges sets the service's required privileges (SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO).
+func restrictServicePrivileges(h windows.Handle, privs []string) error {
+	buf := multiSZ(privs)
+	info := serviceRequiredPrivilegesInfo{requiredPrivileges: &buf[0]}
+	return windows.ChangeServiceConfig2(h, windows.SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO, (*byte)(unsafe.Pointer(&info)))
 }
 
 func stopService(s *mgr.Service) error {

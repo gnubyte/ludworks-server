@@ -91,9 +91,10 @@ print_first_run_notice() {
 
   Finish the setup in a web browser:
     1. Read the one-time setup token:  sudo cat $DATA_DIR/setup-token.txt
-       (it is also in the log:         sudo journalctl -u ludworks)
+       (only root and the ludworks account can read it; the log names the file)
     2. Open https://$host:8443/ (the listen address is configured in $CONFIG)
-       and compare the certificate's SHA-256 fingerprint with the one in the log.
+       and compare the certificate's SHA-256 fingerprint with the one in the
+       log (sudo journalctl -u ludworks; the token itself is not logged).
     3. Create the first administrator with the setup token.
 
   Documentation: https://ludworks.readthedocs.io

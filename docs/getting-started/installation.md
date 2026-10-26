@@ -274,7 +274,10 @@ the TLS certificate fingerprint, to `C:\ProgramData\Ludworks\ludworks.log` (rota
 
 `ludworks.exe service install`, `start`, `stop` and `uninstall` (from an elevated prompt) do the same as the
 scripts. `service install` also accepts `--data`, `--config`, `--listen` and `--tls`, which are stored in the
-service's command line, and locks the data directory down to the service account, SYSTEM and Administrators:
+service's command line. It creates the data directory owned by Administrators with access for the service
+account, SYSTEM and Administrators only, and refuses an existing one that another account owns or can access
+(for example a folder a standard user created in `%ProgramData%` beforehand). The service keeps only
+`SeChangeNotifyPrivilege` (check with `sc.exe qprivs Ludworks`), so it cannot impersonate other accounts:
 
 ```powershell
 & "C:\Program Files\Ludworks\ludworks.exe" service install --data D:\Ludworks --listen :9443
@@ -283,7 +286,8 @@ service's command line, and locks the data directory down to the service account
 
 Keep `ludworks.exe` in a folder that only administrators can write to (such as `C:\Program Files`): whoever can
 replace the binary can run code as the service. Never register the service from a folder like Downloads, the
-Desktop or a new folder at the root of a drive; the installer and `install-service.ps1` refuse to upgrade such
+Desktop or a new folder at the root of a drive: `service install` refuses a program that anyone but SYSTEM,
+Administrators and TrustedInstaller can change, and the installer and `install-service.ps1` refuse to upgrade such
 a registration.
 
 ### Try it in a console

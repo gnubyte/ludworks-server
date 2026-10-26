@@ -414,7 +414,7 @@ func (m *Module) searchFiles(w http.ResponseWriter, r *http.Request) error {
 	}
 	from := `files f`
 	where := []string{`f.trashed_at IS NULL`, `f.path <> ''`}
-	var args []any
+	var args, orderArgs []any
 	order := `f.mod_time DESC, f.id`
 	fingerprint := q.Encode()
 	if text != "" {
@@ -425,7 +425,14 @@ func (m *Module) searchFiles(w http.ResponseWriter, r *http.Request) error {
 		from = `files_fts JOIN files_fts_map fm ON fm.rowid = files_fts.rowid JOIN files f ON f.id = fm.file_id`
 		where = append(where, `files_fts MATCH ?`)
 		args = append(args, match)
-		order = `bm25(files_fts, 10.0, 1.0, 4.0), f.mod_time DESC, f.id`
+		// Rank by where the terms matched in the row itself: all in the name, then all in name or
+		// tags, then anywhere (path). bm25() is not used: files_fts is one index shared by every
+		// space, and bm25's corpus statistics (row count, document frequency, average length)
+		// would let other users' files change the order of a caller's results — a
+		// document-frequency oracle on names in spaces the caller cannot read.
+		order = `CASE WHEN fm.rowid IN (SELECT rowid FROM files_fts WHERE files_fts MATCH ?) THEN 0
+			WHEN fm.rowid IN (SELECT rowid FROM files_fts WHERE files_fts MATCH ?) THEN 1 ELSE 2 END, f.mod_time DESC, f.id`
+		orderArgs = append(orderArgs, "{name} : ("+match+")", "{name tags} : ("+match+")")
 	}
 	ph := strings.TrimSuffix(strings.Repeat("?,", len(spaceIDs)), ",")
 	where = append(where, `f.space_id IN (`+ph+`)`)
@@ -469,7 +476,7 @@ func (m *Module) searchFiles(w http.ResponseWriter, r *http.Request) error {
 		off = cur.Off
 	}
 	rows, err := queryRows(ctx, m.d.DB.SQL, `SELECT `+entryCols+` FROM `+from+` WHERE `+strings.Join(where, " AND ")+
-		` ORDER BY `+order+` LIMIT ? OFFSET ?`, append(args, limit+1, off)...)
+		` ORDER BY `+order+` LIMIT ? OFFSET ?`, append(append(args, orderArgs...), limit+1, off)...)
 	if err != nil {
 		return err
 	}

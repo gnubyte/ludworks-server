@@ -15,6 +15,9 @@ const BYTE_UNITS = [{ value: String(MiB), label: 'MiB' }, { value: String(GiB), 
 const EXT_ORIGIN = /^(chrome-extension:\/\/[a-p]{32}|moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|safari-web-extension:\/\/[0-9A-Fa-f-]{8,64})$/;
 
 /* ------------------------------------------------------------------ schema */
+// mail_in.trusted_authserv_ids entry (mirrors authservIDPattern in internal/mail/senderauth.go;
+// "*.com" is refused: a wildcard needs two labels).
+const MAIL_AUTHSERV_ID = /^(?!\*\.[a-z0-9-]+$)(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
 
 const TABS = {
   general: {
@@ -57,6 +60,7 @@ const TABS = {
           {
             key: 'allowed_extension_origins', label: 'Allowed extension origins', type: 'list', placeholder: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop',
             hint: 'Extensions may call the API with Bearer tokens only (never cookies). Leave empty to allow any extension origin.',
+            emptyText: 'None — any extension origin is allowed with Bearer tokens.',
             validateItem: (v) => (EXT_ORIGIN.test(v) ? null : 'Use chrome-extension://<32 letters a–p> or moz-extension://<uuid>.'),
           },
         ],
@@ -92,6 +96,19 @@ const TABS = {
           { key: 'poll_minutes', label: 'Check every', type: 'number', min: 1, max: 1440, suffix: 'minutes', half: true },
           { key: 'mark_seen', label: 'Mark imported messages as read', type: 'switch' },
           { key: 'save_attachments', label: 'Save attachments to Files', type: 'switch' },
+        ],
+      },
+      {
+        ns: 'mail_in', title: 'Mail-in sender check', icon: 'shield',
+        intro: 'A From address is easy to forge, so a message is only imported when a mail server you trust reports that it passed DMARC for the sender’s domain (its Authentication-Results header). Until a server is listed, nothing is imported.',
+        fields: [
+          {
+            key: 'trusted_authserv_ids', label: 'Trusted receiving mail servers', type: 'list', placeholder: 'mx.google.com',
+            hint: 'The authserv-id your mailbox provider writes first in Authentication-Results, e.g. mx.google.com. *.example.net matches its subdomains. At most 20.',
+            emptyText: 'None — no mail is imported.',
+            validateItem: (v) => (MAIL_AUTHSERV_ID.test(v.trim().toLowerCase().replace(/\.$/, '')) ? null : 'Use a host name such as mx.example.net, or *.example.net.'),
+          },
+          { key: 'allow_unauthenticated_senders', label: 'Import mail from unauthenticated senders (unsafe)', type: 'switch', hint: 'Skips the DMARC check: anyone who can send mail to the inbox can then create notes and files in the account whose address they forge.' },
         ],
       },
     ],
@@ -233,7 +250,7 @@ function listControl(def) {
       x.addEventListener('click', () => { values = values.filter((y) => y !== v); render(); notify(); });
       c.append(x);
       return c;
-    }) : [h('span', { class: 'small faint' }, 'None — any extension origin is allowed with Bearer tokens.')]));
+    }) : [h('span', { class: 'small faint' }, def.emptyText || 'None.')]));
   };
   const add = () => {
     const v = entry.value.trim();

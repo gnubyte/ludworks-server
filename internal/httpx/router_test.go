@@ -940,3 +940,41 @@ func TestPrincipalHas(t *testing.T) {
 		t.Fatal("nil principal")
 	}
 }
+
+// WithAltScope admits a narrower scope on chosen routes only: a principal with just that
+// scope reaches them, and nothing that requires the main scope alone.
+func TestAccessAltScope(t *testing.T) {
+	principals["feed-tok"] = &core.Principal{UserID: "u1", Username: "user", Role: core.RoleUser, Scopes: []string{"tv:feed"}, Kind: core.KindToken}
+	principals["tv-ro"] = &core.Principal{UserID: "u1", Username: "user", Role: core.RoleUser, Scopes: []string{"tv:read"}, Kind: core.KindToken}
+	t.Cleanup(func() { delete(principals, "feed-tok"); delete(principals, "tv-ro") })
+	rt := NewRouter(Options{Auth: fakeAuth{}, RateLimit: RateLimitOptions{Disabled: true}})
+	ok := func(w http.ResponseWriter, _ *http.Request) error { w.WriteHeader(http.StatusNoContent); return nil }
+	rt.Handle("GET /api/v1/feed", Scope("tv:read").WithQueryToken().WithAltScope("tv:feed"), ok)
+	rt.Handle("GET /api/v1/channels", Scope("tv:read"), ok)
+	for _, c := range []struct {
+		tok, path string
+		want      int
+	}{
+		{"feed-tok", "/api/v1/feed", 204},
+		{"tv-ro", "/api/v1/feed", 204},
+		{"user", "/api/v1/feed", 204},
+		{"files-ro", "/api/v1/feed", 403},
+		{"feed-tok", "/api/v1/channels", 403},
+		{"tv-ro", "/api/v1/channels", 204},
+	} {
+		w := do(rt, req{method: "GET", path: c.path, hdr: map[string]string{"Authorization": "Bearer " + c.tok}})
+		if w.Code != c.want {
+			t.Errorf("%s %s = %d, want %d", c.tok, c.path, w.Code, c.want)
+		}
+	}
+	for _, a := range []Access{{AltScope: "tv:feed"}, {Public: true, AltScope: "tv:feed"}} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%+v accepted", a)
+				}
+			}()
+			rt.Handle("GET /api/v1/bad", a, ok)
+		}()
+	}
+}

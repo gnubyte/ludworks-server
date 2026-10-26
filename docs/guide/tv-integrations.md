@@ -12,9 +12,9 @@ Your Ludworks channels can be watched outside the web UI through standard format
 ## Feed URLs and the feed token
 
 Open TV → **Feeds** (or `GET /api/v1/tv/feeds`) to get your personal M3U, XMLTV and HDHomeRun URLs. They contain
-a dedicated **feed token**: a personal access token restricted to `tv:read`, created the first time you open the
-page. It cannot change anything, browse or stream the rest of your media library, read your files, notes or vault,
-or upload anything — but anyone who has the URL can watch your channels (and the shared ones) and read their guide,
+a dedicated **feed token**: a personal access token restricted to `tv:feed`, created the first time you open the
+page. It only reaches the feeds and the streams and logos they link to: it cannot change anything, use the rest of
+the TV API, browse or stream the rest of your media library, read your files, notes or vault, or upload anything — but anyone who has the URL can watch your channels (and the shared ones) and read their guide,
 so treat it like a password. **Rotate** it (TV → Feeds → Rotate, or
 `POST /api/v1/tv/feeds/rotate`) if a URL leaked; old URLs stop working immediately and you must update your
 players.

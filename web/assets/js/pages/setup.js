@@ -35,8 +35,8 @@ export function mount(container, ctx) {
 
   const fp = status.tls_fingerprint_sha256;
   const claimPanel = h('div', { class: 'stack' },
-    h('p', { class: 'muted small' }, 'This server has no administrator yet. Prove you control it with the one-time setup token printed in the server log at first start and saved to ',
-      h('code', {}, 'setup-token.txt'), ' in the data directory.'),
+    h('p', { class: 'muted small' }, 'This server has no administrator yet. Prove you control it with the one-time setup token the server saved at first start to ',
+      h('code', {}, 'setup-token.txt'), ' in its data directory (readable only by the server account and administrators; the server log names the file).'),
     field({ label: 'Setup token', control: token, name: 'setup_token' }),
     fp ? h('div', { class: 'fingerprint-box' },
       h('div', { class: 'row between' }, h('span', { class: 'small bold' }, 'TLS certificate fingerprint (SHA-256)'), copyButton(formatFingerprint(fp), { title: 'Copy fingerprint' })),
@@ -83,7 +83,7 @@ export function mount(container, ctx) {
 
   function validate(i) {
     const p = {};
-    if (i === 0 && !token.value.trim()) p.setup_token = 'Enter the setup token from the server log.';
+    if (i === 0 && !token.value.trim()) p.setup_token = 'Enter the setup token from setup-token.txt.';
     if (i === 1) {
       if (!username.value.trim()) p.username = 'Choose an administrator username.';
       if (!email.value.trim() || !email.checkValidity()) p.email = 'Enter a valid email address.';
@@ -136,7 +136,7 @@ export function mount(container, ctx) {
       if (err.status === 403) {
         step = 0;
         render();
-        showFieldErrors(form, { setup_token: 'That setup token isn’t valid. Copy it again from the server log or setup-token.txt.' });
+        showFieldErrors(form, { setup_token: 'That setup token isn’t valid. Copy it again from setup-token.txt.' });
         return;
       }
       if (err.fields) {
