@@ -69,8 +69,9 @@ func TestFeedsM3UXMLTVAndHDHR(t *testing.T) {
 	// The token is a scoped PAT listed in the user's tokens.
 	var toks []map[string]any
 	do(t, ac, "GET", "/api/v1/me/tokens", nil, 200, &toks)
-	// ... with tv:read only: no media:read, so a leaked feed URL cannot reach the library.
-	if sc, _ := toks[0]["scopes"].([]any); len(toks) != 1 || len(sc) != 1 || sc[0] != "tv:read" {
+	// ... with tv:feed only: no media:read or tv:read, so a leaked feed URL reaches the feeds
+	// and streams but neither the library nor the rest of the TV API.
+	if sc, _ := toks[0]["scopes"].([]any); len(toks) != 1 || len(sc) != 1 || sc[0] != "tv:feed" {
 		t.Errorf("tokens = %v", toks)
 	}
 	// A credential with tv:read (all the feed token has) may reveal it; one without may not

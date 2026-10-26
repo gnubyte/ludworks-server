@@ -237,8 +237,11 @@ func (s *Service) videoThumb(ctx context.Context, sp *space, row *row, f *os.Fil
 	if ff == "" {
 		return errNoThumb
 	}
+	// One deadline bounds the probe and ffmpeg; both give up when the request ends.
+	tctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
 	at := 0.0
-	if info, err := probe.Probe(f, size, row.Name); err == nil && info.DurationSeconds > 0 {
+	if info, err := probe.ProbeContext(tctx, f, size, row.Name); err == nil && info.DurationSeconds > 0 {
 		at = info.DurationSeconds * 0.1
 	}
 	local := filepath.Join(s.storageDir(), filepath.FromSlash(sp.RootDir), filepath.FromSlash(row.Path))
@@ -252,8 +255,6 @@ func (s *Service) videoThumb(ctx context.Context, sp *space, row *row, f *os.Fil
 	if lst, err := os.Stat(local); err != nil || !os.SameFile(fst, lst) {
 		return errNoThumb
 	}
-	tctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
 	jpg, err := probe.VideoThumbnail(tctx, ff, local, at, edge)
 	if err != nil {
 		return err

@@ -23,7 +23,10 @@ this document; the server's OpenAPI (`/api/openapi.json`, Swagger UI at `/api/do
   every route.
   Streaming/feed endpoints marked **[qt]** also accept `?access_token=<token>`.
 * Scopes (for personal access tokens): `files:read files:write media:read media:write tv:read tv:write
-  notes:read notes:write vault:read vault:write sheets:read sheets:write account admin`. Sessions get `*`.
+  tv:feed notes:read notes:write vault:read vault:write sheets:read sheets:write account admin`. Sessions get `*`.
+  `tv:feed` is the narrow scope of TV feed tokens (§7.2): it is accepted only on the routes marked
+  `tv:read or tv:feed` (M3U, XMLTV, channel logo, `live.ts`, `play`, program `stream`) and the HDHomeRun
+  emulation, and grants nothing else.
   Each endpoint below lists its scope in brackets; `[auth]` = any authenticated principal; `[admin]` =
   admin role (and scope `admin` for tokens); `[public]` = no auth.
 
@@ -144,7 +147,7 @@ is cached 5 minutes (reset when media settings change); `fingerprint_sha256`/`no
 | `GET /spaces` | files:read | `[Space]` (home first) |
 | `GET /files?space_id=&path=&sort=name|size|mod_time|type&order=asc|desc&cursor=&limit=` | files:read | `{"dir":Entry,"breadcrumbs":[{"name","path"}],"items":[Entry],"next_cursor"}` — dirs first |
 | `GET /files/tree?space_id=&path=` | files:read | recursive listing for sync: `{"items":[{"id","path","is_dir","size","mod_time","sha256"}]}` (streams; max 200k entries) |
-| `GET /files/search?q=&space_id=&category=&subcategory=&tag=&type=file|dir&mime_prefix=&cursor=&limit=` | files:read | `Page<Entry>` across readable spaces (FTS on name/path/tags) |
+| `GET /files/search?q=&space_id=&category=&subcategory=&tag=&type=file|dir&mime_prefix=&cursor=&limit=` | files:read | `Page<Entry>` across readable spaces (FTS on name/path/tags; with `q`, entries with every term in the name come first, then name or tags, then path, each newest first — no corpus-wide relevance scores, so the order depends only on the matching entries themselves) |
 | `GET /files/{id}` | files:read | `Entry` |
 | `PATCH /files/{id}` | files:write | `{"name"?,"category"?,"subcategory"?,"tags"?}` → `Entry` (rename = name) |
 | `POST /files/folders` | files:write | `{"space_id","path" (parent dir),"name"}` → 201 `Entry` |
@@ -186,18 +189,32 @@ Files semantics (normative details):
 * Read = home owner, library member (user or `*`) or admin; write = home owner, `write` member or admin. Missing
   and unreadable objects are both 404; readable but not writable is 403.
 * Trash: `DELETE /files/{id}` moves the entry (and its subtree) to the trash; trashed entries are not readable.
-  `GET /trash`/`DELETE /trash` cover the caller's home trash plus what they trashed in libraries they can still
-  write; `path` and `original_path` are the pre-trash location. Restore recreates missing parent folders.
+  `GET /trash`/`DELETE /trash` cover the caller's home trash plus, in libraries they can still write, what they
+  trashed and trashed items that contain files they own (their quota pays for those, also when another member
+  trashed or replaced them); `path` and `original_path` are the pre-trash location. Restore recreates missing
+  parent folders.
 * Overwrite (`overwrite=1`, tus `overwrite`, move/copy `on_conflict=overwrite`): the replaced content goes to the
-  trash. For uploads the existing entry keeps its id (new content, `sha256` reset); for move/copy the existing
-  destination entry itself is trashed.
+  trash. For uploads the existing entry keeps its id (new content, `sha256` reset) and its `owner_id` becomes
+  the owner of the new content (in a library the uploader, whose quota was charged); the replaced version keeps
+  its previous owner and shows in that owner's trash. For move/copy the existing destination entry itself is trashed.
 * Quota (`users.quota_bytes`, 0 = unlimited) counts every non-directory file the user owns in any space,
-  **trash included**, plus the declared length of their other incomplete uploads; exceeding it is 507
-  `quota_exceeded`. Files in a home space are owned by the home owner; in libraries by the uploader/copier.
+  **trash included**, plus the declared length of their other incomplete uploads and their running simple
+  uploads and copies; exceeding it is 507 `quota_exceeded`. Quota and free space are admitted atomically (parallel
+  requests cannot all pass against the same usage) and re-checked when the file is committed. Files in a home
+  space are owned by the home owner; in libraries by the uploader/copier.
+* Free space: every write to the data volume (upload chunks, simple uploads, copies) keeps 1 GiB free; a write
+  that would eat into it stops with 507 `insufficient_storage` (nothing is indexed). Admission also counts the
+  caller's own incomplete uploads and running uploads/copies.
 * `POST /files/bulk-meta` → `{"updated":int,"errors":[{"id","error","code"?}]}` (entries not found/writable are
   reported, not fatal). `GET /files/{id}/thumbnail` with an unknown `size` is 422.
 * Content responses carry `Content-Security-Policy: sandbox …` and `X-Content-Type-Options: nosniff`; active
-  types (HTML, SVG, XML, JS, CSS) are sent as `application/octet-stream` even when downloaded.
+  types (HTML, SVG, XML, JS, CSS) are sent as `application/octet-stream` even when downloaded. Only inline responses
+  of safe types (images except SVG, video, audio, PDF, `text/plain`) carry the stored type; every attachment
+  (`download=1` or not inline-safe) is `application/octet-stream`. A client MIME hint (simple upload
+  `Content-Type`, tus `mime`) is used only when detection is inconclusive and only if it is one of the server's
+  known non-active types; any other hint (for example `application/ecmascript`) is ignored.
+* Thumbnails: image decodes share one process-wide memory budget (file thumbnails, media posters, TV logos); an
+  image whose estimated decode memory (from dimensions, bit depth, components) exceeds it gets no thumbnail.
 * Names are case-sensitive, but on a server whose disk is not (Windows, macOS) a name the disk cannot tell
   apart from an existing sibling — `CASETEST` next to `casetest` — is 409 `conflict` (`details.existing_name`)
   for folders, uploads (also into such a folder, also with `overwrite`), tus creation, rename and move/copy
@@ -214,7 +231,9 @@ Implements tus core + `creation`, `creation-defer-length` (no), `termination`, `
 * `POST /api/v1/uploads/` headers `Upload-Length: <n>` (required), `Upload-Metadata: key b64(value),...` with keys
   `filename` (required), `space_id` (required), `path` (target dir, default ""), `overwrite` ("1"/"0"),
   `mod_time` (RFC3339), `category`, `subcategory`, `tags` (comma-separated), `mime`.
-  Server validates permission, name, quota and free disk space (needs `n` + 1 GiB headroom) **at creation**.
+  Server validates permission, name, quota and free disk space (needs `n` + 1 GiB headroom, plus what the caller's
+  other incomplete uploads and running uploads/copies still have to write) **at creation**; each PATCH also stops
+  with 507 `insufficient_storage` before writing into the headroom.
   → 201 `Location: /api/v1/uploads/<id>`, `Upload-Expires`.
 * `HEAD /api/v1/uploads/<id>` → 200 `Upload-Offset`, `Upload-Length`, `Cache-Control: no-store`.
 * `PATCH /api/v1/uploads/<id>` `Content-Type: application/offset+octet-stream`, `Upload-Offset: <n>`
@@ -326,23 +345,23 @@ embedded tracks are listed only when ffmpeg is available; at most 32)
 | `POST /tv/channels` | tv:write | `{"number"?,"name","lineup_id","shuffle"?,"shuffle_mode"?,"playback_mode"?,"visibility"?,"group"?,"description"?}` → 201 (number auto-assigned if omitted; 409 if taken) |
 | `GET /tv/channels/{id}` · `PATCH` · `DELETE` | tv:read / tv:write | |
 | `PUT /tv/channels/{id}/logo` / `DELETE` | tv:write | raw image body |
-| `GET /tv/channels/{id}/logo` | tv:read [qt] | image |
+| `GET /tv/channels/{id}/logo` | tv:read or tv:feed [qt] | image |
 | `POST /tv/channels/{id}/reshuffle` | tv:write | new random seed → `Channel` |
 | `POST /tv/channels/{id}/restart` | tv:write | `anchor_at = now` → `Channel` |
 | `GET /tv/channels/{id}/now` | tv:read | `{"channel":Channel,"program":Program,"offset_seconds":float,"server_time","next":[Program x3]}` (on_demand → per-user position) |
-| `GET /tv/channels/{id}/programs/{file_id}/stream` | tv:read [qt] | Range-capable byte stream of a program. Authorised by **channel** visibility (owner or `shared`) + the file being in the channel's expanded lineup — so viewers of shared channels need no read access to the owner's files. `Program.stream_url` always uses this form. |
+| `GET /tv/channels/{id}/programs/{file_id}/stream` | tv:read or tv:feed [qt] | Range-capable byte stream of a program. Authorised by **channel** visibility (owner or `shared`) + the file being in the channel's expanded lineup — so viewers of shared channels need no read access to the owner's files. `Program.stream_url` always uses this form. |
 | `GET /tv/channels/{id}/programs/{file_id}/transcode?start=&height=` | tv:read [qt] | ffmpeg fMP4 variant of the above (`Program.transcode_url`); 501 without ffmpeg; the §6 transcode limits apply, charged to the caller |
 | `GET /tv/channels/{id}/programs/{file_id}/poster?size=` | tv:read [qt] | poster/thumbnail (`Program.poster_url`) |
 | `GET /tv/channels/{id}/programs/{file_id}/subtitles/{index}.vtt` | tv:read [qt] | subtitles for a program (`Program.subtitles[].url`) |
 | `PUT /tv/channels/{id}/position` | tv:read | on_demand only: `{"index":int,"offset_seconds":float}` |
 | `GET /tv/guide?start=&hours=&channel_ids=` | tv:read | `{"start","end","channels":[{"channel":Channel,"programs":[Program]}]}` (hours ≤ 72) |
 | `POST /tv/channels/auto-generate` | tv:write | `{"strategy":"per_show"|"per_genre"|"movies"|"all_tv","shuffle":bool,"min_items":int}` → `{"created":[Channel]}` |
-| `GET /tv/feeds` | tv:read | `{"m3u_url","xmltv_url","hdhr_url"|null}` — URLs embed a dedicated feed token (`lwp_` with scope `tv:read` only, created on first call, rotatable) |
+| `GET /tv/feeds` | tv:read | `{"m3u_url","xmltv_url","hdhr_url"|null}` — URLs embed a dedicated feed token (`lwp_` with scope `tv:feed` only, created on first call, rotatable) |
 | `POST /tv/feeds/rotate` | tv:write | new feed token |
-| `GET /tv/channels.m3u` | tv:read [qt] | M3U with `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, URLs → `live.ts` (when ffmpeg) else `/tv/channels/{id}/play` |
-| `GET /tv/xmltv.xml` | tv:read [qt] | XMLTV guide for `tv.guide_days` |
-| `GET /tv/channels/{id}/live.ts` | tv:read [qt] | continuous MPEG-TS via ffmpeg (current program from live offset, then the next ones) |
-| `GET /tv/channels/{id}/play` | tv:read [qt] | 302 to current program's stream URL with `#t=<offset>` |
+| `GET /tv/channels.m3u` | tv:read or tv:feed [qt] | M3U with `tvg-id`, `tvg-name`, `tvg-logo`, `group-title`, URLs → `live.ts` (when ffmpeg) else `/tv/channels/{id}/play` |
+| `GET /tv/xmltv.xml` | tv:read or tv:feed [qt] | XMLTV guide for `tv.guide_days` |
+| `GET /tv/channels/{id}/live.ts` | tv:read or tv:feed [qt] | continuous MPEG-TS via ffmpeg (current program from live offset, then the next ones) |
+| `GET /tv/channels/{id}/play` | tv:read or tv:feed [qt] | 302 to current program's stream URL with `#t=<offset>` |
 | `GET /hdhr/{feed_token}/discover.json`, `/lineup.json`, `/lineup_status.json`, `/device.xml` | public (token in path) | HDHomeRun emulation for Plex/Jellyfin when `tv.hdhr_enabled` |
 | `POST /hdhr/{feed_token}/lineup.post` | public (token in path) | channel-scan acknowledgement (`?scan=start`, empty 200; the lineup is always current) |
 
@@ -386,11 +405,13 @@ embedded tracks are listed only when ffmpeg is available; at most 32)
   cycle); on-demand positions do not advance while nobody watches and moving past the end of a program
   starts the next one. The guide of an on-demand channel shows the caller's own continuation (programs back to
   back from now on).
-* Feed tokens: a personal access token named "TV feeds (M3U, XMLTV, HDHomeRun)" with tv:read only (no
-  media:read: program bytes are served with the channel owner's permissions, so a leaked feed URL can watch
-  the user's channels but cannot list or stream the rest of the library), kept sealed (AES-GCM) so URLs can be
-  shown again. Reading or rotating it needs a credential with tv:read. Feed tokens minted with media:read by
-  older versions are narrowed in place on upgrade (URLs keep working); one found with other scopes is replaced. Revoking it from the account's token list also disables it here (a new one is minted
+* Feed tokens: a personal access token named "TV feeds (M3U, XMLTV, HDHomeRun)" with tv:feed only (no
+  media:read and no tv:read: program bytes are served with the channel owner's permissions, and tv:feed reaches
+  only the feed routes, so a leaked feed URL can watch the user's channels but cannot list or stream the rest
+  of the library, nor list lineups, read the guide API or change positions), kept sealed (AES-GCM) so URLs can be
+  shown again. Reading or rotating it needs a credential with tv:read. Feed tokens minted with media:read or tv:read by
+  older versions are narrowed to tv:feed in place on upgrade (URLs keep working; a tv:read-only feed token is
+  accepted until the URLs are rotated); one found with other scopes is replaced. Revoking it from the account's token list also disables it here (a new one is minted
   on the next GET). HDHomeRun accepts only the current feed token; everything else is 404.
 * M3U/XMLTV/HDHR URLs embed the token the request used (or the feed token) and use
   `general.public_url` as origin when set. live.ts: 720p H.264/AAC MPEG-TS, programs chained with

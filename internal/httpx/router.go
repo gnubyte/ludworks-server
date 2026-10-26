@@ -54,6 +54,7 @@ type Authenticator interface {
 type Access struct {
 	Public          bool   // no auth required
 	Scope           string // required scope, e.g. "files:read"; "" with !Public means "any authenticated"
+	AltScope        string // with Scope: a narrower scope that is also accepted (e.g. "tv:feed" on feed/stream routes)
 	Admin           bool   // requires Role admin (and scope "admin" for tokens)
 	AllowQueryToken bool   // accept ?access_token= (streaming/feeds only)
 	MaxBody         int64  // 0 → default 1 MiB; -1 → unlimited (handler enforces its own limit)
@@ -77,6 +78,10 @@ func (a Access) WithMaxBody(n int64) Access { a.MaxBody = n; return a }
 
 // WithQueryToken returns a copy that also accepts ?access_token=.
 func (a Access) WithQueryToken() Access { a.AllowQueryToken = true; return a }
+
+// WithAltScope returns a copy that also admits principals holding scope s instead of Scope.
+// It lets a narrow scope (one that grants nothing else) reach a few routes of a wider one.
+func (a Access) WithAltScope(s string) Access { a.AltScope = s; return a }
 
 // WithoutCSRF returns a copy that skips CSRF checks.
 func (a Access) WithoutCSRF() Access { a.NoCSRF = true; return a }
@@ -208,8 +213,8 @@ func (rt *Router) HandleRaw(pattern string, a Access, h http.Handler) {
 	if !ok || method == "" || !strings.HasPrefix(strings.TrimSpace(path), "/") || strings.ToUpper(method) != method {
 		panic(fmt.Sprintf("httpx: pattern %q must be \"METHOD /path\"", pattern))
 	}
-	if a.Public && (a.Admin || a.Scope != "") {
-		panic(fmt.Sprintf("httpx: pattern %q: Public cannot be combined with Scope/Admin", pattern))
+	if a.Public && (a.Admin || a.Scope != "" || a.AltScope != "") || (a.AltScope != "" && a.Scope == "") {
+		panic(fmt.Sprintf("httpx: pattern %q: Public cannot be combined with Scope/Admin, and AltScope needs Scope", pattern))
 	}
 	rt.mux.Handle(pattern, rt.guard(a, rateLimitExempt[method+" "+strings.TrimSpace(path)], h))
 }
@@ -318,7 +323,7 @@ func (rt *Router) guard(a Access, exempt func(*http.Request) bool, next http.Han
 				WriteError(w, r, core.Forbidden("Administrator access required"))
 				return
 			}
-			if a.Scope != "" && !p.Has(a.Scope) {
+			if a.Scope != "" && !p.Has(a.Scope) && (a.AltScope == "" || !p.Has(a.AltScope)) {
 				WriteError(w, r, core.Forbidden("Missing required scope: "+a.Scope))
 				return
 			}

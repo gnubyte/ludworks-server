@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -20,35 +21,28 @@ import (
 	"ludworks/internal/tv/schedule"
 )
 
-// Feed token scopes (API.md §7: a dedicated lwp_ token with tv:read only). Every feed,
-// program, live.ts and HDHomeRun route needs nothing more: program bytes are served with the
-// channel owner's permissions (ownerPrincipal), not the caller's media scope. media:read is
-// deliberately absent, so a feed URL leaked from an IPTV app or a proxy log cannot list or
-// stream the library outside the user's channels.
-var feedScopes = []string{"tv:read"}
+// Feed token scopes (API.md §7: a dedicated lwp_ token with tv:feed only). tv:feed reaches
+// the feed routes and nothing else: the M3U and XMLTV feeds, channel logos, live.ts, play and
+// program streams (registered with WithAltScope(feedScope)) and the HDHomeRun emulation.
+// Program bytes are served with the channel owner's permissions (ownerPrincipal), not the
+// caller's media scope. So a feed URL leaked from an IPTV app or a proxy log can watch the
+// user's channels but cannot list lineups, read the guide API, change positions, or list and
+// stream the library outside the channels.
+const feedScope = "tv:feed"
 
-// hasFeedScopes reports whether p may mint or reveal the feed token (which must not carry
-// more than the credential asking for it).
-func hasFeedScopes(p *core.Principal) bool {
-	for _, s := range feedScopes {
-		if !p.Has(s) {
-			return false
-		}
-	}
-	return true
-}
+var feedScopes = []string{feedScope}
 
-// isFeedScopes reports whether a token carries exactly feedScopes.
+// legacyFeedScopes are the scopes of feed tokens minted before tv:feed existed. Those tokens
+// keep working (existing IPTV and HDHomeRun setups) until the user rotates the feed URLs.
+var legacyFeedScopes = []string{"tv:read"}
+
+// hasFeedScopes reports whether p may mint or reveal the feed token, which must not carry
+// more than the credential asking for it: tv:read covers everything tv:feed reaches.
+func hasFeedScopes(p *core.Principal) bool { return p.Has("tv:read") || p.Has(feedScope) }
+
+// isFeedScopes reports whether a token carries exactly feedScopes or legacyFeedScopes.
 func isFeedScopes(scopes []string) bool {
-	if len(scopes) != len(feedScopes) {
-		return false
-	}
-	for i := range scopes {
-		if scopes[i] != feedScopes[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(scopes, feedScopes) || slices.Equal(scopes, legacyFeedScopes)
 }
 
 const feedTokenName = "TV feeds (M3U, XMLTV, HDHomeRun)"
@@ -62,13 +56,14 @@ type Feeds struct {
 	HDHRURL  *string `json:"hdhr_url"`
 }
 
-// errFeedScope: minting or revealing a feed token (which carries tv:read) must not widen what
+// errFeedScope: minting or revealing a feed token (tv:feed) must not widen what
 // the caller's own credential may do.
-var errFeedScope = core.Forbidden("Feed URLs need a credential with the tv:read scope")
+var errFeedScope = core.Forbidden("Feed URLs need a credential with the tv:read or tv:feed scope")
 
 // feedToken returns the user's feed token, minting a new one when there is none, when it was
-// revoked (e.g. from the account's token list), when its scopes are not exactly feedScopes
-// (migration 0002 narrows older media:read tokens in place) or when rotate is set (the old
+// revoked (e.g. from the account's token list), when its scopes are neither feedScopes nor the
+// legacy tv:read-only set
+// (migration 0002 narrowed older media:read tokens to it) or when rotate is set (the old
 // one is revoked).
 func (m *Module) feedToken(ctx context.Context, userID string, rotate bool) (string, error) {
 	m.feedMu.Lock()

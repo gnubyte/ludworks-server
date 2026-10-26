@@ -117,6 +117,10 @@ if (-not $existing) {
   if ($LASTEXITCODE -ne 0) { throw "ludworks.exe service install failed (exit code $LASTEXITCODE)" }
 } else {
   Write-Host "The $ServiceName service is already registered; keeping its configuration."
+  # Services registered by older versions kept every default service privilege
+  # (SeImpersonatePrivilege...): keep only what the server needs, as "service install" does.
+  & sc.exe privs $ServiceName SeChangeNotifyPrivilege | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "sc.exe privs $ServiceName failed (exit code $LASTEXITCODE)" }
 }
 
 Write-Host "Starting the $ServiceName service..."
@@ -148,7 +152,7 @@ Write-Host 'Ludworks is running as a Windows service.'
 Write-Host ''
 Write-Host '  1. Read the one-time setup token (in this elevated window):'
 Write-Host "       Get-Content `"$tokenFile`""
-Write-Host "     It is also in the service log: $DataDir\ludworks.log"
+Write-Host "     (The service log $DataDir\ludworks.log names this file; the token itself is not logged.)"
 Write-Host "  2. Open https://localhost:$Port/ and compare the certificate fingerprint with the log."
 Write-Host '  3. Create the first administrator with the setup token.'
 Write-Host ''

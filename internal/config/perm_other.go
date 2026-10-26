@@ -44,3 +44,7 @@ func checkConfigFile(string) error { return nil }
 // CheckPrivate reports whether a file is private to the accounts that run and administer
 // Ludworks (Windows only; see settings.CheckKeyFile for the POSIX mode check).
 func CheckPrivate(string) error { return nil }
+
+// CheckServiceProgram only matters on Windows (the systemd unit runs a root-owned binary
+// installed by the package manager).
+func CheckServiceProgram(string) error { return nil }

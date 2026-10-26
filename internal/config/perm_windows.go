@@ -449,9 +449,9 @@ func CheckPrivate(path string) error {
 	return nil
 }
 
-// checkAncestors refuses a data directory whose parent directories an untrusted account owns
-// or could use to move or replace it.
-func checkAncestors(path string, trusted map[string]bool) error {
+// checkAncestors refuses path (described by what, e.g. "the data directory") when one of its
+// parent directories is owned by an untrusted account, or lets one move or replace what is in it.
+func checkAncestors(path, what string, trusted map[string]bool, fail func(path, problem string) error) error {
 	for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
 		root := filepath.Dir(dir) == dir
 		o, err := inspect(dir, false)
@@ -459,7 +459,7 @@ func checkAncestors(path string, trusted map[string]bool) error {
 			return fmt.Errorf("check %s: %w", dir, err)
 		}
 		if !trusted[o.owner] {
-			return untrusted(dir+" (a parent of the data directory)", "is owned by "+accountName(o.owner))
+			return fail(dir+" (a parent of "+what+")", "is owned by "+accountName(o.owner))
 		}
 		mask := uint32(replaceRights)
 		if !root { // a volume root cannot be renamed
@@ -467,7 +467,7 @@ func checkAncestors(path string, trusted map[string]bool) error {
 		}
 		for _, a := range o.aces {
 			if a.known && a.allow && !a.inheritOnly && !trusted[a.sid] && a.mask&mask != 0 {
-				return untrusted(dir+" (a parent of the data directory)", "lets "+accountName(a.sid)+" move or replace its contents")
+				return fail(dir+" (a parent of "+what+")", "lets "+accountName(a.sid)+" move or replace its contents")
 			}
 		}
 		if root {
@@ -495,7 +495,7 @@ func PrepareServiceDataDir(path, svcSID string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	if err := checkAncestors(path, trusted); err != nil {
+	if err := checkAncestors(path, "the data directory", trusted, untrusted); err != nil {
 		return err
 	}
 	o, err := inspect(path, false)
@@ -543,4 +543,50 @@ func PrepareServiceDataDir(path, svcSID string) error {
 		}
 	}
 	return nil
+}
+
+// adminSIDs are the only principals that may control the program a service runs: the service
+// account itself is deliberately not among them (code running as the service must not be able
+// to replace its own binary), nor is the installing administrator's personal account.
+var adminSIDs = map[string]bool{
+	sidSystem: true, sidAdministrators: true, sidTrustedInstaller: true, sidCreatorOwner: true, sidOwnerRights: true,
+}
+
+// CheckServiceProgram refuses to run exe as the Windows service unless only SYSTEM,
+// Administrators and TrustedInstaller can change it: the file itself, the folder holding it
+// (adding files there counts, e.g. a DLL planted next to it) and every folder above (moving or
+// replacing what is inside). Reading is fine. Program Files passes; a folder such as
+// C:\Ludworks, which inherits "Authenticated Users: Modify" from the drive root, or one in a
+// user profile does not. Links and junctions are refused, since their target could change.
+func CheckServiceProgram(exe string) error {
+	fail := func(path, problem string) error {
+		return fmt.Errorf("%s %s, so other accounts could replace the program the Ludworks service runs. "+
+			"Install ludworks.exe in a folder only administrators can change (the installer and install-service.ps1 "+
+			`use "%%ProgramFiles%%\Ludworks") and run "ludworks.exe service install" from there`, path, problem)
+	}
+	o, err := inspect(exe, false)
+	if err != nil {
+		return fmt.Errorf("check service program: %w", err)
+	}
+	if o.reparse || o.dir {
+		return fail(exe, "is not a regular file (a link, junction or directory)")
+	}
+	if prob := o.problem(adminSIDs, true); prob != "" {
+		return fail(exe, prob)
+	}
+	dir := filepath.Dir(exe)
+	d, err := inspect(dir, false)
+	if err != nil {
+		return fmt.Errorf("check service program folder: %w", err)
+	}
+	if d.reparse {
+		return fail(dir, "is a link or junction")
+	}
+	if prob := d.problem(adminSIDs, true); prob != "" {
+		return fail(dir+" (the program's folder)", prob)
+	}
+	if filepath.Dir(dir) == dir {
+		return nil // the program sits in a volume root, which was checked above
+	}
+	return checkAncestors(dir, "the program's folder", adminSIDs, fail)
 }

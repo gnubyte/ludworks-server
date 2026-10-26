@@ -592,8 +592,21 @@
             "description": "No such item (or it was deleted)."
           },
           "409": {
-            "$ref": "#/components/responses/Conflict",
-            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/VaultConflictError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
@@ -950,8 +963,21 @@
             "description": "No such folder (or it was deleted)."
           },
           "409": {
-            "$ref": "#/components/responses/Conflict",
-            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again."
+            "description": "`conflict`: the record changed since `base_revision`; `details.current` holds the server copy. `vault_key_changed`: the request names a `key_id` that is no longer the vault's key (the vault was reset and re-created or its key rotated since the client unlocked); drop the key and unlock again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/VaultConflictError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ]
+                }
+              }
+            }
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
