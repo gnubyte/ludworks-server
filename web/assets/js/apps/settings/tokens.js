@@ -9,7 +9,7 @@ import { formatDate } from '../../core/format.js';
 export const SCOPE_GROUPS = [
   { label: 'Files', scopes: [['files:read', 'Read files'], ['files:write', 'Upload & modify files']] },
   { label: 'Media library', scopes: [['media:read', 'Read media & stream'], ['media:write', 'Edit metadata']] },
-  { label: 'TV', scopes: [['tv:read', 'Watch channels & guide'], ['tv:write', 'Manage lineups & channels']] },
+  { label: 'TV', scopes: [['tv:read', 'Watch channels & guide'], ['tv:write', 'Manage lineups & channels'], ['tv:feed', 'Feeds & streams only (IPTV players)']] },
   { label: 'Notes', scopes: [['notes:read', 'Read notes'], ['notes:write', 'Create & edit notes']] },
   { label: 'Passwords', scopes: [['vault:read', 'Sync encrypted vault'], ['vault:write', 'Modify encrypted vault']] },
   { label: 'Sheets', scopes: [['sheets:read', 'Read workbooks'], ['sheets:write', 'Edit workbooks']] },

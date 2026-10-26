@@ -14,7 +14,8 @@ import (
 )
 
 // TestFeedTokenCannotReadLibrary: the feed token (embedded in URLs handed to IPTV apps) only
-// carries tv:read, so a leaked feed URL cannot list or stream media outside the channels.
+// carries tv:feed, so a leaked feed URL cannot list or stream media outside the channels, nor
+// use the rest of the TV API.
 func TestFeedTokenCannotReadLibrary(t *testing.T) {
 	v := newEnvWith(t, true)
 	alice, ac := v.user("alice")
@@ -41,12 +42,10 @@ func TestFeedTokenCannotReadLibrary(t *testing.T) {
 	// The library itself is fine for a normal session (control).
 	ac.Do("GET", "/api/v1/media", nil).Expect(200)
 
-	// Every feed route still works with the narrowed token.
+	// Every feed route still works with the narrowed token: the feeds and what they link to.
 	for _, path := range []string{
 		"/api/v1/tv/channels.m3u", "/api/v1/tv/xmltv.xml",
 		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/stream",
-		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/poster",
-		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/subtitles/0.vtt",
 	} {
 		if code, _, body := v.raw(nil, "GET", path+"?access_token="+tok, nil, nil); code != 200 {
 			t.Errorf("%s with the feed token = %d %s", path, code, body)
@@ -55,9 +54,71 @@ func TestFeedTokenCannotReadLibrary(t *testing.T) {
 	if code, _, _ := v.raw(nil, "GET", "/api/v1/tv/channels/"+ch.ID+"/play?access_token="+tok, nil, nil); code != 302 {
 		t.Errorf("play with the feed token = %d", code)
 	}
+	// ... and nothing else of the TV API (tv:feed is not tv:read).
+	for _, path := range []string{
+		"/api/v1/tv/channels", "/api/v1/tv/channels/" + ch.ID, "/api/v1/tv/lineups", "/api/v1/tv/lineups/" + lid,
+		"/api/v1/tv/guide", "/api/v1/tv/channels/" + ch.ID + "/now", "/api/v1/tv/feeds",
+		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/poster",
+		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/subtitles/0.vtt",
+		"/api/v1/tv/channels/" + ch.ID + "/programs/" + ids[0] + "/transcode",
+	} {
+		feed.Do("GET", path, nil).ExpectError(403, "forbidden")
+	}
+	feed.Do("PUT", "/api/v1/tv/channels/"+ch.ID+"/position", map[string]any{"index": 0, "offset_seconds": 0}).ExpectError(403, "forbidden")
 	v.e.Patch("tv", map[string]any{"hdhr_enabled": true})
 	if code, _, _ := v.raw(nil, "GET", "/api/v1/hdhr/"+tok+"/lineup.json", nil, nil); code != 200 {
 		t.Errorf("hdhr lineup with the feed token = %d", code)
+	}
+}
+
+// TestFeedTokenScopeMigration: feed tokens minted with tv:read before tv:feed existed are
+// narrowed to tv:feed in place by migration 0003 (their URLs keep working); until then, and
+// until the user rotates, they are still accepted as the feed token.
+func TestFeedTokenScopeMigration(t *testing.T) {
+	v := newEnv(t)
+	_, ac := v.user("alice")
+	var f feedsResp
+	do(t, ac, "GET", "/api/v1/tv/feeds", nil, 200, &f)
+	tok := tokenOf(t, f.M3UURL)
+	sqlDB := v.e.Deps.DB.SQL
+	if _, err := sqlDB.Exec(`UPDATE personal_access_tokens SET scopes = '["tv:read"]'
+		WHERE id IN (SELECT token_id FROM tv_feed_tokens)`); err != nil {
+		t.Fatal(err)
+	}
+	// Not yet migrated: the legacy token is still the feed token and still works.
+	var f2 feedsResp
+	do(t, ac, "GET", "/api/v1/tv/feeds", nil, 200, &f2)
+	if f2.M3UURL != f.M3UURL {
+		t.Fatal("legacy tv:read feed token replaced before rotation")
+	}
+	if code, _, _ := v.raw(nil, "GET", pathOf(t, f.M3UURL), nil, nil); code != 200 {
+		t.Fatalf("legacy feed URL = %d", code)
+	}
+	// An unrelated tv:read token is left alone by the migration.
+	var pat struct {
+		Token string `json:"token"`
+	}
+	do(t, ac, "POST", "/api/v1/me/tokens", map[string]any{"name": "player", "scopes": []string{"tv:read"}}, 201, &pat)
+	mig, err := fs.ReadFile(v.tv.Migrations(), "0003_feed_token_scope_tv_feed.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sqlDB.Exec(string(mig)); err != nil {
+		t.Fatal(err)
+	}
+	for tk, want := range map[string]string{tok: "tv:feed", pat.Token: "tv:read"} {
+		p, err := auth.VerifyToken(context.Background(), v.e.Deps, tk)
+		if err != nil || p == nil || len(p.Scopes) != 1 || p.Scopes[0] != want {
+			t.Errorf("after migration scopes = %+v, want [%s]", p, want)
+		}
+	}
+	var f3 feedsResp
+	do(t, ac, "GET", "/api/v1/tv/feeds", nil, 200, &f3)
+	if f3.M3UURL != f.M3UURL {
+		t.Fatal("migration changed the feed URL")
+	}
+	if code, _, _ := v.raw(nil, "GET", pathOf(t, f.M3UURL), nil, nil); code != 200 {
+		t.Fatalf("migrated feed URL = %d", code)
 	}
 }
 

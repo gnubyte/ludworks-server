@@ -298,7 +298,7 @@
           "Files"
         ],
         "summary": "Search files",
-        "description": "Full-text search (name, path, tags) and filters across every space the caller can read.\n\n**Scope:** `files:read`",
+        "description": "Full-text search (name, path, tags) and filters across every space the caller can read. With `q`, entries with every term in the name come first, then name or tags, then path only, each newest first (no corpus-wide relevance scores: other users' files never change the order).\n\n**Scope:** `files:read`",
         "x-scope": "files:read",
         "parameters": [
           {
@@ -920,7 +920,7 @@
           "Files"
         ],
         "summary": "Download / stream file content",
-        "description": "File bytes with `Range`, `If-Range` and `ETag` support (seekable video/audio). `Content-Disposition` is\n`attachment` when `download=1`; otherwise `inline` only for safe types (images, video, audio, PDF, `text/plain`) and\n`attachment` for everything else — `text/html` and SVG are **always** served as attachments.\n\nResponses carry `Content-Security-Policy: sandbox …`, `X-Content-Type-Options: nosniff` and a strong `ETag` derived from id, size and modification time; active types (HTML, SVG, XML, JavaScript) are sent as `application/octet-stream`. Inline PDFs may be framed by the same origin (web UI preview). Folders answer 400 (use `/zip`).\n\n**Scope:** `files:read` · also accepts `?access_token=`",
+        "description": "File bytes with `Range`, `If-Range` and `ETag` support (seekable video/audio). `Content-Disposition` is\n`attachment` when `download=1`; otherwise `inline` only for safe types (images, video, audio, PDF, `text/plain`) and\n`attachment` for everything else — `text/html` and SVG are **always** served as attachments.\n\nResponses carry `Content-Security-Policy: sandbox …`, `X-Content-Type-Options: nosniff` and a strong `ETag` derived from id, size and modification time; only inline responses of safe types carry the stored type — every attachment and every active type (HTML, SVG, XML, JavaScript, CSS) is sent as `application/octet-stream`. Inline PDFs may be framed by the same origin (web UI preview). Folders answer 400 (use `/zip`).\n\n**Scope:** `files:read` · also accepts `?access_token=`",
         "x-scope": "files:read",
         "security": [
           {
@@ -1207,7 +1207,7 @@
           "Files"
         ],
         "summary": "Simple (non-resumable) upload",
-        "description": "Uploads one file from the raw request body. `Content-Length` is required; the body is capped at\n`files.max_upload_bytes`, or 2 GiB when that is unlimited. For large files or unreliable links use the resumable\n**Uploads** (tus) endpoints. The file is written to a temp file and committed atomically.\n\n**Scope:** `files:write`",
+        "description": "Uploads one file from the raw request body. `Content-Length` is required; the body is capped at\n`files.max_upload_bytes`, or 2 GiB when that is unlimited. For large files or unreliable links use the resumable\n**Uploads** (tus) endpoints. The file is written to a temp file and committed atomically.\n\nQuota and free space are admitted atomically for `Content-Length` (the running upload counts against the caller's\nquota until it is committed) and the write stops with 507 `insufficient_storage` before it would leave less than\n1 GiB free. `Content-Type` is a MIME hint used only when detection is inconclusive and only if it is a known\nnon-active type; other hints are ignored. With `overwrite=1` the entry keeps its ID and becomes owned by the owner of\nthe new content (the uploader in a library); the replaced version stays its previous owner's, in their trash.\n\n**Scope:** `files:write`",
         "x-scope": "files:write",
         "parameters": [
           {
@@ -1431,7 +1431,7 @@
           "Trash"
         ],
         "summary": "List my trash",
-        "description": "The caller's trash (home space trash plus entries they trashed in writable libraries), most recently trashed first. Only trashed roots are listed (a trashed folder's contents come back with it on restore). `path` and `original_path` are the location the entry had before it was trashed. Entries older than `files.trash_retention_days` are purged hourly.\n\n**Scope:** `files:read`",
+        "description": "The caller's trash (home space trash plus, in writable libraries, entries they trashed and trashed entries containing files they own — their quota pays for those, also when another member trashed or replaced them), most recently trashed first. Only trashed roots are listed (a trashed folder's contents come back with it on restore). `path` and `original_path` are the location the entry had before it was trashed. Entries older than `files.trash_retention_days` are purged hourly.\n\n**Scope:** `files:read`",
         "x-scope": "files:read",
         "parameters": [
           {
@@ -1469,7 +1469,7 @@
           "Trash"
         ],
         "summary": "Empty my trash",
-        "description": "Permanently deletes everything in the caller's trash: the trash of their home space plus what they trashed in libraries they can write. `deleted` counts every removed entry including folder contents.\n\n**Scope:** `files:write`",
+        "description": "Permanently deletes everything in the caller's trash: the trash of their home space plus, in libraries they can write, what they trashed and trashed entries containing files they own. `deleted` counts every removed entry including folder contents.\n\n**Scope:** `files:write`",
         "x-scope": "files:write",
         "responses": {
           "200": {
@@ -2459,7 +2459,7 @@
           "Uploads"
         ],
         "summary": "Create a resumable upload",
-        "description": "Creates an upload (tus `creation`). Send no body. `Upload-Metadata` is a comma-separated list of\n`key base64(value)` pairs with keys `filename` (required), `space_id` (required), `path` (target dir, default `\"\"`),\n`overwrite` (`1`/`0`), `mod_time` (RFC 3339), `category`, `subcategory`, `tags` (comma-separated) and `mime`.\n\nPermission, file name, quota and free disk space (`Upload-Length` + 1 GiB headroom) are checked **now**, so a\ntoo-large upload fails before any byte is sent. `Upload-Defer-Length` is not supported.\n\n**Scope:** `files:write`",
+        "description": "Creates an upload (tus `creation`). Send no body. `Upload-Metadata` is a comma-separated list of\n`key base64(value)` pairs with keys `filename` (required), `space_id` (required), `path` (target dir, default `\"\"`),\n`overwrite` (`1`/`0`), `mod_time` (RFC 3339), `category`, `subcategory`, `tags` (comma-separated) and `mime`.\n\nPermission, file name, quota and free disk space (`Upload-Length` + 1 GiB headroom, plus what the caller's other\nincomplete uploads and running uploads/copies still have to write) are checked **now**, atomically with the\nreservation, so a too-large upload fails before any byte is sent. `mime` is used only when detection is\ninconclusive and only if it is a known non-active type. `Upload-Defer-Length` is not supported.\n\n**Scope:** `files:write`",
         "x-scope": "files:write",
         "parameters": [
           {
@@ -2745,7 +2745,7 @@
           "Uploads"
         ],
         "summary": "Upload a chunk",
-        "description": "Appends the body at `Upload-Offset` (which must equal the server's current offset, else 409). With\n`Upload-Checksum: sha256 <base64>` (or `sha1`) the chunk is verified and discarded on mismatch (status 460).\nData is fsynced at the end of each chunk. Recommended chunk size 8–64 MiB.\n\nWhen the final byte arrives the file is committed atomically into the target directory and the response carries\n`Ludworks-File-Id` and `Ludworks-File-Path` (percent-encoded segments). With `overwrite` an existing file keeps its entry ID and its\nprevious version goes to the trash. Repeating the final PATCH (empty body at `Upload-Offset` = `Upload-Length`) is idempotent and\nalso retries a commit that failed with 507.\n\nWithout `Upload-Checksum`, the bytes of an interrupted chunk that did arrive are kept (resume from HEAD); with a checksum an\nincomplete chunk is discarded. A stalled body times out after 2 minutes without data. Each successful PATCH extends `Upload-Expires`.\n\n**Scope:** `files:write`",
+        "description": "Appends the body at `Upload-Offset` (which must equal the server's current offset, else 409). With\n`Upload-Checksum: sha256 <base64>` (or `sha1`) the chunk is verified and discarded on mismatch (status 460).\nData is fsynced at the end of each chunk. Recommended chunk size 8–64 MiB. Writing stops with 507\n`insufficient_storage` before it would leave less than 1 GiB free on the data volume.\n\nWhen the final byte arrives the file is committed atomically into the target directory and the response carries\n`Ludworks-File-Id` and `Ludworks-File-Path` (percent-encoded segments). With `overwrite` an existing file keeps its entry ID and its\nprevious version goes to the trash. Repeating the final PATCH (empty body at `Upload-Offset` = `Upload-Length`) is idempotent and\nalso retries a commit that failed with 507.\n\nWithout `Upload-Checksum`, the bytes of an interrupted chunk that did arrive are kept (resume from HEAD); with a checksum an\nincomplete chunk is discarded. A stalled body times out after 2 minutes without data. Each successful PATCH extends `Upload-Expires`.\n\n**Scope:** `files:write`",
         "x-scope": "files:write",
         "parameters": [
           {

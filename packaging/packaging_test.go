@@ -377,6 +377,11 @@ func TestPostinstFreshInstall(t *testing.T) {
 			t.Errorf("first-run notice lacks %q:\n%s", want, out)
 		}
 	}
+	// The token is only in the 0600 file; the journal (readable by adm/systemd-journal and log
+	// shippers) must not be offered as a place to read it.
+	if strings.Contains(out, "also in the log") {
+		t.Errorf("first-run notice points to the journal for the setup token:\n%s", out)
+	}
 
 	// Second configure = upgrade without a marker: no account changes, try-restart only.
 	out, errOut, log, code = s.run("postinst", "configure", "0.1.0")

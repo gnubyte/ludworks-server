@@ -129,6 +129,8 @@ func (m *Module) OpenAPI() []byte { return openAPI }
 func (m *Module) Routes(r *httpx.Router) {
 	read, write := httpx.Scope("tv:read"), httpx.Scope("tv:write")
 	qt := read.WithQueryToken()
+	// Routes the feed token (tv:feed only) may reach: the feeds and what they link to.
+	feed := qt.WithAltScope(feedScope)
 
 	r.Handle("GET /api/v1/tv/lineups", read, m.listLineups)
 	r.Handle("POST /api/v1/tv/lineups", write, m.createLineup)
@@ -148,23 +150,23 @@ func (m *Module) Routes(r *httpx.Router) {
 	r.Handle("DELETE /api/v1/tv/channels/{id}", write, m.deleteChannel)
 	r.Handle("PUT /api/v1/tv/channels/{id}/logo", write.WithMaxBody(MaxLogoBytes), m.putLogo)
 	r.Handle("DELETE /api/v1/tv/channels/{id}/logo", write, m.deleteLogo)
-	r.Handle("GET /api/v1/tv/channels/{id}/logo", qt, m.getLogo)
+	r.Handle("GET /api/v1/tv/channels/{id}/logo", feed, m.getLogo)
 	r.Handle("POST /api/v1/tv/channels/{id}/reshuffle", write, m.reshuffle)
 	r.Handle("POST /api/v1/tv/channels/{id}/restart", write, m.restart)
 	r.Handle("GET /api/v1/tv/channels/{id}/now", read, m.nowPlaying)
 	r.Handle("PUT /api/v1/tv/channels/{id}/position", read, m.setPosition)
-	r.Handle("GET /api/v1/tv/channels/{id}/programs/{file_id}/stream", qt, m.programStream)
+	r.Handle("GET /api/v1/tv/channels/{id}/programs/{file_id}/stream", feed, m.programStream)
 	r.Handle("GET /api/v1/tv/channels/{id}/programs/{file_id}/transcode", qt, m.programTranscode)
 	r.Handle("GET /api/v1/tv/channels/{id}/programs/{file_id}/poster", qt, m.programPoster)
 	r.Handle("GET /api/v1/tv/channels/{id}/programs/{file_id}/subtitles/{name}", qt, m.programSubtitle)
-	r.Handle("GET /api/v1/tv/channels/{id}/live.ts", qt, m.liveTS)
-	r.Handle("GET /api/v1/tv/channels/{id}/play", qt, m.play)
+	r.Handle("GET /api/v1/tv/channels/{id}/live.ts", feed, m.liveTS)
+	r.Handle("GET /api/v1/tv/channels/{id}/play", feed, m.play)
 	r.Handle("GET /api/v1/tv/guide", read, m.guide)
 
 	r.Handle("GET /api/v1/tv/feeds", read, m.getFeeds)
 	r.Handle("POST /api/v1/tv/feeds/rotate", write, m.rotateFeeds)
-	r.Handle("GET /api/v1/tv/channels.m3u", qt, m.m3u)
-	r.Handle("GET /api/v1/tv/xmltv.xml", qt, m.xmltv)
+	r.Handle("GET /api/v1/tv/channels.m3u", feed, m.m3u)
+	r.Handle("GET /api/v1/tv/xmltv.xml", feed, m.xmltv)
 
 	// HDHomeRun emulation: public routes authorised by the feed token in the path.
 	pub := httpx.Public()

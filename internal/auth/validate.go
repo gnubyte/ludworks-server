@@ -101,9 +101,11 @@ func checkPassword(minLen int, pw, username, email string) string {
 // validRole reports whether r is a known role.
 func validRole(r string) bool { return r == string(core.RoleAdmin) || r == string(core.RoleUser) }
 
-// Scopes a personal access token may carry (API.md §0).
+// Scopes a personal access token may carry (API.md §0). "tv:feed" is the narrow scope of TV
+// feed tokens: it reaches only the M3U/XMLTV/HDHomeRun feeds, channel logos and the live and
+// program streams those feeds link to (httpx.Access.AltScope), nothing else of tv:read.
 var AllScopes = []string{
-	"files:read", "files:write", "media:read", "media:write", "tv:read", "tv:write",
+	"files:read", "files:write", "media:read", "media:write", "tv:read", "tv:write", "tv:feed",
 	"notes:read", "notes:write", "vault:read", "vault:write", "sheets:read", "sheets:write",
 	"account", "admin",
 }

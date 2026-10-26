@@ -1226,7 +1226,7 @@
         "properties": {
           "setup_token": {
             "type": "string",
-            "description": "One-time token from `<data>/setup-token.txt` or the first-start log.",
+            "description": "One-time token from `<data>/setup-token.txt` (the server log names the file; the token itself is logged only if that file could not be written).",
             "minLength": 1,
             "maxLength": 256
           },

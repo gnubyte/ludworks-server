@@ -162,3 +162,29 @@ func TestFirewallRuleLimitedToLocalSubnet(t *testing.T) {
 		t.Error("README-windows.txt does not document the scope and how to widen it with a separate rule")
 	}
 }
+
+// Upgrades restrict an existing service's privileges to SeChangeNotifyPrivilege, as
+// "ludworks service install" does for new services (no SeImpersonatePrivilege), before it is
+// started again; and neither installer points users at the log for the setup token.
+func TestInstallersRestrictServicePrivilegesOnUpgrade(t *testing.T) {
+	iss := readWindows(t, "ludworks.iss")
+	privs := strings.Index(iss, `Parameters: "privs {#ServiceName} SeChangeNotifyPrivilege"`)
+	start := strings.Index(iss, `Parameters: "service start"`)
+	if privs < 0 || start < privs {
+		t.Error("ludworks.iss must run sc.exe privs (SeChangeNotifyPrivilege only) before starting an existing service")
+	}
+	if line := iss[privs : strings.IndexByte(iss[privs:], '\n')+privs]; !strings.Contains(line, "Check: ServiceExisted") {
+		t.Errorf("sc.exe privs must run for upgrades: %s", line)
+	}
+	ps := readWindows(t, "install-service.ps1")
+	privs = strings.Index(ps, "sc.exe privs $ServiceName SeChangeNotifyPrivilege")
+	start = strings.Index(ps, "& $exe service start")
+	if privs < 0 || start < privs {
+		t.Error("install-service.ps1 must restrict an existing service's privileges before starting it")
+	}
+	for name, s := range map[string]string{"ludworks.iss": iss, "install-service.ps1": ps} {
+		if strings.Contains(s, "shows it too") || strings.Contains(s, "It is also in the service log") {
+			t.Errorf("%s still says the setup token is in the service log", name)
+		}
+	}
+}

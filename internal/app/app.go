@@ -404,6 +404,7 @@ func (a *App) Start(ctx context.Context) error {
 		BaseContext:       func(net.Listener) context.Context { return a.runCtx },
 		// No ReadTimeout/WriteTimeout: uploads and streams are long-lived and enforce their
 		// own limits.
+		HTTP2: http2Config(),
 	}
 	a.serveErr = make(chan error, 2)
 	a.servers = []*http.Server{main}
@@ -546,4 +547,27 @@ func (a *App) logStartup(redirectLn net.Listener) {
 		a.log.Info("HTTP->HTTPS redirect listener", "listen", redirectLn.Addr().String())
 	}
 	a.log.Info("API docs", "url", urls[0]+"/api/docs")
+}
+
+// HTTP/2 connection limits. Per-request write deadlines (http.ResponseController) bound how
+// long a handler waits for one stream, but over HTTP/2 a client that stops reading the TCP
+// connection stalls every stream on it in the shared connection writer, so streams and
+// transcodes (which hold limited slots) could be pinned by a stalled peer. These close such
+// connections, and detect dead peers that send nothing at all.
+const (
+	// HTTP2WriteByteTimeout closes a connection when data is waiting to be written and no
+	// byte has gone out for this long. Matches the media transcode drop-after-60s rule.
+	HTTP2WriteByteTimeout = 60 * time.Second
+	// HTTP2SendPingTimeout sends a PING after this long without any frame from the peer;
+	// HTTP2PingTimeout closes the connection when the PING is not answered in time.
+	HTTP2SendPingTimeout = 60 * time.Second
+	HTTP2PingTimeout     = 15 * time.Second
+)
+
+func http2Config() *http.HTTP2Config {
+	return &http.HTTP2Config{
+		WriteByteTimeout: HTTP2WriteByteTimeout,
+		SendPingTimeout:  HTTP2SendPingTimeout,
+		PingTimeout:      HTTP2PingTimeout,
+	}
 }

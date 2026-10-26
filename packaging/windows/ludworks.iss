@@ -79,7 +79,7 @@ SetupLogging=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
-FinishedLabel=Ludworks is installed and running as the Windows service "Ludworks".%n%nOpen https://localhost:{#Port}/ to finish the setup. The one-time setup token is in setup-token.txt in the data folder (normally C:\ProgramData\Ludworks, readable by administrators); the service log ludworks.log in the same folder shows it too, together with the certificate fingerprint.
+FinishedLabel=Ludworks is installed and running as the Windows service "Ludworks".%n%nOpen https://localhost:{#Port}/ to finish the setup. The one-time setup token is in setup-token.txt in the data folder (normally C:\ProgramData\Ludworks, readable by administrators); the service log ludworks.log in the same folder shows the certificate fingerprint to compare with the browser.
 
 [Tasks]
 Name: "firewall"; Description: "Allow other devices on the local network (same subnet) to connect (Windows Firewall, TCP {#Port})"; Flags: unchecked
@@ -92,7 +92,10 @@ Source: "{#PayloadDir}\config.example.json"; DestDir: "{app}"; Flags: ignorevers
 
 [Run]
 Filename: "{app}\ludworks.exe"; Parameters: "service install"; StatusMsg: "Registering the Ludworks service..."; Flags: runhidden waituntilterminated; Check: not ServiceExisted
-Filename: "{app}\ludworks.exe"; Parameters: "service start"; StatusMsg: "Starting the Ludworks service..."; Flags: runhidden waituntilterminated
+; Upgrade: services registered by older versions kept every default service privilege
+; (SeImpersonatePrivilege...). Keep only what the server needs, as "service install" does.
+Filename: "{sys}\sc.exe"; Parameters: "privs {#ServiceName} SeChangeNotifyPrivilege"; StatusMsg: "Restricting the service privileges..."; Flags: runhidden waituntilterminated; Check: ServiceExisted
+Filename: "{app}\ludworks.exe"; Parameters: "service start";StatusMsg: "Starting the Ludworks service..."; Flags: runhidden waituntilterminated
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#FirewallRule}"""; Tasks: firewall; Flags: runhidden waituntilterminated
 ; remoteip=localsubnet: only on-link addresses (the LAN's IPv4 subnet and IPv6 prefixes), not
 ; every address that reaches a private-profile interface (global IPv6, VPNs, port forwards).

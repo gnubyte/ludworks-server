@@ -457,3 +457,48 @@ func TestScriptMimeHintsAreNeverServed(t *testing.T) {
 		t.Fatalf("download: %q", ct)
 	}
 }
+
+// Finding (same class as the notes bm25 oracle): search ranked with bm25 over files_fts, one
+// index shared by every space, so other users' files changed the order of a caller's own
+// results — a document-frequency oracle on names in spaces the caller cannot read.
+func TestSearchRankIsolatedFromOtherUsers(t *testing.T) {
+	v := newEnv(t)
+	_, mall := v.user("mallory", 0)
+	_, alice := v.user("alice", 0)
+	mhome, ahome := v.home(mall), v.home(alice)
+	// A probe pair whose bm25 order flips with the document frequency of "quokka" vs "wombat".
+	v.upload(mall, mhome, "", "quokka-quokka-quokka-wombat.txt", []byte("x"))
+	v.upload(mall, mhome, "", "wombat-wombat-wombat-quokka.txt", []byte("y"))
+	for i := 0; i < 4; i++ {
+		v.upload(mall, mhome, "", "calibration-wombat-"+strconv.Itoa(i)+".txt", []byte("c"))
+	}
+	queries := []string{"quokka wombat", "wombat quokk", "quokka", "wombat"}
+	observe := func() map[string]string {
+		out := map[string]string{}
+		for _, q := range queries {
+			m := mall.Do("GET", "/api/v1/files/search?limit=2&q="+url.QueryEscape(q), nil).Expect(200).Map()
+			next, _ := m["next_cursor"].(string)
+			out[q] = strings.Join(names(m["items"]), ",") + " | " + next
+		}
+		return out
+	}
+	before := observe()
+	// Alice's private files make "quokka" common across the shared index.
+	for i := 0; i < 30; i++ {
+		v.upload(alice, ahome, "", "quokka-"+strconv.Itoa(i)+".txt", []byte("a"))
+	}
+	after := observe()
+	for _, q := range queries {
+		if before[q] != after[q] {
+			t.Errorf("q=%q: another user's files changed the results: %q -> %q", q, before[q], after[q])
+		}
+	}
+	// Name matches still rank before path-only matches.
+	v.mkdir(mall, mhome, "", "zebra")
+	v.upload(mall, mhome, "zebra", "inside.txt", []byte("i"))
+	v.upload(mall, mhome, "", "zebra-notes.txt", []byte("z"))
+	got := names(mall.Do("GET", "/api/v1/files/search?q=zebra", nil).Expect(200).Map()["items"])
+	if len(got) != 3 || got[2] != "inside.txt" {
+		t.Fatalf("name matches should come first: %v", got)
+	}
+}

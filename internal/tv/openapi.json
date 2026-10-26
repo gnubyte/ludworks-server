@@ -1071,7 +1071,7 @@
           "TV"
         ],
         "summary": "Channel logo",
-        "description": "**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {
@@ -1327,7 +1327,7 @@
           "TV"
         ],
         "summary": "Stream a program",
-        "description": "Range-capable byte stream of a program (`Program.stream_url` always uses this form). Authorised by the **channel** (the caller owns it or it is `shared`) and by the file being part of the channel's expanded lineup — viewers of a shared channel need no read access to the owner's files. Any other file ID answers 404.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "Range-capable byte stream of a program (`Program.stream_url` always uses this form). Authorised by the **channel** (the caller owns it or it is `shared`) and by the file being part of the channel's expanded lineup — viewers of a shared channel need no read access to the owner's files. Any other file ID answers 404. The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {
@@ -2020,7 +2020,7 @@
           "TV Feeds"
         ],
         "summary": "Feed URLs for external players",
-        "description": "Creates the feed token on first call. The caller's credential must hold `tv:read` (403 otherwise), so a narrower token cannot reveal a broader one. Feed tokens minted before this change carried `media:read` too; they are narrowed to `tv:read` in place on upgrade (URLs keep working), and one found with any other scopes is replaced.\n\n**Scope:** `tv:read`",
+        "description": "Creates the feed token on first call: a personal access token with only the scope `tv:feed`, which reaches the M3U and XMLTV feeds, channel logos, `live.ts`, `play`, program streams and the HDHomeRun emulation, and nothing else (no lineups, channels, guide, positions, posters, subtitles or transcodes, no media library). The caller's credential must hold `tv:read` (403 otherwise), so a narrower token cannot reveal a broader one. Feed tokens minted earlier carried `media:read` and later `tv:read`; they are narrowed to `tv:feed` in place on upgrade (URLs keep working), a `tv:read`-only one is still accepted until the URLs are rotated, and one found with any other scopes is replaced.\n\n**Scope:** `tv:read`",
         "x-scope": "tv:read",
         "responses": {
           "200": {
@@ -2089,7 +2089,7 @@
           "TV Feeds"
         ],
         "summary": "M3U playlist",
-        "description": "M3U playlist of the caller's visible channels with `tvg-id` (channel id), `tvg-chno`, `tvg-name`, `tvg-logo` and `group-title`. Stream URLs point to `live.ts` when ffmpeg is available, else to `/play`. URLs embed the request's own `access_token` (or, for cookie/bearer requests, the user's feed token).\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "M3U playlist of the caller's visible channels with `tvg-id` (channel id), `tvg-chno`, `tvg-name`, `tvg-logo` and `group-title`. Stream URLs point to `live.ts` when ffmpeg is available, else to `/play`. URLs embed the request's own `access_token` (or, for cookie/bearer requests, the user's feed token). The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {
@@ -2133,7 +2133,7 @@
           "TV Feeds"
         ],
         "summary": "XMLTV guide",
-        "description": "XMLTV guide for `tv.guide_days` days from the current hour (live schedules; at most 10 000 programmes per channel). Channel ids match the M3U `tvg-id`.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "XMLTV guide for `tv.guide_days` days from the current hour (live schedules; at most 10 000 programmes per channel). Channel ids match the M3U `tvg-id`. The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {
@@ -2176,7 +2176,7 @@
           "TV Feeds"
         ],
         "summary": "Continuous MPEG-TS stream",
-        "description": "Plays the channel like a broadcast: the current program from the live offset, then the following ones, each transcoded by ffmpeg (720p H.264/AAC) into one continuous MPEG-TS stream with increasing timestamps. On-demand channels use their live schedule here. `501 ffmpeg_unavailable` without ffmpeg; 429 when all tuners are busy (per user: `tv.hdhr_tuner_count`; 16 server-wide). Stops when the client disconnects or stops reading for 30 s.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "Plays the channel like a broadcast: the current program from the live offset, then the following ones, each transcoded by ffmpeg (720p H.264/AAC) into one continuous MPEG-TS stream with increasing timestamps. On-demand channels use their live schedule here. `501 ffmpeg_unavailable` without ffmpeg; 429 when all tuners are busy (per user: `tv.hdhr_tuner_count`; 16 server-wide). Stops when the client disconnects or stops reading for 30 s. The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {
@@ -2240,7 +2240,7 @@
           "TV Feeds"
         ],
         "summary": "Redirect to the current program",
-        "description": "302 to the current program's channel-scoped stream URL with `#t=<offset>` (on-demand channels: the caller's position). When the request used `?access_token=`, the redirect carries it. 404 when nothing is on air.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
+        "description": "302 to the current program's channel-scoped stream URL with `#t=<offset>` (on-demand channels: the caller's position). When the request used `?access_token=`, the redirect carries it. 404 when nothing is on air. The narrower scope `tv:feed` (feed tokens) is accepted too.\n\n**Scope:** `tv:read` · also accepts `?access_token=`",
         "x-scope": "tv:read",
         "security": [
           {

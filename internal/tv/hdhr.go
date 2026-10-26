@@ -27,7 +27,7 @@ type hdhrDevice struct {
 var errHDHRNotFound = core.ErrNotFound
 
 // hdhrAuth authorises an HDHomeRun request. Everything that fails — emulation disabled,
-// malformed, unknown, expired or revoked token, a token without tv:read or one that is not
+// malformed, unknown, expired or revoked token, a token without tv:feed (or tv:read) or one that is not
 // the user's current feed token — is an indistinguishable 404. Tokens are looked up by their
 // SHA-256 (auth.VerifyToken), so the lookup time does not depend on how much of a guess
 // matches.
@@ -42,7 +42,7 @@ func (m *Module) hdhrAuth(r *http.Request) (*hdhrDevice, error) {
 		return nil, errHDHRNotFound
 	}
 	p, err := auth.VerifyToken(ctx, m.d, tok)
-	if err != nil || p == nil || !p.Has("tv:read") {
+	if err != nil || p == nil || !hasFeedScopes(p) {
 		return nil, errHDHRNotFound
 	}
 	var userID string

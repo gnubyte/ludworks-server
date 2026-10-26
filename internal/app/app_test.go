@@ -246,3 +246,15 @@ func TestTLSHosts(t *testing.T) {
 		t.Fatal("unspecified host changed SANs")
 	}
 }
+
+// The main server bounds HTTP/2 connections whose peer stops reading (it would otherwise pin
+// stream and transcode slots) or disappears.
+func TestHTTP2ConnectionTimeouts(t *testing.T) {
+	cfg := testConfig(t, config.TLSSelfSigned)
+	a, _ := startApp(t, cfg)
+	h2 := a.servers[0].HTTP2
+	if h2 == nil || h2.WriteByteTimeout != HTTP2WriteByteTimeout || h2.WriteByteTimeout <= 0 ||
+		h2.SendPingTimeout != HTTP2SendPingTimeout || h2.PingTimeout != HTTP2PingTimeout {
+		t.Fatalf("HTTP2 config = %+v", h2)
+	}
+}
