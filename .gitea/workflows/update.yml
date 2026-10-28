@@ -1,9 +1,9 @@
 name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
-# A nested helper container (created via the host dockerd socket) shares the
-# HOST pid+network namespaces and nsenters into PID 1, so dpkg/systemd/curl
-# run in the host context.
+# The job container cannot nsenter (options ignored), so a nested helper
+# container (--pid=host via host dockerd) nsenters into host PID 1 and does:
+# dpkg-deb -x into /, keep :8444 config, systemctl restart, health check.
 
 on:
   push:
@@ -35,11 +35,9 @@ jobs:
           SRC=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}} {{end}}{{end}}' "$CID" | tr ' ' '\n' | grep 'ludworks-server=' | head -1 | cut -d= -f2)
           echo "host volume: $SRC"
           test -n "$SRC"
-          test -f "$SRC/ludworks_0.1.1_amd64.deb"
-          cat > "$SRC/helper.sh" <<'EOF'
+          cat > ./helper.sh <<'EOF'
           set -eu
-          export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/systemd/private
-          nsenter -t 1 -m -u -- sh -s -- "$VOL" <<'EOT'
+          nsenter -t 1 -m -u -i -n -- sh -s -- "$VOL" <<'EOT'
           set -eu
           P="$1"
           test -f "$P/ludworks_0.1.1_amd64.deb"
@@ -56,9 +54,10 @@ jobs:
           echo
           EOT
           EOF
+          cp ./helper.sh ./helper_copy.sh
           docker run --rm --pid=host --network=host \
             -e VOL="$SRC" -v "$SRC":/w \
-            -i ubuntu:24.04 sh /w/helper.sh
+            -i ubuntu:24.04 sh /w/helper_copy.sh
 
       - name: Verify from job network
         run: |
