@@ -1,8 +1,8 @@
 name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
-# Job container shares the host PID/mount namespace (--pid=host) so nsenter
-# into PID 1 executes the install on the actual host.
+# The job container cannot nsenter (options ignored by the runner), so a
+# helper container gets the host root at /host plus the host /run socket.
 
 on:
   push:
@@ -18,48 +18,51 @@ jobs:
     name: dpkg install 0.1.1
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    container:
-      options: --pid=host --network=host
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Fetch deb (API asset)
+      - name: Verify deb
         run: |
           set -euo pipefail
-          test -f ludworks_0.1.1_amd64.deb || {
-            GH_TOKEN=ghp_xnlI…xeN0
-            curl -fsSL -H "Authorization: token $GH_TOKEN" \
-              -H "Accept: application/octet-stream" -o ludworks_0.1.1_amd64.deb \
-              "https://api.github.com/repos/gnubyte/ludworks-server/releases/assets/679664400"
-          }
-          ls -l ludworks_0.1.1_amd64.deb
+          test -f ludworks_0.1.1_amd64.deb
           echo "df1291884f85a1bee58fdc7e94bc61ff4adb878278d40cecd6f93b5a6d892f9a  ludworks_0.1.1_amd64.deb" | sha256sum -c -
 
-      - name: Install on host (dpkg + restart + health)
+      - name: Install on host via helper container
         run: |
           set -euo pipefail
-          SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/github/workspace"}}{{.Source}}{{end}}{{end}}' "$(hostname)")
-          echo "workspace on host: $SRC"
-          nsenter -t 1 -m -- sh -c "
-            set -eu
-            cp '$SRC/ludworks_0.1.1_amd64.deb' /tmp/ludworks_0.1.1_amd64.deb
-            [ -f /etc/ludworks/config.json ] && cp -a /etc/ludworks/config.json /tmp/ludworks-config.backup.json
-            dpkg -i /tmp/ludworks_0.1.1_amd64.deb
-            grep -q 8444 /etc/ludworks/config.json || { echo 'restoring :8444 config'; cp /tmp/ludworks-config.backup.json /etc/ludworks/config.json; }
-            systemctl restart ludworks
-            sleep 2
-            systemctl is-active ludworks
-            curl -sk https://127.0.0.1:8444/api/v1/health
-            echo
-          "
+          CID=$(hostname)
+          SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' "$CID")
+          echo "host workspace: $SRC"
+          test -n "$SRC"
+          REPO="$SRC/phastings/ludworks-server"
+          cat > "$REPO/helper.sh" <<'EOF'
+          set -eu
+          H=/host
+          [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
+          export DEBIAN_FRONTEND=noninteractive
+          dpkg --root="$H" -i /w/ludworks_0.1.1_amd64.deb
+          if [ -f /tmp/cfg.bak ] && ! grep -q 8444 "$H/etc/ludworks/config.json"; then
+            echo "restoring :8444 config"
+            cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
+          fi
+          systemctl daemon-reload
+          systemctl restart ludworks
+          sleep 2
+          systemctl is-active ludworks
+          curl -sk https://127.0.0.1:8444/api/v1/health
+          echo
+          EOF
+          docker run --rm --network=host \
+            -v "$REPO":/w -v /:/host -v /run:/run \
+            -i ubuntu:24.04 sh /w/helper.sh
 
       - name: Verify from job network
         run: |
           set -euo pipefail
-          for i in $(seq 1 20); do
+          V=""
+          for i in $(seq 1 10); do
             V=$(curl -sk https://192.168.68.68:8444/api/v1/health || true)
-            case "$V" in *0.1.1*) echo "OK $V"; exit 0;; esac
-            sleep 2
+            case "$V" in *0.1.1*) echo "OK: $V"; exit 0;; esac
+            sleep 3
           done
-          echo "health still: $V"; exit 1
+          echo "still: $V"; exit 1
