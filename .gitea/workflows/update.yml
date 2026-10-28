@@ -42,12 +42,15 @@ jobs:
           H=/host
           test -f /w/ludworks_0.1.1_amd64.deb
           [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
-          export DEBIAN_FRONTEND=noninteractive
-          dpkg --root="$H" -i /w/ludworks_0.1.1_amd64.deb
-          if [ -f /tmp/cfg.bak ] && ! grep -q 8444 "$H/etc/ludworks/config.json"; then
-            echo "restoring :8444 config"
+          # manual unpack (dpkg --root chokes on the image statoverride)
+          cd /tmp
+          ar x /w/ludworks_0.1.1_amd64.deb
+          tar -C "$H" -xf /tmp/data.tar.gz
+          # keep host config (:8444 binding) over packaged defaults
+          if [ -f /tmp/cfg.bak ]; then
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
-          fi
+          elif grep -q 8444 "$H/etc/ludworks/config.json"; then :; fi
+          grep -q 8444 "$H/etc/ludworks/config.json" || { echo "no :8444 in config"; exit 1; }
           systemctl daemon-reload
           systemctl restart ludworks
           sleep 2
