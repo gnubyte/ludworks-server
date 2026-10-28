@@ -1,9 +1,9 @@
 name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
-# The job container cannot nsenter (options ignored by the runner), so a
-# helper container gets the job's workspace volume at /w plus host root at
-# /host and /run (systemd sockets).
+# A nested helper container (created via the host dockerd socket) shares the
+# HOST pid+network namespaces and nsenters into PID 1, so dpkg/systemd/curl
+# run in the host context.
 
 on:
   push:
@@ -28,39 +28,36 @@ jobs:
           test -f ludworks_0.1.1_amd64.deb
           echo "df1291884f85a1bee58fdc7e94bc61ff4adb878278d40cecd6f93b5a6d892f9a  ludworks_0.1.1_amd64.deb" | sha256sum -c -
 
-      - name: Install on host via helper container
+      - name: Install on host via helper container (nsenter PID 1)
         run: |
           set -euo pipefail
           CID=$(hostname)
-          SRC=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}}
-          {{end}}{{end}}' "$CID" | grep 'ludworks-server=' | head -1 | cut -d= -f2)
+          SRC=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}} {{end}}{{end}}' "$CID" | tr ' ' '\n' | grep 'ludworks-server=' | head -1 | cut -d= -f2)
           echo "host volume: $SRC"
           test -n "$SRC"
-          # helper visible in job at /workspace/..., on host at $SRC/...
-          cat > /workspace/OWNER/ludworks-server/helper.sh <<'EOF'
+          test -f "$SRC/ludworks_0.1.1_amd64.deb"
+          cat > "$SRC/helper.sh" <<'EOF'
           set -eu
-          H=/host
-          test -f /w/ludworks_0.1.1_amd64.deb
-          [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
-          # manual unpack (dpkg --root chokes on the image statoverride)
-          cd /tmp
-          dpkg-deb -x /w/ludworks_0.1.1_amd64.deb "$H"
-          # keep host config (:8444 binding) over packaged defaults
-          if [ -f /tmp/cfg.bak ]; then
-            cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
-          elif grep -q 8444 "$H/etc/ludworks/config.json"; then :; fi
-          grep -q 8444 "$H/etc/ludworks/config.json" || { echo "no :8444 in config"; exit 1; }
           export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/systemd/private
-          SY="$H/usr/bin/systemctl"
-          $SY daemon-reload
-          $SY restart ludworks
+          nsenter -t 1 -m -u -- sh -s -- "$VOL" <<'EOT'
+          set -eu
+          P="$1"
+          test -f "$P/ludworks_0.1.1_amd64.deb"
+          [ -f /etc/ludworks/config.json ] && cp -a /etc/ludworks/config.json /tmp/cfg.bak
+          dpkg-deb -x "$P/ludworks_0.1.1_amd64.deb" /
+          if [ -f /tmp/cfg.bak ] && ! grep -q 8444 /etc/ludworks/config.json; then
+            echo "restoring :8444 config"
+            cp /tmp/cfg.bak /etc/ludworks/config.json
+          fi
+          systemctl restart ludworks
           sleep 2
-          $SY is-active ludworks
+          systemctl is-active ludworks
           curl -sk https://127.0.0.1:8444/api/v1/health
           echo
+          EOT
           EOF
-          docker run --rm --network=host \
-            -v "$SRC":/w -v /:/host -v /run:/run \
+          docker run --rm --pid=host --network=host \
+            -e VOL="$SRC" -v "$SRC":/w \
             -i ubuntu:24.04 sh /w/helper.sh
 
       - name: Verify from job network
