@@ -90,6 +90,10 @@
       "description": "End-to-end-encrypted password vault. The server only stores ciphertext (`v1.<nonce>.<ciphertext>`) and KDF parameters; see the Vault cryptography documentation."
     },
     {
+      "name": "Browser",
+      "description": "Ludworks Browser sync: end-to-end-encrypted bookmarks, history, open tabs and preferences. The server only stores sealed strings (`v1.<nonce>.<ciphertext>`, sealed with a key derived from the vault key), needs an initialised vault and uses the vault scopes; see the Browser sync documentation."
+    },
+    {
       "name": "Sheets",
       "description": "Spreadsheets: workbooks, sheets, cells with formulas and styles, ranges, row/column operations, formula evaluation, and XLSX/XLS/CSV import/export."
     },

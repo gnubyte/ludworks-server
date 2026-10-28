@@ -54,7 +54,7 @@ Errors use the HTTP status code and a JSON body:
 | 403 | `forbidden`, `registration_disabled` | Missing scope or role, disabled account, missing CSRF token |
 | 404 | `not_found` | Does not exist **or you may not see it** |
 | 409 | `conflict` | Name taken, stale version (`details.current` holds the server copy for notes and vault items) |
-| 410 | `gone` | Expired upload or token |
+| 410 | `gone` | Expired upload or token; a sync position (`since`, cursor) that is no longer valid — do a full sync |
 | 413 | `payload_too_large` | Body over the endpoint's limit |
 | 415 | `unsupported_media_type` | JSON endpoint called without `application/json`, or an unsupported file format |
 | 422 | `validation_failed` | Field errors in `details.fields` |
@@ -97,11 +97,14 @@ this automatically.
 
 Notes (`base_version`), vault items and folders (`base_revision`) use optimistic concurrency: send the version
 you edited; if someone changed the record in the meantime you get `409 conflict` with the current server copy
-in `details.current` to merge.
+in `details.current` to merge. Browser sync writes many records at once, so it reports a conflict per record
+(`status: "conflict"` with `current`) in a `200` response instead.
 
 ## Further reading
 
 * [Authentication](authentication.md) — sessions, tokens, scopes, CSRF, query tokens, TLS pinning.
 * [Resumable uploads](uploads.md) — the tus protocol with a worked `curl` example.
 * [Vault cryptography](vault-crypto.md) — how clients encrypt vault items.
+* [Browser sync](browser-sync.md) — end-to-end-encrypted bookmarks, history, tabs and preferences of Ludworks
+  Browser.
 * [Endpoint reference](reference.md).

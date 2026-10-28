@@ -892,3 +892,60 @@ Mobile clients may keep media and music on the device for offline playback. They
 * Downloaded content is private app storage: it is deleted when the user signs out or switches server/account, and
   re-validated when online (`POST /music/tracks/lookup`, `GET /media/{id}`) — items that are gone or no longer
   readable are removed from the device.
+
+## 16. Browser sync (end-to-end encrypted — see VAULT-CRYPTO.md §9)
+
+Ludworks Browser (desktop: `ludworks-browser/desktop`, Android: `ludworks-android` `:browser`) keeps bookmarks,
+history, open tabs and preferences in sync through these endpoints. Passwords and passkeys are vault items (§9,
+VAULT-CRYPTO.md §3). Like the vault, the server stores only sealed strings — every record is
+`Seal(browser_key, json, "ludworks/browser/record/v1:<collection>:<id>")` with a key derived from the vault key —
+and checks their shape and size, never their content. Browser sync therefore needs an initialised vault and uses
+the vault scopes.
+
+| Method & path | Scope | Notes |
+|---|---|---|
+| `GET /browser/sync?since=&cursor=&limit=&collections=` | vault:read | `{"changes":[BC],"more":bool,"next_cursor":str\|null,"key_id":uuid\|null,"server_time":str\|null}` — see *Sync* |
+| `POST /browser/records` | vault:write | `{"key_id","changes":[{"collection","id","data":sealed\|null,"base_revision":int\|null}]}` ≤ 1000 changes (body ≤ 16 MiB) → 200 `{"results":[BR],"server_time"}` — see *Writes* |
+| `DELETE /browser/records?key_id=&collections=` | vault:write | delete every live record (of the listed collections, default all) → 200 `{"deleted":int,"server_time"}`; other devices receive the deletions as tombstones |
+| `GET /browser/usage` | vault:read | `{"collections":[{"name","records","bytes"}],"limits":{"records","bytes","record_bytes","batch"}}` (live records only) |
+
+`BC` (a change) = `{"collection","id","data":sealed|null,"revision":int,"updated_at"}` — `data: null` is a tombstone
+(the record was deleted at `updated_at`). `BR` (a write result) = `{"collection","id","status":"ok"|"conflict"|"error",
+"revision"?:int,"updated_at"?:str,"current"?:BC|null,"error"?:{"code","message"}}`.
+
+* **Collections** are `bookmarks`, `history`, `tabs` and `prefs` (anything else → 422 on that change / the query).
+  **Ids** match `^[A-Za-z0-9_-]{1,64}$`, are chosen by the client (bound into the AAD) and are unique per user and
+  collection; malformed ids → 422.
+* **Key identity.** Every record belongs to the vault key it was sealed under (VAULT-CRYPTO §2.2). Writes must send the
+  current vault `key_id` (body field; query parameter on `DELETE`); another one → **409 `vault_key_changed`**, nothing is
+  stored. Writes without a vault → 409 `conflict`. When the vault key changes (reset + re-init, or rotation via
+  `POST /vault/rekey`) every browser record of the user is unreadable to the devices that will use the new key: the
+  server deletes them all (no tombstones) and starts a new sync horizon, so every device's next delta sync gets 410,
+  does a full sync (empty) and re-uploads its local data under the new key. This happens lazily, before the first
+  browser-sync request that sees the new `key_id` is answered. Without a vault `GET /browser/sync` returns no changes
+  and `key_id: null` (with `since`: 410).
+* **Sync.** Every change gets a per-user stamp `max(now, previous stamp + 1 ms)` assigned inside the write transaction
+  (all changes applied by one request share it), so stamps strictly increase in commit order. Changes are returned in
+  ascending stamp order (ties by collection, then id), at most `limit` per page (default 1000, max 5000). Without
+  `since` the first page starts a **full sync**: every live record (plus tombstones of records deleted while the pages
+  are being fetched); with `since` (a previous final `server_time`) a **delta sync**: every change (records and
+  tombstones) with `updated_at > since`. While `more` is true, `next_cursor` (opaque,
+  signed) continues the same sync — pass it as `cursor` with the same `collections` and no `since`; `server_time` is
+  `null` on those pages. The final page (`more: false`) carries `server_time`: the newest stamp the whole sync covered.
+  Store it and pass it as `since` next time: no change committed while a sync was running is ever missed.
+  `collections=bookmarks,prefs` limits a sync to those collections (a separate `since` per selection is the client's
+  business). A `since` earlier than the horizon (browser data reset by a key change, or tombstones purged — kept 90
+  days), later than the clock, or sent while no vault exists → 410 `gone`: drop the sync point and do a full sync. A
+  cursor is valid for 1 hour and only for the user and key it was issued for (else 410).
+* **Writes.** `POST /browser/records` applies the changes in order in one transaction; each one is reported
+  separately and a conflict or error does not stop the others. `data` is a sealed string (same shape rules as the
+  vault, ≤ 64 KiB) or `null` to delete. `base_revision`: `null` writes unconditionally (last writer wins); `0`
+  creates — the record must not exist (a deleted id may be re-created); `n > 0` updates or deletes only if the live
+  record has revision `n`. A mismatch → `status: "conflict"` with `current` (the live record, its tombstone, or
+  `null` when the id never existed). Deleting a record that does not exist or is already deleted is `ok` and changes
+  nothing, whatever its `base_revision`. Every applied change bumps `revision` and gets a new stamp. `server_time` in
+  the write response is informational (the clock after the batch) — never use it as `since`.
+* **Limits** per user: 200 000 live records, 128 MiB of record data, 64 KiB per record, 1000 changes per request
+  (16 MiB body). A change beyond a quota → `status: "error"`, `error.code: "quota_exceeded"`; a request beyond the
+  change count → 413.
+* Records disappear with the account (cascade). Tombstones are purged after 90 days (the horizon advances).

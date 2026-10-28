@@ -16,6 +16,7 @@ next to its code.
 | `internal/music/openapi.json` | `/api/v1/music/*` |
 | `internal/notes/openapi.json` | `/api/v1/notes*` |
 | `internal/vault/openapi.json` | `/api/v1/vault*` |
+| `internal/browser/openapi.json` | `/api/v1/browser/*` |
 | `internal/sheets/openapi.json` | `/api/v1/sheets*` |
 | `internal/kanban/openapi.json` | `/api/v1/kanban/*` |
 | `internal/cast/openapi.json` | `/api/v1/cast/*` (including the public ticket route `/api/v1/cast/media/{ticket}/…`) |

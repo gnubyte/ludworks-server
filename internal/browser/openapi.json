@@ -1,0 +1,759 @@
+{
+  "tags": [
+    {
+      "name": "Browser",
+      "description": "Ludworks Browser sync: end-to-end-encrypted bookmarks, history, open tabs and preferences. The server only stores sealed strings (`v1.<nonce>.<ciphertext>`, sealed with a key derived from the vault key), needs an initialised vault and uses the vault scopes; see the Browser sync documentation."
+    }
+  ],
+  "paths": {
+    "/api/v1/browser/sync": {
+      "get": {
+        "operationId": "syncBrowser",
+        "tags": [
+          "Browser"
+        ],
+        "summary": "Sync browser records",
+        "description": "Changes in ascending stamp order, at most `limit` per page (a page may hold fewer when its records are large). While `more` is true, pass `next_cursor` as `cursor` (with the same `collections` and no `since`) to continue the same sync; `server_time` is null on those pages. The final page (`more: false`) carries `server_time`: store it and pass it as `since` next time — no change committed while a sync was running is ever missed.\n\nWithout `since` a **full sync** starts: every live record, plus tombstones (`data: null`) of records deleted while the pages are fetched. With `since` a **delta sync**: every change, tombstones included, stamped after it. `key_id` names the vault key every record is sealed under (`null` without a vault, when there are never any changes); a client holding another key must not use the records.\n\nWhen the vault key changed (vault reset and re-created, or key rotated) every browser record is deleted (no tombstones) and a new sync horizon starts before the request is answered. A `since` before the horizon (that key change, or purged tombstones — they are kept 90 days), later than the server's clock, or sent while no vault exists, and a cursor of another user or vault key or older than 1 hour, get **410 `gone`**: drop the sync point and do a full sync. Each page is streamed.\n\n**Scope:** `vault:read`",
+        "x-scope": "vault:read",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "description": "`server_time` of the final page of a previous sync (RFC 3339). Starts a delta sync.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "`next_cursor` of the previous page: continues that sync. Opaque and signed; valid for 1 hour, only for the user and vault key it was issued for. Not combined with `since`.",
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum changes per page (default 1000, maximum 5000).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            }
+          },
+          {
+            "name": "collections",
+            "in": "query",
+            "description": "Comma-separated collections to sync (`bookmarks`, `history`, `tabs`, `prefs`); default all. Keep a separate `since` per selection. A continuation must pass the same selection as its first page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of changes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSync"
+                },
+                "examples": {
+                  "final": {
+                    "summary": "Final page of a delta sync",
+                    "value": {
+                      "changes": [
+                        {
+                          "collection": "bookmarks",
+                          "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+                          "data": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+                          "revision": 3,
+                          "updated_at": "2026-10-27T12:00:00.123Z"
+                        },
+                        {
+                          "collection": "history",
+                          "id": "kq3VvT0oP2m9QxZy7LbN4wE1sHjD8cFa",
+                          "data": null,
+                          "revision": 5,
+                          "updated_at": "2026-10-27T12:00:00.124Z"
+                        }
+                      ],
+                      "more": false,
+                      "next_cursor": null,
+                      "key_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                      "server_time": "2026-10-27T12:00:00.124Z"
+                    }
+                  },
+                  "page": {
+                    "summary": "A page with more to follow",
+                    "value": {
+                      "changes": [
+                        {
+                          "collection": "prefs",
+                          "id": "prefs",
+                          "data": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                          "revision": 9,
+                          "updated_at": "2026-10-27T11:00:00.000Z"
+                        }
+                      ],
+                      "more": true,
+                      "next_cursor": "eyJrIjoiYnJvd3Nlci5zeW5jLnYxIn0Rz8Y2wP1kVHc4dHSUvUl7aQ",
+                      "key_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                      "server_time": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "`since` is not an RFC 3339 timestamp, `since` and `cursor` were both sent, the cursor is malformed, or it continues a sync of other `collections`."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The vault key changed again and again while the request was answered; try again."
+          },
+          "410": {
+            "$ref": "#/components/responses/Gone",
+            "description": "`since` or `cursor` is no longer a valid sync position: do a full sync (without both)."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`collections` names an unknown collection."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/browser/records": {
+      "post": {
+        "operationId": "writeBrowserRecords",
+        "tags": [
+          "Browser"
+        ],
+        "summary": "Write browser records",
+        "description": "Applies up to 1000 changes in order, in one transaction; each is reported separately (in request order) and a conflict or error does not stop the others. `data` is a sealed string (at most 65 536 characters) or `null` to delete. `base_revision`: `null` (or absent) writes unconditionally (last writer wins); `0` creates — the record must not be live (a deleted id may be re-created; its revisions continue); `n > 0` updates or deletes only the live record at revision `n`. A mismatch is `status: \"conflict\"` with `current`: the live record, its tombstone, or `null` when the id never existed. Deleting a record that does not exist or is already deleted is `ok` and changes nothing, whatever `base_revision` says. Every applied change bumps `revision` and gets the request's new stamp.\n\nA malformed change (unknown collection, bad id, `data` missing or not a sealed string, bad `base_revision`) is `status: \"error\"` with `error.code` `validation_failed`; a record over 64 KiB, or beyond 200 000 live records or 128 MiB of record data per user, with `quota_exceeded`. `key_id` must name the current vault key. `server_time` is informational (the clock after the batch); never use it as `since`. The request body may be up to 16 MiB.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserWrite"
+              },
+              "example": {
+                "key_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                "changes": [
+                  {
+                    "collection": "bookmarks",
+                    "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+                    "data": "v1.oKGio6Slpqeoqaqr.w+uxJhHOtpR09CmuGLpDor1o3nSAf5C+0/pIJ9oiohDsDzXiJcOSYB5cYkSyGxwS",
+                    "base_revision": 0
+                  },
+                  {
+                    "collection": "tabs",
+                    "id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+                    "data": "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                    "base_revision": null
+                  },
+                  {
+                    "collection": "history",
+                    "id": "kq3VvT0oP2m9QxZy7LbN4wE1sHjD8cFa",
+                    "data": null,
+                    "base_revision": 4
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "One result per change, in request order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserWriteResponse"
+                },
+                "example": {
+                  "results": [
+                    {
+                      "collection": "bookmarks",
+                      "id": "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+                      "status": "ok",
+                      "revision": 1,
+                      "updated_at": "2026-10-27T12:00:00.125Z"
+                    },
+                    {
+                      "collection": "tabs",
+                      "id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+                      "status": "ok",
+                      "revision": 12,
+                      "updated_at": "2026-10-27T12:00:00.125Z"
+                    },
+                    {
+                      "collection": "history",
+                      "id": "kq3VvT0oP2m9QxZy7LbN4wE1sHjD8cFa",
+                      "status": "conflict",
+                      "current": {
+                        "collection": "history",
+                        "id": "kq3VvT0oP2m9QxZy7LbN4wE1sHjD8cFa",
+                        "data": "v1.sLGys7S1tre4ubq7.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA=",
+                        "revision": 6,
+                        "updated_at": "2026-10-27T11:58:00.000Z"
+                      }
+                    }
+                  ],
+                  "server_time": "2026-10-27T12:00:00.125Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`conflict`: the vault is not initialised (browser sync needs it). `vault_key_changed`: `key_id` is not the vault's current key (the vault was reset and re-created or its key rotated since the client unlocked); nothing was stored — drop the key and unlock again."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "More than 1000 changes, or a request body over 16 MiB."
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`key_id` is missing or malformed, or `changes` is missing."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBrowserRecords",
+        "tags": [
+          "Browser"
+        ],
+        "summary": "Delete all browser records",
+        "description": "Deletes every live record (of the listed `collections`, default all). The deletions are tombstones with one new stamp, so other devices receive them on their next sync.\n\n**Scope:** `vault:write`",
+        "x-scope": "vault:write",
+        "parameters": [
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": true,
+            "description": "The `key_id` of the current vault key (VAULT-CRYPTO.md §2.2); another one gives 409 `vault_key_changed`.",
+            "schema": {
+              "$ref": "#/components/schemas/BrowserKeyId"
+            }
+          },
+          {
+            "name": "collections",
+            "in": "query",
+            "description": "Comma-separated collections to empty (`bookmarks`, `history`, `tabs`, `prefs`); default all.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserDeleteResult"
+                },
+                "example": {
+                  "deleted": 1250,
+                  "server_time": "2026-10-27T12:00:00.126Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "`conflict`: the vault is not initialised. `vault_key_changed`: `key_id` is not the vault's current key; nothing was deleted — drop the key and unlock again."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`key_id` is missing or malformed, or `collections` names an unknown collection."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/browser/usage": {
+      "get": {
+        "operationId": "getBrowserUsage",
+        "tags": [
+          "Browser"
+        ],
+        "summary": "Browser sync usage",
+        "description": "Live records and their total size per collection (every collection is listed), and the per-user limits.\n\n**Scope:** `vault:read`",
+        "x-scope": "vault:read",
+        "responses": {
+          "200": {
+            "description": "Usage and limits.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserUsage"
+                },
+                "example": {
+                  "collections": [
+                    {
+                      "name": "bookmarks",
+                      "records": 812,
+                      "bytes": 401230
+                    },
+                    {
+                      "name": "history",
+                      "records": 15003,
+                      "bytes": 9861004
+                    },
+                    {
+                      "name": "tabs",
+                      "records": 3,
+                      "bytes": 41212
+                    },
+                    {
+                      "name": "prefs",
+                      "records": 1,
+                      "bytes": 236
+                    }
+                  ],
+                  "limits": {
+                    "records": 200000,
+                    "bytes": 134217728,
+                    "record_bytes": 65536,
+                    "batch": 1000
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The vault key changed again and again while the request was answered; try again."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BrowserCollection": {
+        "type": "string",
+        "description": "Record collection. Other names are refused (`validation_failed`).",
+        "enum": [
+          "bookmarks",
+          "history",
+          "tabs",
+          "prefs"
+        ]
+      },
+      "BrowserRecordId": {
+        "type": "string",
+        "description": "Client-chosen record id, unique per user and collection and bound into the encryption AAD (`ludworks/browser/record/v1:<collection>:<id>`): a random UUID for bookmarks, a derived id for history, the device id for tabs, `prefs` for preferences (VAULT-CRYPTO.md §9).",
+        "pattern": "^[A-Za-z0-9_-]{1,64}$",
+        "examples": [
+          "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+          "kq3VvT0oP2m9QxZy7LbN4wE1sHjD8cFa"
+        ]
+      },
+      "BrowserKeyId": {
+        "type": "string",
+        "description": "A vault `key_id` (lowercase UUID): the vault key records are sealed under (VAULT-CRYPTO.md §2.2).",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "examples": [
+          "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        ]
+      },
+      "BrowserSealed": {
+        "type": "string",
+        "description": "Sealed record `v1.<base64 12-byte nonce>.<base64 ciphertext+16-byte tag>` (AES-256-GCM with the browser key derived from the vault key, standard base64 with padding), at most 65 536 characters. Opaque to the server, which checks only this shape and the size.",
+        "pattern": "^v1\\.[A-Za-z0-9+/]{16}\\.[A-Za-z0-9+/]+={0,2}$",
+        "maxLength": 65536,
+        "examples": [
+          "v1.wMHCw8TFxsfIycrL.BXFmFlYtwTlWjWV7AbtJ0jICl9KbZD2n8wb4rm+f1TDXfwtGTHrnzXA="
+        ]
+      },
+      "BrowserChange": {
+        "type": "object",
+        "description": "A record as sync returns it (BC). `data: null` is a tombstone: the record was deleted at `updated_at`.",
+        "required": [
+          "collection",
+          "id",
+          "data",
+          "revision",
+          "updated_at"
+        ],
+        "properties": {
+          "collection": {
+            "$ref": "#/components/schemas/BrowserCollection"
+          },
+          "id": {
+            "$ref": "#/components/schemas/BrowserRecordId"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrowserSealed"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Incremented on every applied change, deletions and re-creations included."
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Change stamp: strictly increasing per user across requests (all changes of one write request share it)."
+          }
+        }
+      },
+      "BrowserSync": {
+        "type": "object",
+        "description": "One sync page.",
+        "required": [
+          "changes",
+          "more",
+          "next_cursor",
+          "key_id",
+          "server_time"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrowserChange"
+            },
+            "description": "Changes in ascending (`updated_at`, `collection`, `id`) order."
+          },
+          "more": {
+            "type": "boolean",
+            "description": "More changes follow: request the next page with `cursor`."
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` to continue this sync; `null` on the final page."
+          },
+          "key_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrowserKeyId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The vault key every record of this sync is sealed under (`null` without a vault). A client holding a key with another `key_id` must not use the records."
+          },
+          "server_time": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Final page only (`null` while `more` is true): the newest stamp the whole sync covered. Pass it as `since` next time."
+          }
+        }
+      },
+      "BrowserWriteChange": {
+        "type": "object",
+        "description": "One change to apply.",
+        "required": [
+          "collection",
+          "id",
+          "data"
+        ],
+        "properties": {
+          "collection": {
+            "$ref": "#/components/schemas/BrowserCollection"
+          },
+          "id": {
+            "$ref": "#/components/schemas/BrowserRecordId"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrowserSealed"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`Seal(browser_key, json, \"ludworks/browser/record/v1:<collection>:<id>\")`, or `null` to delete the record. Required: a missing `data` is refused, never taken as a deletion."
+          },
+          "base_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "description": "`null` or absent: write unconditionally; `0`: create (the record must not be live); `n > 0`: only if the live record has revision `n`."
+          }
+        }
+      },
+      "BrowserWrite": {
+        "type": "object",
+        "required": [
+          "key_id",
+          "changes"
+        ],
+        "properties": {
+          "key_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BrowserKeyId"
+              }
+            ],
+            "description": "The `key_id` of the vault key the records were sealed under (required). When it is not the current key nothing is stored (409 `vault_key_changed`)."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrowserWriteChange"
+            },
+            "maxItems": 1000,
+            "description": "Applied in order in one transaction; more than 1000 is a 413. The whole body is limited to 16 MiB: chunk large uploads by size too."
+          }
+        }
+      },
+      "BrowserWriteResult": {
+        "type": "object",
+        "description": "The outcome of one change (BR).",
+        "required": [
+          "collection",
+          "id",
+          "status"
+        ],
+        "properties": {
+          "collection": {
+            "type": "string",
+            "description": "As sent (at most 64 characters echoed)."
+          },
+          "id": {
+            "type": "string",
+            "description": "As sent (at most 64 characters echoed)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "conflict",
+              "error"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "`ok`: the record's revision now (for a no-op delete, its tombstone's; absent when the id never existed)."
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "`ok`: the record's stamp now."
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BrowserChange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`conflict` only: the server's copy — the live record, its tombstone (`data: null`), or `null` when the id never existed."
+          },
+          "error": {
+            "type": "object",
+            "description": "`error` only: why the change was not applied.",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "validation_failed",
+                  "quota_exceeded"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "BrowserWriteResponse": {
+        "type": "object",
+        "required": [
+          "results",
+          "server_time"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrowserWriteResult"
+            },
+            "description": "One result per change, in request order."
+          },
+          "server_time": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Informational: the change clock after the batch. Never use it as `since` (only the final page of a sync gives a sync point)."
+          }
+        }
+      },
+      "BrowserDeleteResult": {
+        "type": "object",
+        "required": [
+          "deleted",
+          "server_time"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of records deleted."
+          },
+          "server_time": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Informational: the change clock after the deletion."
+          }
+        }
+      },
+      "BrowserUsage": {
+        "type": "object",
+        "required": [
+          "collections",
+          "limits"
+        ],
+        "properties": {
+          "collections": {
+            "type": "array",
+            "description": "Every collection, live records only.",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "records",
+                "bytes"
+              ],
+              "properties": {
+                "name": {
+                  "$ref": "#/components/schemas/BrowserCollection"
+                },
+                "records": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Total length of the sealed records."
+                }
+              }
+            }
+          },
+          "limits": {
+            "type": "object",
+            "description": "Per-user limits.",
+            "required": [
+              "records",
+              "bytes",
+              "record_bytes",
+              "batch"
+            ],
+            "properties": {
+              "records": {
+                "type": "integer",
+                "description": "Live records (200 000)."
+              },
+              "bytes": {
+                "type": "integer",
+                "description": "Total record data (128 MiB)."
+              },
+              "record_bytes": {
+                "type": "integer",
+                "description": "One record's sealed data (64 KiB)."
+              },
+              "batch": {
+                "type": "integer",
+                "description": "Changes per write request (1000)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

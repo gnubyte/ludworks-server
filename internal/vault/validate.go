@@ -28,6 +28,15 @@ var idPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 
 func validID(s string) bool { return len(s) == 36 && idPattern.MatchString(s) }
 
+// ValidKeyID reports whether s has the shape of a vault key_id (a lowercase hyphenated UUID).
+func ValidKeyID(s string) bool { return validID(s) }
+
+// CheckSealed validates the shape of a sealed string of at most maxLen characters with the
+// vault's rules (version v1, 12-byte nonce, ciphertext of at least the 16-byte tag, canonical
+// standard base64), without any key. It returns "" when valid, else a message for the API.
+// Records sealed with keys derived from the vault key (browser sync) follow the same rules.
+func CheckSealed(s string, maxLen int) string { return checkSealed(s, maxLen, 0) }
+
 var strictB64 = base64.StdEncoding.Strict()
 
 // decodeB64 decodes canonical standard base64 with padding; nil when invalid.

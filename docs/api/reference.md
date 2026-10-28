@@ -10,7 +10,7 @@ Scope legend: `public` = no authentication, `auth` = any signed-in user or token
 need the `admin` scope), anything else is the personal-access-token scope required. **qt** = the endpoint also accepts
 `?access_token=` (streaming and feeds).
 
-283 operations in 19 groups.
+287 operations in 20 groups.
 
 ## Server
 
@@ -325,6 +325,17 @@ End-to-end-encrypted password vault. The server only stores ciphertext (`v1.<non
 | POST | `/api/v1/vault/rekey` | `vault:write` | Rotate the vault key |
 | POST | `/api/v1/vault/reset` | `vault:write` | Delete the whole vault |
 | GET | `/api/v1/vault/sync` | `vault:read` | Sync encrypted items |
+
+## Browser
+
+Ludworks Browser sync: end-to-end-encrypted bookmarks, history, open tabs and preferences. The server only stores sealed strings (`v1.<nonce>.<ciphertext>`, sealed with a key derived from the vault key), needs an initialised vault and uses the vault scopes; see the Browser sync documentation.
+
+| Method | Path | Scope | Summary |
+|---|---|---|---|
+| POST | `/api/v1/browser/records` | `vault:write` | Write browser records |
+| DELETE | `/api/v1/browser/records` | `vault:write` | Delete all browser records |
+| GET | `/api/v1/browser/sync` | `vault:read` | Sync browser records |
+| GET | `/api/v1/browser/usage` | `vault:read` | Browser sync usage |
 
 ## Sheets
 

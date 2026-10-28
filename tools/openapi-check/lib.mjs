@@ -3,7 +3,7 @@
 // Node >= 20, standard library only.
 
 /** Module fragments in server wiring order (ARCHITECTURE.md §3.1). Merge order matters for tag order. */
-export const MODULES = ['auth', 'admin', 'mail', 'files', 'media', 'tv', 'music', 'notes', 'vault', 'sheets', 'kanban', 'cast', 'system'];
+export const MODULES = ['auth', 'admin', 'mail', 'files', 'media', 'tv', 'music', 'notes', 'vault', 'browser', 'sheets', 'kanban', 'cast', 'system'];
 export const BASE_PATH = 'internal/apidocs/base.json';
 export const fragmentPath = (mod) => `internal/${mod}/openapi.json`;
 
