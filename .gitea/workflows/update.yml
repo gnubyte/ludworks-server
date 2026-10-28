@@ -50,7 +50,7 @@ jobs:
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
           elif grep -q 8444 "$H/etc/ludworks/config.json"; then :; fi
           grep -q 8444 "$H/etc/ludworks/config.json" || { echo "no :8444 in config"; exit 1; }
-          export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/systemd/private
+          export DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/systemd/private
           SY="$H/usr/bin/systemctl"
           $SY daemon-reload
           $SY restart ludworks
