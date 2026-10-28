@@ -14,16 +14,41 @@ import (
 	"ludworks/internal/db"
 )
 
+// The two key errors are exported because other modules whose records are sealed with keys
+// derived from the vault key (browser sync, API.md §16) answer with exactly the same codes.
+// Like core's ready-made errors they are shared values: treat them as immutable.
 var (
-	errNotInitialized = core.NewError(http.StatusConflict, "conflict", "The vault has not been set up yet")
+	// ErrNotInitialized answers a record write while the user has no vault: nothing can be
+	// stored without a vault key.
+	ErrNotInitialized = core.NewError(http.StatusConflict, "conflict", "The vault has not been set up yet")
 	errItemNotFound   = core.NotFound("Item not found")
 	errFolderNotFound = core.NotFound("Folder not found")
-	// errKeyChanged answers a write that names a vault key (key_id) other than the current one:
+	// ErrKeyChanged answers a write that names a vault key (key_id) other than the current one:
 	// the vault was reset and re-created, or its key was rotated, since the client unlocked.
 	// Records sealed under a retired key must never be stored next to the current ones.
-	errKeyChanged = core.NewError(http.StatusConflict, "vault_key_changed",
+	ErrKeyChanged = core.NewError(http.StatusConflict, "vault_key_changed",
 		"The vault key was replaced on another device (vault reset or key rotation); lock and unlock again")
 )
+
+// CurrentKeyID returns the key_id of the user's current vault key, or "" when the user has no
+// vault (never initialised, or reset). It reads with q — normally the caller's own transaction,
+// so the answer is consistent with everything else the caller reads and writes in it (a key
+// rotation or reset cannot commit in between). Modules that store records sealed with keys
+// derived from the vault key (browser sync, API.md §16) use it to tie those records to the key.
+func CurrentKeyID(ctx context.Context, q db.Querier, userID string) (string, error) {
+	var id string
+	err := q.QueryRowContext(ctx, `SELECT key_id FROM vault_keys WHERE user_id = ?`, userID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
+}
+
+// CurrentKeyID is the package function CurrentKeyID as a method, so dependent modules can take
+// the vault module as a small interface (browser.New).
+func (m *Module) CurrentKeyID(ctx context.Context, q db.Querier, userID string) (string, error) {
+	return CurrentKeyID(ctx, q, userID)
+}
 
 // newKeyID returns a random lowercase version-4 UUID naming a vault key.
 func newKeyID() (string, error) {
@@ -61,15 +86,15 @@ func checkKey(ctx context.Context, q db.Querier, userID, keyID string) error {
 	err := q.QueryRowContext(ctx, `SELECT key_id FROM vault_keys WHERE user_id = ?`, userID).Scan(&cur)
 	if errors.Is(err, sql.ErrNoRows) {
 		if keyID != "" {
-			return errKeyChanged
+			return ErrKeyChanged
 		}
-		return errNotInitialized
+		return ErrNotInitialized
 	}
 	if err != nil {
 		return err
 	}
 	if keyID != "" && subtle.ConstantTimeCompare([]byte(keyID), []byte(cur)) != 1 {
-		return errKeyChanged
+		return ErrKeyChanged
 	}
 	return nil
 }
@@ -147,7 +172,7 @@ func nextStamp(ctx context.Context, tx *sql.Tx, userID string, now time.Time) (s
 	var one int
 	err := tx.QueryRowContext(ctx, `SELECT 1 FROM vault_keys WHERE user_id = ?`, userID).Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", errNotInitialized
+		return "", ErrNotInitialized
 	}
 	if err != nil {
 		return "", err

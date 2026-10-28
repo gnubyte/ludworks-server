@@ -32,7 +32,7 @@ password-guessing attempts.
 * The **last administrator** cannot be demoted, disabled or deleted, and you cannot delete your own account
   from the admin page — so the server can never end up without an admin.
 * Disabling a user immediately revokes all their sessions and tokens.
-* Deleting a user removes their notes, vault, workbooks, lineups and channels. Their home space and files are
+* Deleting a user removes their notes, vault, browser sync data, workbooks, lineups and channels. Their home space and files are
   kept unless you choose to delete them too (`delete_files=true`).
 * Locked out of every admin account? On the server run `ludworks admin reset-password <username>` as the
   service user (see [Installation](../getting-started/installation.md#command-line-reference)).

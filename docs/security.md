@@ -137,8 +137,11 @@ a malicious server cannot swap entries. Consequences:
   can still decrypt. If that may have happened, use **Rotate vault key** (Passwords → Vault settings): every item
   is re-encrypted under a new key, and devices still holding the old key are locked out. Then change the stored
   site passwords themselves.
+* **Ludworks Browser** data (bookmarks, history, open tabs, preferences) is encrypted the same way, with keys
+  derived from the vault key. When the vault key is rotated or the vault is reset, the server deletes the old
+  browser data and every device uploads its copy again under the new key.
 
-Details: [Vault cryptography](api/vault-crypto.md).
+Details: [Vault cryptography](api/vault-crypto.md), [Browser sync](api/browser-sync.md).
 
 ### Audit log
 

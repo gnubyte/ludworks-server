@@ -76,7 +76,7 @@ must be a subset of what the caller may do; `admin` requires an admin account.
 | `tv:write` | Create and edit lineups and channels, logos, reshuffle, restart, rotate the feed token |
 | `tv:feed` | Only the TV feeds and what they link to: M3U, XMLTV, channel logos, live and program streams, HDHomeRun. The feed token has just this scope, so a leaked feed URL exposes nothing else |
 | `notes:read` / `notes:write` | Read / change notes, folders, attachments; import and export |
-| `vault:read` / `vault:write` | Read / change **encrypted** vault records (the token never grants plaintext access — that needs the master password) |
+| `vault:read` / `vault:write` | Read / change **encrypted** vault records and Ludworks Browser sync records (the token never grants plaintext access — that needs the master password) |
 | `sheets:read` / `sheets:write` | Read / change workbooks; import and export |
 | `account` | Change your profile, password, 2FA, sessions and tokens |
 | `admin` | Admin endpoints — only effective for admin accounts |

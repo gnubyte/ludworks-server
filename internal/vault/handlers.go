@@ -57,12 +57,12 @@ func checkDowngrade(in *kdfInput, k *keysRow) error {
 func sameKey(keyID string, k *keysRow) error {
 	if k == nil {
 		if keyID != "" {
-			return errKeyChanged
+			return ErrKeyChanged
 		}
-		return errNotInitialized
+		return ErrNotInitialized
 	}
 	if keyID != "" && subtle.ConstantTimeCompare([]byte(keyID), []byte(k.KeyID)) != 1 {
-		return errKeyChanged
+		return ErrKeyChanged
 	}
 	return nil
 }

@@ -19,8 +19,8 @@ document in the same change and say so.
 |----------------------|----------|-----------|
 | `ludworks-server`    | Go server (single binary), embedded vanilla-JS web UI, OpenAPI + Swagger UI, MkDocs docs for ReadTheDocs, `.deb`/`.exe` packaging, CI | Go 1.27 (WSL) |
 | `ludworks-python`    | Python SDK + CLI (`pip install ludworks`), stdlib-only core, optional `[vault]` extra (`cryptography`) | Python 3.10+ |
-| `ludworks-browser`   | Password-manager WebExtension, one source tree → Chrome (MV3) + Firefox (MV3) builds | Node (build script only, no npm deps) |
-| `ludworks-android`   | Gradle multi-module: `:core` lib, `:tv` (TV/phone channel player), `:music`, `:notes`, `:vault` apps | JDK 21, Android SDK, AGP 9 |
+| `ludworks-browser`   | Password-manager WebExtension, one source tree → Chrome (MV3) + Firefox (MV3) builds; **Ludworks Browser** desktop (`desktop/`: Chromium via the castlabs Electron build, Windows/macOS/Linux) sharing the extension's vault libraries | Node (build scripts only, no npm deps) |
+| `ludworks-android`   | Gradle multi-module: `:core` lib, `:tv` (TV/phone channel player), `:music`, `:notes`, `:vault`, `:browser` (Ludworks Browser, Android System WebView) apps | JDK 21, Android SDK, AGP 9 |
 | `ludworks-desktop`   | .NET 10 / WPF solution: `Ludworks.Core`, `Ludworks.Desktop` (all-in-one), `Ludworks.Notes`, `Ludworks.Backup` (folder sync) | .NET 10 SDK (Windows) |
 
 Every directory becomes its own **private** GitHub repo. Each has `README.md`, `LICENSE` (proprietary,
@@ -50,7 +50,12 @@ Every directory becomes its own **private** GitHub repo. Each has `README.md`, `
    indirectly (IDNA for `acme/autocert`). Nothing else without updating this list with justification. Web UI is
    **vanilla ES modules, no npm, no build step, no CDN** — the only vendored third-party asset is
    `swagger-ui-dist` (pinned, checksummed) served only on `/api/docs`. Python SDK core is stdlib-only.
-   Browser extension has zero runtime deps. Desktop apps use zero NuGet packages in shipped projects.
+   Browser extension has zero runtime deps. Ludworks Browser desktop has zero npm packages: its one third-party
+   component is the Electron runtime (castlabs "Electron for Content Security" = Chromium + Widevine CDM support),
+   downloaded by its build script at a pinned version and verified against pinned SHA-256 sums (security updates =
+   bumping that pin). Android `:browser` additionally uses `androidx.webkit` (document-start scripts and
+   origin-checked `WebMessageListener` bridges, which plain `addJavascriptInterface` cannot provide safely).
+   Desktop apps use zero NuGet packages in shipped projects.
    Android uses AndroidX core/appcompat/recyclerview/material only where needed + Media3 (ExoPlayer, UI,
    session) for playback. Casting needs no vendor SDK anywhere: the server speaks Cast v2 and AirPlay itself
    with the Go standard library (no Google Cast SDK / Play Services in the apps, no CDN script in the web UI).
@@ -161,6 +166,7 @@ internal/media/               Media metadata, probing (MP4/MKV/AVI/WebM duration
 internal/tv/                  Lineups, channels, schedule engine, guide, M3U/XMLTV/HDHomeRun (module "tv")
 internal/notes/               Notes, folders, tags, FTS, attachments, markdown import/export (module "notes")
 internal/vault/               Encrypted vault storage & sync (module "vault")
+internal/browser/             Ludworks Browser sync: E2E-encrypted bookmarks/history/tabs/prefs records (module "browser")
 internal/sheets/              Workbooks API (module "sheets"); subpackages:
   internal/sheets/engine/     cell model, A1 refs, formula parser/evaluator, dependency graph, recalc
   internal/sheets/xlsx/       stdlib-only XLSX read/write (values, formulas, basic styles)
@@ -256,11 +262,11 @@ type Module interface {
 To avoid an import cycle the `Module` interface lives in package `httpx` (or `app`), not `core`;
 everything else above is in `core`. Modules are constructed in `internal/app` in this order and get
 other modules' services injected explicitly:
-`auth → admin → mail → files → media → tv → music → notes → vault → sheets → kanban → cast → system`
+`auth → admin → mail → files → media → tv → music → notes → vault → browser → sheets → kanban → cast → system`
 (e.g. `media.New(deps, filesSvc)`, `tv.New(deps, filesSvc, mediaSvc)`, `music.New(deps, filesSvc, mediaSvc)`,
-`sheets.New(deps, filesSvc)`, `kanban.New(deps, filesSvc)`, `cast.New(deps, filesSvc, mediaSvc, tvM, musicSvc)`,
-`mail.New(deps, notesSvc, filesSvc)` — mail's IMAP ingest is wired after notes exists via a setter). The same
-order is the OpenAPI tag order (`tools/openapi-check/lib.mjs` `MODULES`).
+`browser.New(deps, vaultM)`, `sheets.New(deps, filesSvc)`, `kanban.New(deps, filesSvc)`,
+`cast.New(deps, filesSvc, mediaSvc, tvM, musicSvc)`, `mail.New(deps, notesSvc, filesSvc)` — mail's IMAP ingest is
+wired after notes exists via a setter). The same order is the OpenAPI tag order (`tools/openapi-check/lib.mjs` `MODULES`).
 
 ```go
 // package httpx
@@ -417,7 +423,7 @@ for (space, user) or (space, '*'), OR the user is admin). Write = home owner, `w
 | server-core | 18080 | vault | 18084 |
 | files | 18081 | sheets | 18085 |
 | media+tv | 18082 | system+mail | 18086 |
-| notes | 18083 | integration / python / clients | 18090–18099 |
+| notes | 18083 | integration / python / clients (Ludworks Browser: 18096) | 18090–18099 |
 | music | 18087 | kanban | 18088 |
 | cast (+ cast listener 18189) | 18089 | android music / android tv+core | 18101 / 18102 |
 

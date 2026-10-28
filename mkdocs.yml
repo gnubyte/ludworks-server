@@ -62,9 +62,11 @@ nav:
       - Authentication: api/authentication.md
       - Resumable uploads (tus): api/uploads.md
       - Vault cryptography: api/vault-crypto.md
+      - Browser sync: api/browser-sync.md
       - Endpoint reference: api/reference.md
   - Clients:
       - Python SDK: clients/python.md
+      - Ludworks Browser: clients/browser.md
       - Browser extension: clients/browser-extension.md
       - Android apps: clients/android.md
       - Desktop apps & backup: clients/desktop.md

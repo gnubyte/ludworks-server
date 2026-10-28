@@ -3,6 +3,15 @@
 All notable changes to Ludworks are listed here. Versions follow [Semantic Versioning](https://semver.org/);
 the HTTP API is versioned separately by its base path (`/api/v1`).
 
+## Unreleased
+
+### Server
+
+* **Browser sync** for Ludworks Browser (`/api/v1/browser/*`, scopes `vault:read` / `vault:write`): end-to-end-encrypted
+  bookmarks, history, open tabs and preferences, sealed with keys derived from the vault key. Paged full and delta
+  sync with signed cursors, batched writes with per-record conflicts, delete-all, usage. Records follow the vault
+  key: a key rotation or vault reset drops them and every device re-uploads. See [Browser sync](api/browser-sync.md).
+
 ## 0.1.0 — unreleased
 
 First release.

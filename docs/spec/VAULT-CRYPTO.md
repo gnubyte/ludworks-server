@@ -155,6 +155,29 @@ not exported or taken from imported files.
 URI `match` values: `domain` (default: same registrable domain, §3.1), `host` (exact host+port), `starts_with`,
 `exact`, `regex`, `never`. IP addresses and `localhost` compare by host (and port, §8.3).
 
+**Passkeys** (WebAuthn credentials, §10) live in login items as `login.passkeys`, so they sync, back up, import and
+export with the login they belong to:
+
+```json
+"passkeys": [ {
+  "credential_id": "<base64url, no padding: raw credential id bytes>",
+  "rp_id": "example.com",
+  "rp_name": "Example",
+  "user_handle": "<base64url: user.id bytes>",
+  "user_name": "me@example.com",
+  "user_display_name": "Me",
+  "algorithm": -7,
+  "private_key": "<base64url: PKCS#8 DER of the P-256 private key>",
+  "counter": 0,
+  "discoverable": true,
+  "created_at": "2026-10-27T12:00:00Z"
+} ]
+```
+`algorithm` is a COSE algorithm identifier; only `-7` (ES256, P-256) is created or used by Ludworks clients, other
+entries are kept but never offered. `counter` 0 means the credential does not use a signature counter (synced
+passkeys normally do not). Clients that do not implement passkeys preserve the array like any unknown key; editors
+show passkeys read-only (delete only). A passkey's `private_key` is a secret on par with `login.password`.
+
 ### 3.1 Registrable domain (Public Suffix List)
 Registrable domain = the public suffix of the host plus one more label (eTLD+1), where the public suffix is computed
 with the **Public Suffix List including its PRIVATE section** (so `github.io`, `duckdns.org`, `synology.me`, `ts.net`,
@@ -185,7 +208,8 @@ capitalize, include number.
 
 ## 6. Import / export (client-side only)
 * **Bitwarden**: unencrypted JSON export (`folders[]`, `items[]` with `type` 1 login, 2 secure note,
-  3 card, 4 identity, `fields[]`, `login.uris[]`, `login.totp`, `passwordHistory`) and CSV
+  3 card, 4 identity, `fields[]`, `login.uris[]`, `login.totp`, `login.fido2Credentials[]` (passkeys, §8.4),
+  `passwordHistory`) and CSV
   (`folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp`).
   Password-protected Bitwarden JSON (`"encrypted": true, "passwordProtected": true`) import is supported:
   PBKDF2-SHA256 or Argon2id per its `kdfType`, then Bitwarden's EncString type 2 (AES-CBC-256 + HMAC-SHA256).
@@ -297,10 +321,81 @@ where `name`/`folderPath` are full `/`-joined paths (segments trimmed, empty seg
   count them for the warning (and report attachments no entry links to). Errors distinguish
   `bad_credentials`, `bad_keyfile`, `corrupt`, `unsupported` (KeePass 1.x, Twofish, unknown KDF) and `limit_exceeded`.
 * **Bitwarden:** JSON item types 1–4 map directly (`match` 0–5 ⇄ `domain, host, starts_with, exact, regex, never`;
-  `null` = default); type 5 (SSH key) imports as a note with fields; linked fields, passkeys, trashed items,
-  organisation/collection ids and `reprompt` are not carried over. Password-protected export:
+  `null` = default); type 5 (SSH key) imports as a note with fields; linked fields, trashed items,
+  organisation/collection ids and `reprompt` are not carried over (clients without passkey support also drop
+  passkeys, with a warning). **Passkeys** `login.fido2Credentials[]` ⇄ `login.passkeys[]`: `credentialId` is a
+  lowercase GUID string whose 16 raw bytes (RFC 4122 textual byte order) are the credential id, or `"b64."` +
+  base64url bytes for any other id (export writes the GUID form for 16-byte ids, `b64.` otherwise); `keyValue`
+  (base64url PKCS#8) ⇄ `private_key`; `rpId`, `rpName`, `userHandle` (base64url), `userName`, `userDisplayName` map
+  directly; `counter` (decimal string) ⇄ integer; `discoverable` (`"true"`/`"false"`) ⇄ boolean; `creationDate` ⇄
+  `created_at`; export writes `keyType: "public-key"`, `keyAlgorithm: "ECDSA"`, `keyCurve: "P-256"` and import skips
+  (with a warning) entries with another type/algorithm/curve or a key that does not parse as P-256 PKCS#8.
+  Password-protected export:
   `key = PBKDF2-SHA256(pw, UTF-8(salt string), N)` or `Argon2id(pw, SHA-256(UTF-8(salt string)), t, m MiB, p)`,
   `encKey/macKey = HKDF-Expand(key, "enc"/"mac", 32)`, EncString type 2 only (type 0 is refused);
   account-restricted encrypted exports cannot be decrypted outside Bitwarden. CSV columns per §6; `login_uri` is
   itself a comma-separated (CSV-quoted) list; `fields` holds `name: value` lines (split at the last `": "`); cards
   and identities, which Bitwarden CSV cannot express, are exported as notes with their values as fields.
+
+## 9. Browser data (Ludworks Browser sync, API.md §16)
+
+Bookmarks, history, open tabs and preferences are sealed with keys derived from the vault key, so the master
+password protects them like vault items and a vault key change (§2.3) retires them together:
+
+```
+browser_key   = HKDF-SHA256(IKM = vault_key, salt = <empty>, info = "ludworks/browser/key/v1", L = 32)
+browser_idkey = HKDF-SHA256(IKM = vault_key, salt = <empty>, info = "ludworks/browser/id/v1",  L = 32)
+record data   = Seal(browser_key, UTF-8 JSON, AAD = "ludworks/browser/record/v1:<collection>:<id>")
+derived id    = base64url-nopad( HMAC-SHA256(browser_idkey, UTF-8(<collection> + "\n" + <natural key>)) ), first 32 chars
+```
+Binding collection and id into the AAD stops a server from moving a record between collections or ids. Derived ids
+let two devices name the same thing (a history URL) identically without telling the server what it is. Every record
+plaintext carries `updated_at` (RFC 3339, client clock of the edit); a client keeps its local copy when the server
+offers an older `updated_at` for a record it has already seen (rollback protection, cf. §2.5). Unknown keys are
+preserved on edit.
+
+| Collection | Record id | Plaintext |
+|---|---|---|
+| `bookmarks` | random UUID (client) | `{"type":"url"\|"folder","parent":"<id>","index":number,"title":str,"url"?:str,"created_at","updated_at"}` |
+| `history` | derived id, natural key = the URL | `{"url":str,"title":str,"visits":[epoch ms, newest first, ≤ 30],"updated_at"}` |
+| `tabs` | the device id (random UUID per installation) | `{"device":str,"platform":"windows"\|"macos"\|"linux"\|"android","tabs":[{"url","title","last_used":epoch ms}] (≤ 200),"updated_at"}` |
+| `prefs` | `prefs` | `{"search_engine":str,"custom_search"?:{"name","url"},"homepage"?:str,"show_bookmarks_bar"?:bool,"updated_at"}` |
+
+* **Bookmarks.** The three root folders are implicit and never stored: `toolbar` (bookmarks bar), `other` (other
+  bookmarks) and `mobile`. `index` orders siblings ascending (ties by id); writers pick a value between the
+  neighbours and renumber a folder's children 1, 2, 3, … when a gap falls below 1e-6. A node whose parent does not
+  exist (or is deleted) is shown under `other`; a cycle is broken by moving the node that closes it to `other`.
+  Deleting a folder deletes its descendants (each gets its own tombstone). Conflicts resolve per record, newest
+  `updated_at` wins. URLs are stored as given (≤ 8 KiB); clients decide which schemes they open.
+* **History.** Merging two copies of a record = union of `visits` (newest 30 kept), newest non-empty `title`.
+  Clients keep at most 90 days and delete older records (with tombstones). Private-window browsing is never recorded.
+* **Tabs.** Each device owns its record (only it writes it) and deletes it when it signs out.
+
+## 10. Passkeys (WebAuthn authenticator in Ludworks clients)
+
+Ludworks Browser acts as a WebAuthn authenticator whose credentials are the `login.passkeys` of §3 (synced,
+"multi-device" credentials, like Bitwarden's). Normative rules for every client that implements it:
+
+* **Algorithms and data.** ES256 only (`pubKeyCredParams` without `-7` → `NotSupportedError`, the caller may fall back
+  to a platform/roaming authenticator). AAGUID `a70a1e9f-20e7-4d33-a38e-04115decb9c6`. Attestation format `none`
+  (empty `attStmt`), whatever the RP asked for. Credential ids are 16 random bytes. Authenticator data flags: UP and UV
+  set (the vault is unlocked with the master password and the user confirmed this very request in browser UI the page
+  cannot draw over or script), BE and BS set (synced), AT on registration. `signCount` per §3: 0 stays 0; a non-zero
+  counter is advanced to `max(counter + 1, unix seconds)` and written back before the assertion is returned.
+* **Origin and RP ID.** The origin is the requesting frame's origin as the browser knows it (never anything the page
+  says). Only secure contexts (`https:`, or `http:` on `localhost`) of top-level frames or frames same-origin with
+  the top-level page may use the authenticator. `rp.id` (default: the origin's host) must equal the origin's host or
+  be a parent domain of it whose registrable domain (§3.1, PSL incl. private section) equals the host's — a public
+  suffix is never a valid RP ID; violations → `SecurityError`. IP-address hosts only accept themselves.
+* **clientDataJSON** = `{"type":"webauthn.create"|"webauthn.get","challenge":<base64url>,"origin":<origin>,"crossOrigin":false}`
+  serialised in exactly that member order (plus `"topOrigin"` after `crossOrigin` when it is true, which v1 never sends).
+* **Registration.** `excludeCredentials` naming a stored passkey for the same RP → `InvalidStateError` (after the user
+  confirms, per WebAuthn). The new passkey is added to a login item the user picks (default: an existing login for
+  that site and user name, else a new login named after `rp.name`/RP ID with URI `https://<rp id>`, match `domain`,
+  and `login.username = user.name`). Created passkeys are always discoverable.
+* **Assertion.** `allowCredentials` (when non-empty) limits the candidates to those ids; otherwise every passkey for the
+  RP ID is a candidate. The user picks one in browser UI. `userHandle` is returned for discoverable credentials.
+  Conditional mediation (`mediation: "conditional"`) lists the candidates in the browser's autofill UI and resolves
+  only when the user picks one.
+* **Fallback.** The browser UI always offers "use another device or security key", which hands the unmodified request
+  to the platform's own WebAuthn implementation.
