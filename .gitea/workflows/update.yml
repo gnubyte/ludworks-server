@@ -1,8 +1,8 @@
 name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
-# A nested helper container (--pid=host) nsenters into host PID 1 (mount+uts
-# namespaces) and does the install there.
+# A nested helper container (--pid=host) nsenters into host PID 1's mount ns
+# and does the install there. Fallback: chroot into the host root via binds.
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
           test -f ludworks_0.1.1_amd64.deb
           echo "df1291884f85a1bee58fdc7e94bc61ff4adb878278d40cecd6f93b5a6d892f9a  ludworks_0.1.1_amd64.deb" | sha256sum -c -
 
-      - name: Install on host via helper container (nsenter PID 1)
+      - name: Install on host via helper container
         run: |
           set -euo pipefail
           CID=$(hostname)
@@ -35,16 +35,19 @@ jobs:
           echo "host volume: $SRC"
           test -n "$SRC"
           cat > ./helper.sh <<'EOF'
-          set -eu
-          nsenter -t 1 -m -u -- sh -s -- "$VOL" <<'EOT'
+          set -u
+          P="$VOL"
+          [ -f "$P/ludworks_0.1.1_amd64.deb" ] || P=/w
+          echo "using deb dir: $P"
+          if nsenter -t 1 -m -- true 2>/dev/null; then
+            echo "nsenter -m works"
+            nsenter -t 1 -m -- sh -s -- "$P" <<'EOT'
           set -x
           P="$1"
-          test -f "$P/ludworks_0.1.1_amd64.deb"
           if [ -f /etc/ludworks/config.json ]; then cp -a /etc/ludworks/config.json /tmp/cfg.bak; fi
           dpkg-deb -x "$P/ludworks_0.1.1_amd64.deb" /
           if [ -f /tmp/cfg.bak ] && ! grep -q 8444 /etc/ludworks/config.json; then
-            echo "restoring :8444 config"
-            cp /tmp/cfg.bak /etc/ludworks/config.json
+            echo "restoring :8444 config"; cp /tmp/cfg.bak /etc/ludworks/config.json
           fi
           systemctl restart ludworks
           sleep 2
@@ -52,9 +55,22 @@ jobs:
           curl -sk https://192.0.2.10:8444/api/v1/health
           echo
           EOT
+          else
+            echo "nsenter failed; using chroot fallback"
+            if [ -f /host/etc/ludworks/config.json ]; then cp -a /host/etc/ludworks/config.json /tmp/cfg.bak; fi
+            dpkg-deb -x "$P/ludworks_0.1.1_amd64.deb" /host
+            if [ -f /tmp/cfg.bak ] && ! grep -q 8444 /host/etc/ludworks/config.json; then
+              echo "restoring :8444 config"; cp /tmp/cfg.bak /host/etc/ludworks/config.json
+            fi
+            DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/systemd/private /host/usr/bin/systemctl restart ludworks
+            sleep 2
+            DBUS_SYSTEM_BUS_ADDRESS=unix:path=/run/systemd/private /host/usr/bin/systemctl is-active ludworks
+            curl -sk https://192.0.2.10:8444/api/v1/health
+            echo
+          fi
           EOF
           cp ./helper.sh ./helper_copy.sh
-          docker run --rm --pid=host -e VOL="$SRC" -v "$SRC":/w \
+          docker run --rm --pid=host --network=host -e VOL="$SRC" -v "$SRC":/w -v /:/host -v /run:/run \
             -i ubuntu:24.04 sh /w/helper_copy.sh
 
       - name: Verify from job network
