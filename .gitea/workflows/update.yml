@@ -2,7 +2,8 @@ name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
 # The job container cannot nsenter (options ignored by the runner), so a
-# helper container gets the job volume at /w plus the host root at /host.
+# helper container gets the job's workspace volume at /w plus host root at
+# /host and /run (systemd sockets).
 
 on:
   push:
@@ -31,21 +32,18 @@ jobs:
         run: |
           set -euo pipefail
           CID=$(hostname)
-          SRC=$(docker inspect -f '{{range .Mounts}}{{.Source}} {{end}}' "$CID" \
-                 | tr ' ' '\n' | grep '_data$' | head -1)
+          SRC=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}}
+          {{end}}{{end}}' "$CID" | grep 'ludworks-server=' | head -1 | cut -d= -f2)
           echo "host volume: $SRC"
           test -n "$SRC"
-          docker run --rm --network=host \
-            -v "$SRC":/w -v /:/host -v /run:/run \
-            -i ubuntu:24.04 sh -s <<'EOF'
+          # helper visible in job at /workspace/..., on host at $SRC/...
+          cat > /workspace/phastings/ludworks-server/helper.sh <<'EOF'
           set -eu
           H=/host
-          DEB=/w/ludworks_0.1.1_amd64.deb
-          [ -f "$DEB" ] || DEB=/w/phastings/ludworks-server/ludworks_0.1.1_amd64.deb
-          test -f "$DEB"
+          test -f /w/ludworks_0.1.1_amd64.deb
           [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
           export DEBIAN_FRONTEND=noninteractive
-          dpkg --root="$H" -i "$DEB"
+          dpkg --root="$H" -i /w/ludworks_0.1.1_amd64.deb
           if [ -f /tmp/cfg.bak ] && ! grep -q 8444 "$H/etc/ludworks/config.json"; then
             echo "restoring :8444 config"
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
@@ -57,6 +55,9 @@ jobs:
           curl -sk https://127.0.0.1:8444/api/v1/health
           echo
           EOF
+          docker run --rm --network=host \
+            -v "$SRC":/w -v /:/host -v /run:/run \
+            -i ubuntu:24.04 sh /w/helper.sh
 
       - name: Verify from job network
         run: |
