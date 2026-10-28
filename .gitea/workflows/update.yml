@@ -2,7 +2,7 @@ name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
 # The job container cannot nsenter (options ignored by the runner), so a
-# helper container gets the host root at /host plus the host /run socket.
+# helper container gets the job volume at /w plus the host root at /host.
 
 on:
   push:
@@ -31,16 +31,21 @@ jobs:
         run: |
           set -euo pipefail
           CID=$(hostname)
-          REPO=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}}{{end}} {{end}}' "$CID" \
-                 | tr ' ' '\n' | grep 'ludworks-server=' | head -1 | cut -d= -f2)
-          echo "host workspace: $REPO"
-          test -n "$REPO"
-          cat > "$REPO/helper.sh" <<'EOF'
+          SRC=$(docker inspect -f '{{range .Mounts}}{{.Source}} {{end}}' "$CID" \
+                 | tr ' ' '\n' | grep '_data$' | head -1)
+          echo "host volume: $SRC"
+          test -n "$SRC"
+          docker run --rm --network=host \
+            -v "$SRC":/w -v /:/host -v /run:/run \
+            -i ubuntu:24.04 sh -s <<'EOF'
           set -eu
           H=/host
+          DEB=/w/ludworks_0.1.1_amd64.deb
+          [ -f "$DEB" ] || DEB=/w/phastings/ludworks-server/ludworks_0.1.1_amd64.deb
+          test -f "$DEB"
           [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
           export DEBIAN_FRONTEND=noninteractive
-          dpkg --root="$H" -i /w/ludworks_0.1.1_amd64.deb
+          dpkg --root="$H" -i "$DEB"
           if [ -f /tmp/cfg.bak ] && ! grep -q 8444 "$H/etc/ludworks/config.json"; then
             echo "restoring :8444 config"
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
@@ -52,9 +57,6 @@ jobs:
           curl -sk https://127.0.0.1:8444/api/v1/health
           echo
           EOF
-          docker run --rm --network=host \
-            -v "$REPO":/w -v /:/host -v /run:/run \
-            -i ubuntu:24.04 sh /w/helper.sh
 
       - name: Verify from job network
         run: |
