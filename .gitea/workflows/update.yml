@@ -1,8 +1,8 @@
 name: update-ludworks-server
 
 # Installs the latest release (v0.1.1) .deb of ludworks on the deploy-01 host.
-# A nested helper container (--pid=host) nsenters into host PID 1 (mount+unshare
-# only; -i is not exposed) and does the install there.
+# A nested helper container (--pid=host) nsenters into host PID 1 (mount+uts
+# namespaces) and does the install there.
 
 on:
   push:
@@ -36,30 +36,26 @@ jobs:
           test -n "$SRC"
           cat > ./helper.sh <<'EOF'
           set -eu
-          P=$(cat /proc/1/mountinfo | awk '{print $NF}' | grep -m1 'ludworks-server')
-          nsenter -t 1 -m -u -- sh -s -- "$P" <<'EOT'
-          set -eu
+          nsenter -t 1 -m -u -- sh -s -- "$VOL" <<'EOT'
+          set -x
           P="$1"
           test -f "$P/ludworks_0.1.1_amd64.deb"
-          [ -f /etc/ludworks/config.json ] && cp -a /etc/ludworks/config.json /tmp/cfg.bak
+          if [ -f /etc/ludworks/config.json ]; then cp -a /etc/ludworks/config.json /tmp/cfg.bak; fi
           dpkg-deb -x "$P/ludworks_0.1.1_amd64.deb" /
           if [ -f /tmp/cfg.bak ] && ! grep -q 8444 /etc/ludworks/config.json; then
             echo "restoring :8444 config"
             cp /tmp/cfg.bak /etc/ludworks/config.json
           fi
-          systemctl restart ludworks || {
-            echo "systemd restart failed; manual restart"
-            kill "$(cat /run/ludworks.pid 2>/dev/null)" 2>/dev/null || true
-            sleep 1
-            (nohup /usr/bin/ludworks >/tmp/ludworks.log 2>&1 &)
-          }
+          systemctl restart ludworks
           sleep 2
-          curl -sk https://127.0.0.1:8444/api/v1/health
+          systemctl is-active ludworks
+          curl -sk https://192.168.68.68:8444/api/v1/health
           echo
           EOT
           EOF
           cp ./helper.sh ./helper_copy.sh
-          docker run --rm --pid=host -v "$SRC":/w -i ubuntu:24.04 sh /w/helper_copy.sh
+          docker run --rm --pid=host -e VOL="$SRC" -v "$SRC":/w \
+            -i ubuntu:24.04 sh /w/helper_copy.sh
 
       - name: Verify from job network
         run: |
