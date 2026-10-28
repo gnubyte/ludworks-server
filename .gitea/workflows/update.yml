@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      image: docker.gitea.com/runner-images/ubuntu-latest
       options: --pid=host --network=host
     steps:
       - name: Checkout
