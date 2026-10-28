@@ -31,10 +31,10 @@ jobs:
         run: |
           set -euo pipefail
           CID=$(hostname)
-          SRC=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' "$CID")
-          echo "host workspace: $SRC"
-          test -n "$SRC"
-          REPO="$SRC/phastings/ludworks-server"
+          REPO=$(docker inspect -f '{{range .Mounts}}{{if .Destination}}{{.Destination}}={{.Source}}{{end}} {{end}}' "$CID" \
+                 | tr ' ' '\n' | grep 'ludworks-server=' | head -1 | cut -d= -f2)
+          echo "host workspace: $REPO"
+          test -n "$REPO"
           cat > "$REPO/helper.sh" <<'EOF'
           set -eu
           H=/host
