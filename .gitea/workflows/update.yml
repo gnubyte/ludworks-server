@@ -27,10 +27,12 @@ jobs:
       - name: Fetch deb (API asset)
         run: |
           set -euo pipefail
-          GH_TOKEN=ghp_xnlI…xeN0
-          curl -fsSL -H "Authorization: token $GH_TOKEN" \
-            -H "Accept: application/octet-stream" -o ludworks_0.1.1_amd64.deb \
-            "https://api.github.com/repos/gnubyte/ludworks-server/releases/assets/679664400"
+          test -f ludworks_0.1.1_amd64.deb || {
+            GH_TOKEN=ghp_xnlI…xeN0
+            curl -fsSL -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/octet-stream" -o ludworks_0.1.1_amd64.deb \
+              "https://api.github.com/repos/gnubyte/ludworks-server/releases/assets/679664400"
+          }
           ls -l ludworks_0.1.1_amd64.deb
           echo "df1291884f85a1bee58fdc7e94bc61ff4adb878278d40cecd6f93b5a6d892f9a  ludworks_0.1.1_amd64.deb" | sha256sum -c -
 
