@@ -44,8 +44,7 @@ jobs:
           [ -f "$H/etc/ludworks/config.json" ] && cp -a "$H/etc/ludworks/config.json" /tmp/cfg.bak
           # manual unpack (dpkg --root chokes on the image statoverride)
           cd /tmp
-          ar x /w/ludworks_0.1.1_amd64.deb
-          tar -C "$H" -xf /tmp/data.tar.gz
+          dpkg-deb -x /w/ludworks_0.1.1_amd64.deb "$H"
           # keep host config (:8444 binding) over packaged defaults
           if [ -f /tmp/cfg.bak ]; then
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
