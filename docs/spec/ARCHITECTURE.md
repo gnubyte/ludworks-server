@@ -1,9 +1,10 @@
 # Ludworks — Architecture & Engineering Contract
 
 Ludworks is a self-hosted, security-first NAS "multitool": a single server binary that provides a
-file manager with resumable uploads, a retro "virtual TV channels" media app, an iOS-Notes-style
-notes app, an end-to-end-encrypted password vault, a lightweight spreadsheet app, and admin/system
-tooling — plus a family of clients.
+file manager with resumable uploads, a retro "virtual TV channels" media app, a music library with
+playlists, an iOS-Notes-style notes app, an end-to-end-encrypted password vault, a lightweight
+spreadsheet app, kanban boards, casting to Chromecast/AirPlay devices, and admin/system tooling —
+plus a family of clients.
 
 This document is the **binding contract** for everyone (human or agent) building any part of it.
 `API.md` (HTTP API), `VAULT-CRYPTO.md` (vault encryption) are its companions in this folder.
@@ -19,7 +20,7 @@ document in the same change and say so.
 | `ludworks-server`    | Go server (single binary), embedded vanilla-JS web UI, OpenAPI + Swagger UI, MkDocs docs for ReadTheDocs, `.deb`/`.exe` packaging, CI | Go 1.27 (WSL) |
 | `ludworks-python`    | Python SDK + CLI (`pip install ludworks`), stdlib-only core, optional `[vault]` extra (`cryptography`) | Python 3.10+ |
 | `ludworks-browser`   | Password-manager WebExtension, one source tree → Chrome (MV3) + Firefox (MV3) builds | Node (build script only, no npm deps) |
-| `ludworks-android`   | Gradle multi-module: `:core` lib, `:tv` (TV/phone channel player), `:notes`, `:vault` apps | JDK 21, Android SDK, AGP 9 |
+| `ludworks-android`   | Gradle multi-module: `:core` lib, `:tv` (TV/phone channel player), `:music`, `:notes`, `:vault` apps | JDK 21, Android SDK, AGP 9 |
 | `ludworks-desktop`   | .NET 10 / WPF solution: `Ludworks.Core`, `Ludworks.Desktop` (all-in-one), `Ludworks.Notes`, `Ludworks.Backup` (folder sync) | .NET 10 SDK (Windows) |
 
 Every directory becomes its own **private** GitHub repo. Each has `README.md`, `LICENSE` (proprietary,
@@ -50,7 +51,9 @@ Every directory becomes its own **private** GitHub repo. Each has `README.md`, `
    **vanilla ES modules, no npm, no build step, no CDN** — the only vendored third-party asset is
    `swagger-ui-dist` (pinned, checksummed) served only on `/api/docs`. Python SDK core is stdlib-only.
    Browser extension has zero runtime deps. Desktop apps use zero NuGet packages in shipped projects.
-   Android uses AndroidX core/appcompat/recyclerview/material only where needed + Media3 for playback.
+   Android uses AndroidX core/appcompat/recyclerview/material only where needed + Media3 (ExoPlayer, UI,
+   session) for playback. Casting needs no vendor SDK anywhere: the server speaks Cast v2 and AirPlay itself
+   with the Go standard library (no Google Cast SDK / Play Services in the apps, no CDN script in the web UI).
 2. **First-run claim protection.** On first start with an empty DB the server generates a one-time
    setup token and writes `<data>/setup-token.txt` (mode 0600; on Windows the data directory's protected
    DACL). The log says only where the file is — log readers (journald groups, syslog, shippers) must not be
@@ -74,8 +77,10 @@ Every directory becomes its own **private** GitHub repo. Each has `README.md`, `
    Generic API rate limit (`httpx.AuthRateLimit*`/`AnonRateLimit*`): 200 req/s burst 1000 per authenticated
    principal; 30 req/s burst 120 per client IP for unauthenticated requests. Exempt from the generic limiter
    (bounded by their own locks/concurrency caps): tus `PATCH`/`HEAD /api/v1/uploads/{id}` and `Range` GETs of
-   file/media/program content (`/files/{id}/content`, `/media/{id}/stream`,
-   `/tv/channels/{id}/programs/{file_id}/stream`). Auth-specific limiters and lockouts are unaffected.
+   file/media/program/music content (`/files/{id}/content`, `/media/{id}/stream`,
+   `/tv/channels/{id}/programs/{file_id}/stream`, `/music/tracks/{id}/stream`, `/music/tracks/{id}/download`,
+   and the `stream` asset of cast ticket URLs `/cast/media/…`). Auth-specific limiters and lockouts are unaffected;
+   the plain-HTTP cast listener has its own per-address limiter for everything but `Range` reads.
    Account endpoints do not reveal whether an email address is registered: password reset always answers
    202, self-registration with email verification answers a taken address like a fresh one (the owner is
    notified instead), and a self-service email change is confirmed by a link to the new address.
@@ -115,9 +120,18 @@ Every directory becomes its own **private** GitHub repo. Each has `README.md`, `
     `server.trusted_proxies` CIDRs). TLS ≥1.2, modern cipher suites. Optional HTTP→HTTPS redirect listener.
 15. **Process:** `.deb` runs as system user `ludworks` under a hardened systemd unit. Builds are
     `CGO_ENABLED=0 -trimpath -ldflags "-s -w -X ludworks/internal/version.Version=..."`.
-16. **Untrusted file parsing** (XLSX/XLS/ZIP/MP4/MKV/images/markdown imports/KDBX): cap decompressed
-    sizes, entry counts, recursion depth, and image pixel dimensions (≤ 50 MP) before decoding.
+16. **Untrusted file parsing** (XLSX/XLS/ZIP/MP4/MKV/images/markdown imports/KDBX, audio tags and
+    embedded pictures, M3U imports): cap decompressed sizes, entry counts, recursion depth, and image pixel
+    dimensions (≤ 50 MP) before decoding.
 17. Never log secrets, tokens, passwords, vault data, or full request bodies.
+18. **Casting** (API.md §14) is off by default. Cast devices are unauthenticated LAN devices: they get media only
+    through per-session capability URLs (`/api/v1/cast/media/{ticket}/…`: 256-bit random ticket, bound to the
+    session's items and the device's address, expiring with the session, re-checking the owner's access on every
+    request). These routes are the only ones that answer CORS `Access-Control-Allow-Origin: *` (no credentials).
+    The optional plain-HTTP cast listener (`cast.media_port`, for devices that cannot trust the self-signed
+    certificate) serves nothing but these routes. Device protocols (mDNS, Cast v2 protobuf framing, RTSP/RAOP,
+    AirPlay pairing, binary plists) treat every device message as hostile input (size caps, timeouts). AirPlay
+    pairing credentials are sealed with the server key like other secrets (§2.11).
 
 ---------------------------------------------------------------------------------------------------
 
@@ -152,6 +166,15 @@ internal/sheets/              Workbooks API (module "sheets"); subpackages:
   internal/sheets/xlsx/       stdlib-only XLSX read/write (values, formulas, basic styles)
   internal/sheets/xls/        stdlib-only XLS (BIFF8 in CFB) read/write
   internal/sheets/csvio/      CSV read/write (delimiter sniffing, BOM)
+internal/music/               Music library: tracks/albums/artists from audio tags, cover art, lyrics, playlists
+                              (manual + smart), favorites/ratings/plays, audio transcodes, download renditions (module "music")
+  internal/music/tags/        pure-Go tag readers (ID3v1/v2, FLAC, Ogg Vorbis/Opus, MP4 ilst, WAV/AIFF)
+internal/kanban/              Kanban boards: members/roles, columns, cards, labels, subtasks, comments,
+                              attachments, activity (module "kanban")
+internal/cast/                Casting (module "cast"): device registry, sessions, media tickets, cast listener
+  internal/cast/mdns/         minimal mDNS/DNS-SD browser (stdlib)
+  internal/cast/chromecast/   Cast v2 sender (TLS + protobuf framing, Default Media Receiver)
+  internal/cast/airplay/      AirPlay: RAOP audio (RTSP, ALAC/RTP, NTP timing), video (/play) with HAP pairing
 internal/system/              Storage/volume stats (statfs / GetDiskFreeSpaceEx), system info, DB backup
 internal/apidocs/             Merges module OpenAPI fragments → /api/openapi.json; serves /api/docs
 internal/webui/               Serves embedded web UI (SPA fallback, cache headers, CSP)
@@ -233,9 +256,11 @@ type Module interface {
 To avoid an import cycle the `Module` interface lives in package `httpx` (or `app`), not `core`;
 everything else above is in `core`. Modules are constructed in `internal/app` in this order and get
 other modules' services injected explicitly:
-`auth → admin → mail → files → media → tv → notes → vault → sheets → system`
-(e.g. `media.New(deps, filesSvc)`, `tv.New(deps, filesSvc, mediaSvc)`, `sheets.New(deps, filesSvc)`,
-`mail.New(deps, notesSvc, filesSvc)` — mail's IMAP ingest is wired after notes exists via a setter).
+`auth → admin → mail → files → media → tv → music → notes → vault → sheets → kanban → cast → system`
+(e.g. `media.New(deps, filesSvc)`, `tv.New(deps, filesSvc, mediaSvc)`, `music.New(deps, filesSvc, mediaSvc)`,
+`sheets.New(deps, filesSvc)`, `kanban.New(deps, filesSvc)`, `cast.New(deps, filesSvc, mediaSvc, tvM, musicSvc)`,
+`mail.New(deps, notesSvc, filesSvc)` — mail's IMAP ingest is wired after notes exists via a setter). The same
+order is the OpenAPI tag order (`tools/openapi-check/lib.mjs` `MODULES`).
 
 ```go
 // package httpx
@@ -272,7 +297,7 @@ Use FTS5 virtual tables for full-text search (notes, files, media). FTS5 is NOT 
 `settings.Store`: `Register(ns string, defaults any, secretFields []string, validate func(any) error)`,
 `Get(ctx, ns string, dst any) error`, `Update(ctx, ns string, patch json.RawMessage) error`,
 `Public(ctx) map[string]any` (redacted view: secret fields → `{"set": true|false}`).
-Namespaces: `general`, `security`, `smtp`, `imap`, `media`, `tv`, `files`.
+Namespaces: `general`, `security`, `smtp`, `imap`, `mail_in`, `media`, `tv`, `files`, `music`, `cast`.
 
 `events.Bus`: `Publish(topic string, payload any)`, `Subscribe(topic string, fn func(payload any))`
 (async, panics recovered). Topics: `file.created`, `file.updated`, `file.deleted`, `file.moved`
@@ -354,8 +379,14 @@ for (space, user) or (space, '*'), OR the user is admin). Write = home owner, `w
   (session/user/settings), `upload.js` (tus client — see API.md §Uploads), `theme.js` (light/dark/system).
 * `assets/js/apps/registry.js` lists app modules `{id, title, icon, path, adminOnly, load: () => import(...)}`;
   every app module exports `mount(container, ctx)` returning an optional `unmount()`; `ctx` has
-  `{api, router, user, settings, ui, params, query}`. Apps: `files`, `tv`, `notes`, `vault`, `sheets`,
-  `settings` (account), `system` (storage — all users see own usage, admins see everything), `admin`.
+  `{api, router, user, settings, ui, params, query, dock}`. Apps: `files`, `tv`, `music`, `notes`, `vault`,
+  `sheets`, `kanban`, `settings` (account), `system` (storage — all users see own usage, admins see everything),
+  `admin`.
+* The shell has a persistent bottom **dock** (`ctx.dock`, outside the app view): the music player bar lives
+  there, so playback continues while the user switches apps; it is emptied on sign-out with everything else.
+* `assets/js/core/cast.js` is the one casting client for every player (API.md §14): device picker, session
+  controller (long-poll), and native fallbacks where the browser offers them (Safari's AirPlay picker,
+  the Remote Playback API).
 * `assets/js/lib/`: `markdown.js` (safe Markdown→DOM renderer: CommonMark subset + GFM tables,
   task lists, strikethrough, autolinks, fenced code — builds DOM nodes, never `innerHTML` with
   user text), `highlight.js` (small tokenizer-based syntax highlighter for ~20 common languages;
@@ -387,6 +418,8 @@ for (space, user) or (space, '*'), OR the user is admin). Write = home owner, `w
 | files | 18081 | sheets | 18085 |
 | media+tv | 18082 | system+mail | 18086 |
 | notes | 18083 | integration / python / clients | 18090–18099 |
+| music | 18087 | kanban | 18088 |
+| cast (+ cast listener 18189) | 18089 | android music / android tv+core | 18101 / 18102 |
 
 Start a dev server with TLS off for local tests:
 `go run ./cmd/ludworks serve --data ~/lwdev/<you> --listen 127.0.0.1:<port> --tls off`

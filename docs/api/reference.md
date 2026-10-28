@@ -10,7 +10,7 @@ Scope legend: `public` = no authentication, `auth` = any signed-in user or token
 need the `admin` scope), anything else is the personal-access-token scope required. **qt** = the endpoint also accepts
 `?access_token=` (streaming and feeds).
 
-187 operations in 16 groups.
+283 operations in 19 groups.
 
 ## Server
 
@@ -229,6 +229,57 @@ Integrations for external players and media servers: M3U playlist, XMLTV guide, 
 | POST | `/api/v1/tv/feeds/rotate` | `tv:write` | Rotate the feed token |
 | GET | `/api/v1/tv/xmltv.xml` | `tv:read` · qt | XMLTV guide |
 
+## Music
+
+Music library on top of Files: tracks from audio tags, albums, artists, cover art, lyrics, manual and smart playlists, favorites, ratings and plays, live audio transcodes and offline-download renditions.
+
+| Method | Path | Scope | Summary |
+|---|---|---|---|
+| GET | `/api/v1/music/albums` | `music:read` | Browse albums |
+| GET | `/api/v1/music/albums/{id}` | `music:read` | Get an album |
+| GET | `/api/v1/music/albums/{id}/art` | `music:read` · qt | Album cover art |
+| PUT | `/api/v1/music/albums/{id}/art` | `music:write` | Set custom album art |
+| DELETE | `/api/v1/music/albums/{id}/art` | `music:write` | Remove custom album art |
+| GET | `/api/v1/music/artists` | `music:read` | Browse artists |
+| GET | `/api/v1/music/artists/{id}` | `music:read` | Get an artist |
+| GET | `/api/v1/music/artists/{id}/art` | `music:read` · qt | Artist art |
+| GET | `/api/v1/music/facets` | `music:read` | Library facets |
+| PUT | `/api/v1/music/favorites` | `music:read` | Mark or unmark a favorite |
+| GET | `/api/v1/music/genres` | `music:read` | List genres |
+| GET | `/api/v1/music/history` | `music:read` | Play history |
+| DELETE | `/api/v1/music/history` | `music:read` | Clear play history |
+| GET | `/api/v1/music/home` | `music:read` | Home view |
+| GET | `/api/v1/music/playlists` | `music:read` | List playlists |
+| POST | `/api/v1/music/playlists` | `music:write` | Create a playlist |
+| POST | `/api/v1/music/playlists/import` | `music:write` | Import an M3U playlist |
+| GET | `/api/v1/music/playlists/{id}` | `music:read` | Get a playlist |
+| DELETE | `/api/v1/music/playlists/{id}` | `music:write` | Delete a playlist |
+| PATCH | `/api/v1/music/playlists/{id}` | `music:write` | Change a playlist |
+| GET | `/api/v1/music/playlists/{id}/art` | `music:read` · qt | Playlist art |
+| PUT | `/api/v1/music/playlists/{id}/art` | `music:write` | Set playlist art |
+| DELETE | `/api/v1/music/playlists/{id}/art` | `music:write` | Remove playlist art |
+| POST | `/api/v1/music/playlists/{id}/duplicate` | `music:write` | Duplicate a playlist |
+| GET | `/api/v1/music/playlists/{id}/export.m3u8` | `music:read` | Export as M3U8 |
+| PUT | `/api/v1/music/playlists/{id}/items` | `music:write` | Replace all tracks |
+| POST | `/api/v1/music/playlists/{id}/items` | `music:write` | Add tracks |
+| POST | `/api/v1/music/playlists/{id}/items/move` | `music:write` | Move items |
+| POST | `/api/v1/music/playlists/{id}/items/remove` | `music:write` | Remove items |
+| POST | `/api/v1/music/plays` | `music:read` | Record plays |
+| POST | `/api/v1/music/rescan` | `music:write` | Re-read tags |
+| GET | `/api/v1/music/search` | `music:read` | Search the library |
+| GET | `/api/v1/music/tracks` | `music:read` | Browse tracks |
+| POST | `/api/v1/music/tracks/bulk` | `music:write` | Edit several tracks |
+| POST | `/api/v1/music/tracks/lookup` | `music:read` | Look up tracks by id |
+| GET | `/api/v1/music/tracks/{id}` | `music:read` | Get a track |
+| PATCH | `/api/v1/music/tracks/{id}` | `music:write` | Edit a track |
+| GET | `/api/v1/music/tracks/{id}/art` | `music:read` · qt | Track cover art |
+| GET | `/api/v1/music/tracks/{id}/download` | `music:read` · qt | Offline download |
+| GET | `/api/v1/music/tracks/{id}/lyrics` | `music:read` | Track lyrics |
+| POST | `/api/v1/music/tracks/{id}/probe` | `music:write` | Re-read tags and art |
+| PUT | `/api/v1/music/tracks/{id}/rating` | `music:read` | Rate a track |
+| GET | `/api/v1/music/tracks/{id}/stream` | `music:read` · qt | Stream a track |
+| GET | `/api/v1/music/tracks/{id}/transcode` | `music:read` · qt | Live transcode |
+
 ## Notes
 
 iOS-Notes-style Markdown notes with folders, tags, pinning, full-text search, code snippets, attachments, sync and bulk Markdown import/export.
@@ -301,6 +352,72 @@ Spreadsheets: workbooks, sheets, cells with formulas and styles, ranges, row/col
 | GET | `/api/v1/sheets/{id}/sheets/{sheet_id}/range` | `sheets:read` | Read a range |
 | PUT | `/api/v1/sheets/{id}/sheets/{sheet_id}/range` | `sheets:write` | Write values/formulas to a range |
 | POST | `/api/v1/sheets/{id}/sheets/{sheet_id}/sort` | `sheets:write` | Sort a range |
+
+## Kanban
+
+Kanban boards: members and roles, columns with WIP limits, cards with labels, assignees, priorities, dates, subtasks, comments and attachments, and an activity log. Boards are visible only to their members; poll a board cheaply with `If-None-Match`.
+
+| Method | Path | Scope | Summary |
+|---|---|---|---|
+| GET | `/api/v1/kanban/attachments/{id}` | `kanban:read` · qt | Download an attachment |
+| DELETE | `/api/v1/kanban/attachments/{id}` | `kanban:write` | Delete an attachment |
+| PATCH | `/api/v1/kanban/attachments/{id}` | `kanban:write` | Rename an attachment |
+| POST | `/api/v1/kanban/attachments/{id}/save-to-files` | `kanban:write` | Save an attachment to Files |
+| GET | `/api/v1/kanban/attachments/{id}/thumbnail` | `kanban:read` · qt | Attachment thumbnail |
+| GET | `/api/v1/kanban/boards` | `kanban:read` | List my boards |
+| POST | `/api/v1/kanban/boards` | `kanban:write` | Create a board |
+| GET | `/api/v1/kanban/boards/{id}` | `kanban:read` | Get a board |
+| DELETE | `/api/v1/kanban/boards/{id}` | `kanban:write` | Delete a board |
+| PATCH | `/api/v1/kanban/boards/{id}` | `kanban:write` | Update a board |
+| GET | `/api/v1/kanban/boards/{id}/activity` | `kanban:read` | Board activity |
+| POST | `/api/v1/kanban/boards/{id}/columns` | `kanban:write` | Create a column |
+| POST | `/api/v1/kanban/boards/{id}/labels` | `kanban:write` | Create a label |
+| POST | `/api/v1/kanban/boards/{id}/leave` | `kanban:read` | Leave a board |
+| PUT | `/api/v1/kanban/boards/{id}/members` | `kanban:write` | Replace the members |
+| POST | `/api/v1/kanban/boards/{id}/transfer` | `kanban:write` | Transfer ownership |
+| GET | `/api/v1/kanban/cards` | `kanban:read` | Search cards |
+| GET | `/api/v1/kanban/cards/{id}` | `kanban:read` | Get a card |
+| DELETE | `/api/v1/kanban/cards/{id}` | `kanban:write` | Delete a card |
+| PATCH | `/api/v1/kanban/cards/{id}` | `kanban:write` | Update a card |
+| POST | `/api/v1/kanban/cards/{id}/attachments` | `kanban:write` | Upload an attachment |
+| POST | `/api/v1/kanban/cards/{id}/attachments/from-file` | `kanban:write` | Attach a file from Files |
+| GET | `/api/v1/kanban/cards/{id}/comments` | `kanban:read` | List comments |
+| POST | `/api/v1/kanban/cards/{id}/comments` | `kanban:write` | Comment on a card |
+| POST | `/api/v1/kanban/cards/{id}/move` | `kanban:write` | Move a card |
+| POST | `/api/v1/kanban/cards/{id}/subtasks` | `kanban:write` | Add a subtask |
+| DELETE | `/api/v1/kanban/columns/{id}` | `kanban:write` | Delete a column |
+| PATCH | `/api/v1/kanban/columns/{id}` | `kanban:write` | Update a column |
+| POST | `/api/v1/kanban/columns/{id}/cards` | `kanban:write` | Create a card |
+| POST | `/api/v1/kanban/columns/{id}/move` | `kanban:write` | Move a column |
+| DELETE | `/api/v1/kanban/comments/{id}` | `kanban:write` | Delete a comment |
+| PATCH | `/api/v1/kanban/comments/{id}` | `kanban:write` | Edit a comment |
+| DELETE | `/api/v1/kanban/labels/{id}` | `kanban:write` | Delete a label |
+| PATCH | `/api/v1/kanban/labels/{id}` | `kanban:write` | Update a label |
+| DELETE | `/api/v1/kanban/subtasks/{id}` | `kanban:write` | Delete a subtask |
+| PATCH | `/api/v1/kanban/subtasks/{id}` | `kanban:write` | Update a subtask |
+| POST | `/api/v1/kanban/subtasks/{id}/move` | `kanban:write` | Move a subtask |
+| POST | `/api/v1/kanban/subtasks/{id}/promote` | `kanban:write` | Turn a subtask into a card |
+| GET | `/api/v1/kanban/users` | `kanban:write` | Find users to add |
+
+## Casting
+
+Cast to Chromecasts (Cast v2, Default Media Receiver) and AirPlay devices (audio to HomePods and speakers, video to Apple TVs). The server controls the devices itself, so every client casts the same way; devices fetch media through short-lived capability URLs. Off until an administrator sets `cast.enabled`.
+
+| Method | Path | Scope | Summary |
+|---|---|---|---|
+| GET | `/api/v1/cast/devices` | `cast` | List cast devices |
+| POST | `/api/v1/cast/devices/refresh` | `cast` | Search for devices now |
+| POST | `/api/v1/cast/devices/{id}/pair` | `cast` | Start PIN pairing |
+| POST | `/api/v1/cast/devices/{id}/pair/confirm` | `cast` | Confirm PIN pairing |
+| DELETE | `/api/v1/cast/devices/{id}/pairing` | `admin` | Forget a pairing |
+| GET | `/api/v1/cast/media/{ticket}/{kind}/{id}/{asset}` | `public` | Media for cast devices (ticket) |
+| GET | `/api/v1/cast/sessions` | `cast` | List my cast sessions |
+| POST | `/api/v1/cast/sessions` | `cast` | Start casting |
+| GET | `/api/v1/cast/sessions/{id}` | `cast` | Get a cast session (long poll) |
+| DELETE | `/api/v1/cast/sessions/{id}` | `cast` | Stop casting |
+| POST | `/api/v1/cast/sessions/{id}/control` | `cast` | Control playback |
+| PUT | `/api/v1/cast/sessions/{id}/items` | `cast` | Replace the queue |
+| POST | `/api/v1/cast/sessions/{id}/items` | `cast` | Add to the queue |
 
 ## System
 

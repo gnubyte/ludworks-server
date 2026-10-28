@@ -3,7 +3,7 @@
   "info": {
     "title": "Ludworks API",
     "summary": "Self-hosted NAS multitool: files, virtual TV, notes, password vault, spreadsheets.",
-    "description": "Ludworks is a self-hosted, security-first NAS \"multitool\": files with resumable uploads, a retro virtual-TV\nchannel app, Markdown notes, an end-to-end-encrypted password vault, spreadsheets and admin tooling.\nThis document describes **HTTP API v1** (base path `/api/v1`). JSON is UTF-8 with `snake_case` fields;\nIDs are opaque strings; timestamps are RFC 3339 UTC. Boolean query parameters are true for `1`, `true`, `yes` or `on`\n(case-insensitive) and false otherwise. JSON request bodies must be sent as `application/json` (else 415) and are\ncapped at 1 MiB unless stated; unknown fields are ignored for forward compatibility.\n\n## Authentication\n\n| Method | How | Notes |\n|---|---|---|\n| Browser session | `lw_session` cookie set by `POST /api/v1/auth/login` | `HttpOnly; SameSite=Strict`. **Unsafe requests (POST/PUT/PATCH/DELETE) must send `X-CSRF-Token`** with the `csrf_token` returned by login / `GET /api/v1/auth/session`; a present `Origin` header must match the server. |\n| Session token | `Authorization: Bearer lws_…` | From `POST /api/v1/auth/login` with `\"token_mode\": true` (SDK, apps, browser extension). Full access of the user, no CSRF. |\n| Personal access token | `Authorization: Bearer lwp_…` | Created at `POST /api/v1/me/tokens`, limited to the chosen **scopes**, optional expiry. No CSRF. |\n| Query token | `?access_token=<token>` | Only on streaming/feed endpoints (players, `<video>`, M3U/XMLTV). Prefer a PAT with only `media:read tv:read`; TV feed URLs use a token with only `tv:feed`. |\n\n**Scopes:** `files:read files:write media:read media:write tv:read tv:write tv:feed notes:read notes:write vault:read\nvault:write sheets:read sheets:write account admin` (`tv:feed`: only the TV feed and stream routes). Sessions have every scope (`*`); `admin` additionally\nrequires the admin role. Every operation states its requirement in `x-scope`: `public` (no auth), `auth`\n(any signed-in principal), `admin`, or a scope name.\n\nIn this Swagger UI on the same origin your browser session cookie is sent automatically; for unsafe\nrequests authorise **csrfHeader** with the `csrf_token` from `GET /api/v1/auth/session`, or authorise\n**bearerAuth** with a token instead.\n\n## Errors\n\nErrors use the HTTP status plus `{\"error\": {\"code\", \"message\", \"details\"?}}`. Codes: `bad_request` 400,\n`unauthorized` / `invalid_credentials` / `totp_required` 401, `forbidden` / `registration_disabled` 403,\n`not_found` 404 (also used for resources you may not see), `conflict` 409, `gone` 410, `payload_too_large` 413,\n`unsupported_media_type` 415, `validation_failed` 422 (`details.fields`), `rate_limited` 429 (`Retry-After`),\n`internal` 500, `not_implemented` / `ffmpeg_unavailable` 501, `setup_required` 503 (before first-run setup),\n`quota_exceeded` / `insufficient_storage` 507.\n\n## Pagination\n\nList endpoints that page take `limit` (default 50, max 200) and `cursor` and return\n`{\"items\": [...], \"next_cursor\": \"<opaque>\" | null}`. Pass `next_cursor` back unchanged until it is `null`.\n\n## Rate limits\n\nLogin, TOTP, password reset and setup are limited per IP and per account with exponential lockout\n(5 free failures, then 2^n seconds up to 15 minutes). Every principal/IP also has a generous general\nlimit (200 requests/s, burst 1000, per signed-in user; 30 requests/s, burst 120, per IP without\nauthentication; tus upload chunks and `Range` requests for file, media and program content are exempt). Exceeding a limit returns `429` with `Retry-After`.",
+    "description": "Ludworks is a self-hosted, security-first NAS \"multitool\": files with resumable uploads, a retro virtual-TV\nchannel app, Markdown notes, an end-to-end-encrypted password vault, spreadsheets and admin tooling.\nThis document describes **HTTP API v1** (base path `/api/v1`). JSON is UTF-8 with `snake_case` fields;\nIDs are opaque strings; timestamps are RFC 3339 UTC. Boolean query parameters are true for `1`, `true`, `yes` or `on`\n(case-insensitive) and false otherwise. JSON request bodies must be sent as `application/json` (else 415) and are\ncapped at 1 MiB unless stated; unknown fields are ignored for forward compatibility.\n\n## Authentication\n\n| Method | How | Notes |\n|---|---|---|\n| Browser session | `lw_session` cookie set by `POST /api/v1/auth/login` | `HttpOnly; SameSite=Strict`. **Unsafe requests (POST/PUT/PATCH/DELETE) must send `X-CSRF-Token`** with the `csrf_token` returned by login / `GET /api/v1/auth/session`; a present `Origin` header must match the server. |\n| Session token | `Authorization: Bearer lws_…` | From `POST /api/v1/auth/login` with `\"token_mode\": true` (SDK, apps, browser extension). Full access of the user, no CSRF. |\n| Personal access token | `Authorization: Bearer lwp_…` | Created at `POST /api/v1/me/tokens`, limited to the chosen **scopes**, optional expiry. No CSRF. |\n| Query token | `?access_token=<token>` | Only on streaming/feed endpoints (players, `<video>`, M3U/XMLTV). Prefer a PAT with only `media:read tv:read`; TV feed URLs use a token with only `tv:feed`. |\n\n**Scopes:** `files:read files:write media:read media:write tv:read tv:write tv:feed notes:read notes:write vault:read\nvault:write sheets:read sheets:write music:read music:write kanban:read kanban:write cast account admin` (`tv:feed`: only the TV feed and stream routes). Sessions have every scope (`*`); `admin` additionally\nrequires the admin role. Every operation states its requirement in `x-scope`: `public` (no auth), `auth`\n(any signed-in principal), `admin`, or a scope name.\n\nIn this Swagger UI on the same origin your browser session cookie is sent automatically; for unsafe\nrequests authorise **csrfHeader** with the `csrf_token` from `GET /api/v1/auth/session`, or authorise\n**bearerAuth** with a token instead.\n\n## Errors\n\nErrors use the HTTP status plus `{\"error\": {\"code\", \"message\", \"details\"?}}`. Codes: `bad_request` 400,\n`unauthorized` / `invalid_credentials` / `totp_required` 401, `forbidden` / `registration_disabled` 403,\n`not_found` 404 (also used for resources you may not see), `conflict` 409, `gone` 410, `payload_too_large` 413,\n`unsupported_media_type` 415, `validation_failed` 422 (`details.fields`), `rate_limited` 429 (`Retry-After`),\n`internal` 500, `not_implemented` / `ffmpeg_unavailable` 501, `setup_required` 503 (before first-run setup),\n`quota_exceeded` / `insufficient_storage` 507.\n\n## Pagination\n\nList endpoints that page take `limit` (default 50, max 200) and `cursor` and return\n`{\"items\": [...], \"next_cursor\": \"<opaque>\" | null}`. Pass `next_cursor` back unchanged until it is `null`.\n\n## Rate limits\n\nLogin, TOTP, password reset and setup are limited per IP and per account with exponential lockout\n(5 free failures, then 2^n seconds up to 15 minutes). Every principal/IP also has a generous general\nlimit (200 requests/s, burst 1000, per signed-in user; 30 requests/s, burst 120, per IP without\nauthentication; tus upload chunks and `Range` requests for file, media, music and program content and cast media streams are exempt). Exceeding a limit returns `429` with `Retry-After`.",
     "version": "1",
     "license": {
       "name": "Proprietary — all rights reserved"
@@ -78,6 +78,10 @@
       "description": "Integrations for external players and media servers: M3U playlist, XMLTV guide, MPEG-TS live streams and HDHomeRun tuner emulation (Plex, Jellyfin, VLC, Kodi)."
     },
     {
+      "name": "Music",
+      "description": "Music library on top of Files: tracks from audio tags, albums, artists, cover art, lyrics, manual and smart playlists, favorites, ratings and plays, live audio transcodes and offline-download renditions."
+    },
+    {
       "name": "Notes",
       "description": "iOS-Notes-style Markdown notes with folders, tags, pinning, full-text search, code snippets, attachments, sync and bulk Markdown import/export."
     },
@@ -88,6 +92,14 @@
     {
       "name": "Sheets",
       "description": "Spreadsheets: workbooks, sheets, cells with formulas and styles, ranges, row/column operations, formula evaluation, and XLSX/XLS/CSV import/export."
+    },
+    {
+      "name": "Kanban",
+      "description": "Kanban boards: members and roles, columns with WIP limits, cards with labels, assignees, priorities, dates, subtasks, comments and attachments, and an activity log. Boards are visible only to their members; poll a board cheaply with `If-None-Match`."
+    },
+    {
+      "name": "Casting",
+      "description": "Cast to Chromecasts (Cast v2, Default Media Receiver) and AirPlay devices (audio to HomePods and speakers, video to Apple TVs). The server controls the devices itself, so every client casts the same way; devices fetch media through short-lived capability URLs. Off until an administrator sets `cast.enabled`."
     },
     {
       "name": "System",
@@ -340,6 +352,11 @@
           "vault:write",
           "sheets:read",
           "sheets:write",
+          "music:read",
+          "music:write",
+          "kanban:read",
+          "kanban:write",
+          "cast",
           "account",
           "admin"
         ]

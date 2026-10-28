@@ -36,11 +36,17 @@ var usesRE = regexp.MustCompile(`(?m)^\s*(?:-\s+)?uses:\s*(\S+)(.*)$`)
 
 // Every action is pinned to a full commit SHA with the tag in a comment (Dependabot keeps both
 // current); a moving tag lets whoever controls it change what the workflow runs.
+// The Gitea deploy workflow (.gitea/workflows) follows the same rule.
 func TestWorkflowActionsArePinned(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", ".github", "workflows", "*.yml"))
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no workflows: %v", err)
 	}
+	gitea, err := filepath.Glob(filepath.Join("..", ".gitea", "workflows", "*.yml"))
+	if err != nil || len(gitea) == 0 {
+		t.Fatalf("no Gitea workflows: %v", err)
+	}
+	files = append(files, gitea...)
 	pinned := regexp.MustCompile(`^[\w.-]+/[\w./-]+@[0-9a-f]{40}$`)
 	comment := regexp.MustCompile(`^\s+# v\d+(\.\d+)*$`)
 	for _, f := range files {

@@ -107,6 +107,7 @@ func validRole(r string) bool { return r == string(core.RoleAdmin) || r == strin
 var AllScopes = []string{
 	"files:read", "files:write", "media:read", "media:write", "tv:read", "tv:write", "tv:feed",
 	"notes:read", "notes:write", "vault:read", "vault:write", "sheets:read", "sheets:write",
+	"music:read", "music:write", "kanban:read", "kanban:write", "cast",
 	"account", "admin",
 }
 

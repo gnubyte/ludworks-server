@@ -1,0 +1,199 @@
+/* Casting UI (core/cast.js): the device picker, the PIN pairing form, the "Casting to <device>"
+   control strip and its placement on the TV player stage. Only app.css tokens, so light and dark
+   themes follow automatically; the overlay variant keeps its own dark palette like the player. */
+
+/* ============================================================ cast button */
+.cast-button.is-casting { color: var(--c-accent-text); }
+
+/* ============================================================ device picker */
+.cast-picker-modal .modal-body { padding-top: 6px; }
+.cast-picker, .cast-picker-body { display: grid; gap: 12px; min-width: 0; }
+.cast-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.cast-toolbar-title { font-size: var(--fs-sm); font-weight: 500; color: var(--c-text-2); }
+.cast-loading {
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 28px 8px;
+  color: var(--c-text-2); font-size: var(--fs-sm);
+}
+.cast-state .empty { padding: 20px 8px; }
+.cast-hints { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 4px; text-align: left; font-size: var(--fs-sm); }
+
+.cast-devices { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.cast-device-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cast-device {
+  flex: 1; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--c-border); border-radius: var(--r-lg);
+  background: var(--c-surface); color: var(--c-text); font: inherit; text-align: left; cursor: pointer;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.cast-device:hover:not(:disabled) { background: var(--c-surface-2); border-color: var(--c-border-strong); }
+.cast-device:focus-visible { outline: none; border-color: var(--c-accent); box-shadow: var(--focus-ring); }
+.cast-device:disabled { cursor: not-allowed; }
+.cast-device:disabled:not(.is-connecting) { opacity: 0.6; }
+.cast-device.is-connecting { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.cast-device-icon {
+  display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: var(--r-md); background: var(--c-surface-2); color: var(--c-text-2);
+}
+.cast-device.is-connecting .cast-device-icon { background: var(--c-accent-soft-2); color: var(--c-accent-text); }
+.cast-device-text { display: grid; gap: 2px; min-width: 0; }
+.cast-device-name { font-weight: 600; }
+.cast-device-detail { font-size: var(--fs-sm); color: var(--c-text-2); }
+.cast-device-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px; }
+.cast-device-badges .spinner { color: var(--c-accent); }
+.cast-pair-btn { flex-shrink: 0; }
+
+.cast-native { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--c-border); }
+.cast-native-title { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--c-text-3); }
+.cast-device-native .cast-device-detail { white-space: normal; }
+
+/* PIN pairing */
+.cast-pair { display: grid; gap: 14px; min-width: 0; }
+.cast-pair-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; }
+.cast-pair-head .cast-device-detail { white-space: normal; }
+.cast-pair-form { display: grid; gap: 6px; }
+.cast-pin {
+  height: 56px; max-width: 220px; padding: 0 0 0 0.5em;
+  font-family: var(--font-mono); font-size: 28px; font-weight: 600; letter-spacing: 0.5em; text-align: center;
+}
+.cast-pair-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+@media (max-width: 420px) {
+  .cast-device { grid-template-columns: auto minmax(0, 1fr); }
+  .cast-device-badges { grid-column: 2; justify-content: flex-start; }
+  .cast-device-row { flex-wrap: wrap; }
+}
+
+/* ============================================================ control strip */
+.cast-controls {
+  --cc-bg: var(--c-surface); --cc-fg: var(--c-text); --cc-muted: var(--c-text-2); --cc-border: var(--c-border);
+  --cc-track: var(--c-surface-3); --cc-fill: var(--c-accent); --cc-thumb: var(--c-accent);
+  --cc-play-bg: var(--c-accent); --cc-play-fg: var(--c-accent-fg); --cc-hover: var(--c-surface-2);
+  display: grid; gap: 10px; min-width: 0; padding: 14px 16px;
+  border: 1px solid var(--cc-border); border-radius: var(--r-xl); background: var(--cc-bg); color: var(--cc-fg);
+  box-shadow: var(--shadow-2);
+}
+/* On the (always dark) player stage. */
+.cast-controls-overlay {
+  --cc-bg: rgba(14, 14, 18, 0.8); --cc-fg: #f4f4f7; --cc-muted: rgba(244, 244, 247, 0.72); --cc-border: rgba(255, 255, 255, 0.14);
+  --cc-track: rgba(255, 255, 255, 0.26); --cc-fill: #ffffff; --cc-thumb: #ffffff;
+  --cc-play-bg: #ffffff; --cc-play-fg: #111114; --cc-hover: rgba(255, 255, 255, 0.12);
+  width: min(520px, 100%); color-scheme: dark;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  animation: lw-pop-in 180ms var(--ease);
+}
+/* A flat strip (e.g. a bottom dock). */
+.cast-controls-bar {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; align-items: center; gap: 8px 16px;
+  padding: 8px 16px; border-width: 1px 0 0; border-radius: 0; box-shadow: none;
+}
+.cast-controls-bar .cast-ctl-head { grid-column: 1 / -1; }
+.cast-controls-bar .cast-ctl-art { width: 44px; height: 44px; }
+
+.cast-ctl-head { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--cc-muted); }
+.cast-ctl-kind { display: inline-flex; color: var(--cc-fill); flex-shrink: 0; }
+.cast-ctl-to { flex: 1; }
+.cast-ctl-device { color: var(--cc-fg); font-weight: 600; }
+.cast-ctl-state {
+  flex-shrink: 0; padding: 2px 8px; border-radius: var(--r-full); font-size: var(--fs-xs); font-weight: 600;
+  background: color-mix(in srgb, var(--cc-fg) 10%, transparent); color: var(--cc-muted);
+}
+.cast-ctl-state:empty { display: none; }
+.cast-ctl-state.is-playing { color: var(--cc-fg); }
+.cast-ctl-state.is-error { background: var(--c-danger-soft); color: var(--c-danger-text); }
+.cast-controls-overlay .cast-ctl-state.is-error { background: rgba(255, 110, 100, 0.2); color: #ffb3ad; }
+.cast-ctl-state.is-connecting, .cast-ctl-state.is-loading, .cast-ctl-state.is-buffering { animation: lw-pulse 1.2s ease-in-out infinite; }
+
+.cast-ctl-main { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+.cast-ctl-art {
+  display: grid; place-items: center; width: 56px; height: 56px; flex-shrink: 0; overflow: hidden;
+  border-radius: var(--r-md); background: color-mix(in srgb, var(--cc-fg) 8%, transparent); color: var(--cc-muted);
+}
+.cast-ctl-art img { width: 100%; height: 100%; object-fit: cover; }
+.cast-ctl-meta { display: grid; gap: 2px; min-width: 0; }
+.cast-ctl-title { font-size: var(--fs-md); font-weight: 600; }
+.cast-ctl-sub { font-size: var(--fs-sm); color: var(--cc-muted); }
+
+.cast-ctl-progress { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cast-ctl-time { font-size: var(--fs-sm); color: var(--cc-muted); white-space: nowrap; }
+.cast-ctl-seek, .cast-ctl-volume {
+  --fill: 0%;
+  -webkit-appearance: none; appearance: none; height: 4px; margin: 0; border-radius: var(--r-full); cursor: pointer;
+  background: linear-gradient(to right, var(--cc-fill) 0 var(--fill), var(--cc-track) var(--fill) 100%);
+}
+.cast-ctl-seek { flex: 1; min-width: 0; }
+.cast-ctl-volume { width: 96px; margin: 0 6px; }
+.cast-ctl-seek::-webkit-slider-thumb, .cast-ctl-volume::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px; border: 0; border-radius: 50%; background: var(--cc-thumb); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.cast-ctl-seek::-moz-range-thumb, .cast-ctl-volume::-moz-range-thumb { width: 13px; height: 13px; border: 0; border-radius: 50%; background: var(--cc-thumb); }
+.cast-ctl-seek:disabled, .cast-ctl-volume:disabled { cursor: default; }
+.cast-ctl-seek:disabled::-webkit-slider-thumb { opacity: 0; }
+.cast-ctl-seek:disabled::-moz-range-thumb { opacity: 0; }
+.cast-ctl-seek:focus-visible, .cast-ctl-volume:focus-visible { outline: 2px solid var(--cc-fill); outline-offset: 4px; }
+
+.cast-ctl-buttons { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.cast-ctl-group { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.cast-controls .cast-ctl-btn { --btn-fg: var(--cc-fg); --btn-bg-hover: var(--cc-hover); color: var(--cc-fg); }
+.cast-controls .cast-ctl-btn:disabled { opacity: 0.4; }
+/* Specific enough to beat the player stage's ghost-button colours (tv.css) in any load order. */
+.cast-controls .cast-ctl-btn.cast-ctl-play {
+  width: 42px; height: 42px; margin: 0 4px; border-radius: 50%;
+  --btn-bg: var(--cc-play-bg); --btn-fg: var(--cc-play-fg); --btn-bg-hover: var(--cc-play-bg);
+  background: var(--cc-play-bg); color: var(--cc-play-fg);
+}
+.cast-controls .cast-ctl-btn.cast-ctl-play:hover:not(:disabled) { background: var(--cc-play-bg); filter: brightness(1.08); }
+.cast-controls-overlay .cast-ctl-stop {
+  --btn-bg: rgba(255, 255, 255, 0.1); --btn-fg: #f4f4f7; --btn-border: rgba(255, 255, 255, 0.2); --btn-bg-hover: rgba(255, 255, 255, 0.18);
+  box-shadow: none;
+}
+.cast-ctl-banner {
+  padding: 8px 10px; border-radius: var(--r-md); font-size: var(--fs-sm);
+  background: var(--c-warning-soft); color: var(--c-warning-text);
+}
+.cast-ctl-banner.is-error { background: var(--c-danger-soft); color: var(--c-danger-text); }
+.cast-controls-overlay .cast-ctl-banner { background: rgba(255, 190, 80, 0.16); color: #ffd58a; }
+.cast-controls-overlay .cast-ctl-banner.is-error { background: rgba(255, 110, 100, 0.18); color: #ffb3ad; }
+.cast-controls.is-over .cast-ctl-progress, .cast-controls.is-over .cast-ctl-main { opacity: 0.6; }
+
+@media (max-width: 480px) {
+  .cast-controls { padding: 12px; }
+  .cast-ctl-buttons { justify-content: center; }
+  .cast-ctl-vol { order: 3; flex: 1 1 100%; justify-content: center; }
+  .cast-ctl-stop { order: 2; }
+  .cast-controls-bar { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ========================================= admin: cast.manual_devices editor */
+.cast-manual { display: grid; gap: 8px; min-width: 0; }
+.cast-manual-list { display: grid; gap: 8px; min-width: 0; }
+.cast-manual-row {
+  display: grid; grid-template-columns: 130px minmax(0, 1.3fr) 110px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0;
+}
+.cast-manual-actions { display: flex; }
+@media (max-width: 680px) {
+  .cast-manual-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; padding-bottom: 8px; border-bottom: 1px solid var(--c-border);
+  }
+  .cast-manual-row > .select { grid-column: 1 / 3; }
+  .cast-manual-row > .btn { grid-column: 3; grid-row: 1; }
+  .cast-manual-row > .input.mono { grid-column: 1 / -1; }
+}
+
+/* ======================================================= on the TV player */
+/* Prefixed with .tv-watch so these win over tv.css whatever order the sheets loaded in. */
+.tv-watch .tv-stage.is-casting { cursor: auto; }
+.tv-watch .tv-stage.is-casting .tv-video, .tv-watch .tv-stage.is-casting .tv-buffering, .tv-watch .tv-stage.is-casting .tv-unmute,
+.tv-watch .tv-stage.is-casting .tv-controls, .tv-watch .tv-stage.is-casting .tv-upnext { display: none; }
+.tv-watch .tv-stage.is-casting .tv-back, .tv-watch .tv-stage.is-casting .tv-zap,
+.tv-watch .tv-stage.is-casting .tv-vod-top { opacity: 1; pointer-events: auto; }
+.tv-cast {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 72px 16px 24px; overflow: auto;
+  background: radial-gradient(ellipse at center, rgba(40, 40, 60, 0.55), rgba(0, 0, 0, 0.9));
+}
+.tv-cast-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.22; filter: blur(18px); pointer-events: none; }
+.tv-cast .cast-controls { position: relative; }
+@media (max-width: 680px) {
+  .tv-cast { padding: 64px 8px 16px; }
+  /* The card takes the full width: zap with swipes or the keyboard instead. */
+  .tv-watch .tv-stage.is-casting .tv-zap { display: none; }
+}

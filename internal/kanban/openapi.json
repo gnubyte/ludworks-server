@@ -1,0 +1,4116 @@
+{
+  "tags": [
+    {
+      "name": "Kanban",
+      "description": "Kanban boards: members and roles, columns with WIP limits, cards with labels, assignees, priorities, dates, subtasks, comments and attachments, and an activity log. Boards are visible only to their members; poll a board cheaply with `If-None-Match`."
+    }
+  ],
+  "paths": {
+    "/api/v1/kanban/boards": {
+      "get": {
+        "operationId": "listKanbanBoards",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "List my boards",
+        "description": "Boards the caller is a member of, by name, with their members and counters. Without `archived` (or with `archived=false`) active boards are listed, with `archived=true` the archived ones.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "List archived boards instead of active ones.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Board summaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KanbanBoardSummary"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`archived` is not a boolean."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Create a board",
+        "description": "Creates a board owned by the caller (at most 500 per user). `template` `basic` (the default) adds the columns \"To do\", \"In progress\" and \"Done\".\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanBoardCreate"
+              },
+              "example": {
+                "name": "Home renovation",
+                "color": "teal",
+                "template": "basic"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new board.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanBoard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The caller already owns 500 boards."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}": {
+      "get": {
+        "operationId": "getKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Get a board",
+        "description": "The board with members, labels, columns and cards (archived cards only with `include_archived`). The response carries `ETag: \"<version>\"`; poll with `If-None-Match` while the board is open — an unchanged board answers 304 without a body. Boards are visible only to their members (server admins included); others are 404.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "description": "Also return archived cards.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The board.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanBoard"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Update a board",
+        "description": "Renames, describes, recolors, archives or restores the board (board admins).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanBoardUpdate"
+              },
+              "example": {
+                "name": "Renovation 2027",
+                "archived": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The board.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanBoard"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a board",
+        "description": "Deletes the board with its columns, cards, comments and attachments (the owner only).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/members": {
+      "put": {
+        "operationId": "setKanbanBoardMembers",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Replace the members",
+        "description": "Full replacement of the member list besides the owner (board admins); at most 100 members including the owner. Removed members are unassigned from the board's cards and subtasks.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanMembersUpdate"
+              },
+              "example": {
+                "members": [
+                  {
+                    "user_id": "kswcwfxoasahesvymknomdfoee",
+                    "role": "editor"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The board.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanBoard"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Unknown user, invalid role, a user listed twice, too many members, or the caller removing themselves."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/leave": {
+      "post": {
+        "operationId": "leaveKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Leave a board",
+        "description": "Removes the caller from the board (any member but the owner) and from its cards' and subtasks' assignees.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Left the board."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The owner cannot leave; transfer the board first."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/transfer": {
+      "post": {
+        "operationId": "transferKanbanBoard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Transfer ownership",
+        "description": "Makes another member the owner (the owner only); the previous owner becomes an admin.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanTransfer"
+              },
+              "example": {
+                "user_id": "kswcwfxoasahesvymknomdfoee"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The board as the previous owner now sees it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanBoard"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The new owner already owns 500 boards."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`user_id` is not a member (or is the caller)."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/activity": {
+      "get": {
+        "operationId": "listKanbanActivity",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Board activity",
+        "description": "The board's activity log, newest first (the newest 10 000 entries are kept); `card_id` narrows it to one card (also a deleted one).\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "card_id",
+            "in": "query",
+            "description": "Only entries about this card.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of activity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanActivityPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Invalid cursor."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/labels": {
+      "post": {
+        "operationId": "createKanbanLabel",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Create a label",
+        "description": "Adds a label to the board (editors; at most 200 per board, names unique case-insensitively).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanLabelCreate"
+              },
+              "example": {
+                "name": "Bug",
+                "color": "red"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new label.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanLabel"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The name is taken or the board has 200 labels."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/boards/{id}/columns": {
+      "post": {
+        "operationId": "createKanbanColumn",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Create a column",
+        "description": "Adds a column (editors; at most 100 per board) at `position` (clamped; default: last), shifting the columns after it.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Board ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanColumnCreate"
+              },
+              "example": {
+                "name": "Review",
+                "wip_limit": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new column.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanColumn"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The board has 100 columns."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/users": {
+      "get": {
+        "operationId": "searchKanbanUsers",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Find users to add",
+        "description": "Up to 20 enabled accounts whose username or display name starts with `q` (case-insensitive for ASCII), for adding members. Queries shorter than 2 characters answer `[]`. Email addresses are never returned.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Name prefix (at least 2 characters).",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching accounts by username.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KanbanUser"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/labels/{id}": {
+      "patch": {
+        "operationId": "updateKanbanLabel",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Update a label",
+        "description": "Renames or recolors a label (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Label ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanLabelUpdate"
+              },
+              "example": {
+                "name": "Defect",
+                "color": "orange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The label.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanLabel"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "Another label of the board has that name."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanLabel",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a label",
+        "description": "Deletes a label and removes it from every card (editors; the cards' versions move on).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Label ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/columns/{id}": {
+      "patch": {
+        "operationId": "updateKanbanColumn",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Update a column",
+        "description": "Renames, recolors, sets the advisory WIP limit or collapses a column (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Column ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanColumnUpdate"
+              },
+              "example": {
+                "name": "Doing",
+                "wip_limit": null,
+                "collapsed": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The column.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanColumn"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanColumn",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a column",
+        "description": "Deletes a column (editors). While it holds cards (archived ones too) the request is 409 with `details.card_count`, unless `move_cards_to` names another column of the board: the cards are then appended there in their order.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Column ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "move_cards_to",
+            "in": "query",
+            "description": "Another column of the same board that receives the cards.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The column holds cards and `move_cards_to` is missing."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`move_cards_to` is not another column of this board."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/columns/{id}/move": {
+      "post": {
+        "operationId": "moveKanbanColumn",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Move a column",
+        "description": "Moves a column to `position` (clamped), shifting the columns in between (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Column ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanPosition"
+              },
+              "example": {
+                "position": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The board's columns in their new order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KanbanColumn"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/columns/{id}/cards": {
+      "post": {
+        "operationId": "createKanbanCard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Create a card",
+        "description": "Adds a card to the column (editors; at most 10 000 cards per board, archived included) at `position` (clamped; default: end). Labels must be of the board and assignees members. For all-day dates send the start of the local day as `start_at` and its end as `due_at`.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Column ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanCardCreate"
+              },
+              "example": {
+                "title": "Order tiles",
+                "priority": "high",
+                "due_at": "2026-11-20T22:59:59.999Z",
+                "all_day": true,
+                "labels": [],
+                "assignees": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The board has 10 000 cards."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Invalid field, or a label/assignee that is not of this board."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards": {
+      "get": {
+        "operationId": "listKanbanCards",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Search cards",
+        "description": "Cards across the caller's boards (cards of archived boards only with `board_id`), or one board, by due date (cards without one last), then board, column and position. `due=overdue` is `due_at` in the past and not completed; `today` and `week` are the next 24 hours / 7 days by the server's clock; `none` / `any`: without / with a due date. `q` matches title and description (and `#12` the card number). Archived cards only with `archived=true`. Descriptions are cut to 200 characters.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "board_id",
+            "in": "query",
+            "description": "Only this board.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Text in title or description, or `#<number>`.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "description": "Cards with this label.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "assignee",
+            "in": "query",
+            "description": "`me` or a user id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "due",
+            "in": "query",
+            "description": "Due-date filter.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "overdue",
+                "today",
+                "week",
+                "none",
+                "any"
+              ]
+            }
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "description": "Only completed (`true`) or open (`false`) cards.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "description": "Archived cards instead of the others.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of cards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCardPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Invalid cursor."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}": {
+      "get": {
+        "operationId": "getKanbanCard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Get a card",
+        "description": "The card with all its subtasks and attachments, the newest 100 comments and the newest 50 activity entries.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCardDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateKanbanCard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Update a card",
+        "description": "Changes card fields (editors). With `base_version` a stale edit is 409 with `details.current`; a request that changes nothing keeps the version. Use the move endpoint to change column or position.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanCardUpdate"
+              },
+              "example": {
+                "description": "## Notes\n- [ ] measure the bathroom",
+                "completed": false,
+                "base_version": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "`conflict`: the card changed since `base_version`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanConflictError"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Invalid field, a label/assignee not of this board, or a cover that is not an image attachment of this card."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanCard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a card",
+        "description": "Deletes the card permanently with its subtasks, comments and attachments (editors). Archive it instead to keep it.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}/move": {
+      "post": {
+        "operationId": "moveKanbanCard",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Move a card",
+        "description": "Moves the card within its column or to another column of the board (editors), shifting the siblings; `position` is clamped and defaults to the end of the column.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanCardMove"
+              },
+              "example": {
+                "column_id": "kswcwfxoasahesvymknomdfoee",
+                "position": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCard"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "`column_id` is not a column of the card's board."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}/subtasks": {
+      "post": {
+        "operationId": "createKanbanSubtask",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Add a subtask",
+        "description": "Adds a checklist item (editors; at most 200 per card).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanSubtaskCreate"
+              },
+              "example": {
+                "title": "Buy grout"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new subtask.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanSubtask"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The card has 200 subtasks."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}/comments": {
+      "get": {
+        "operationId": "listKanbanComments",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "List comments",
+        "description": "The card's comments, oldest first.\n\n**Scope:** `kanban:read`",
+        "x-scope": "kanban:read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of comments.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCommentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "Invalid cursor."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createKanbanComment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Comment on a card",
+        "description": "Adds a Markdown comment (any member, viewers included; at most 5000 per card).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanCommentBody"
+              },
+              "example": {
+                "body": "Tiles arrive **Friday**."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new comment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanComment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The card has 5000 comments."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}/attachments": {
+      "post": {
+        "operationId": "uploadKanbanAttachment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Upload an attachment",
+        "description": "Attaches the raw request body (at most 50 MiB) to the card (editors; at most 100 attachments per card and 2 GiB of attachments per board). Writes keep 1 GiB of free space on the data volume, like file uploads.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "description": "Original file name.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "File bytes.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "*/*": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new attachment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest",
+            "description": "The body is empty."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The card has 100 attachments."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "Larger than 50 MiB."
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded`: the board's 2 GiB of attachments are used up; `insufficient_storage`: the server is low on disk space."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/cards/{id}/attachments/from-file": {
+      "post": {
+        "operationId": "attachKanbanFile",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Attach a file from Files",
+        "description": "Copies a Files entry the caller can read into an attachment (editors; tokens also need `files:read`; at most 50 MiB).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Card ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanFileRef"
+              },
+              "example": {
+                "file_id": "kswcwfxoasahesvymknomdfoee"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new attachment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "Not an editor of the board, or the token lacks `files:read`."
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "The card, or a file the caller can read, does not exist."
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The card has 100 attachments."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge",
+            "description": "The file is larger than 50 MiB."
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented",
+            "description": "Files are not available."
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded` (board limit) or `insufficient_storage`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/subtasks/{id}": {
+      "patch": {
+        "operationId": "updateKanbanSubtask",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Update a subtask",
+        "description": "Renames, checks, schedules or assigns a subtask (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Subtask ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanSubtaskUpdate"
+              },
+              "example": {
+                "done": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subtask.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanSubtask"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanSubtask",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a subtask",
+        "description": "Deletes a subtask (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Subtask ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/subtasks/{id}/move": {
+      "post": {
+        "operationId": "moveKanbanSubtask",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Move a subtask",
+        "description": "Moves a subtask to `position` (clamped) within its card (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Subtask ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanPosition"
+              },
+              "example": {
+                "position": 0
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The card's subtasks in their new order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KanbanSubtask"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/subtasks/{id}/promote": {
+      "post": {
+        "operationId": "promoteKanbanSubtask",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Turn a subtask into a card",
+        "description": "Creates a card right below the subtask's card (same column, title, due date, assignee; completed when the subtask was done) and deletes the subtask (editors).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Subtask ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The new card.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanCard"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "The board has 10 000 cards."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/comments/{id}": {
+      "patch": {
+        "operationId": "updateKanbanComment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Edit a comment",
+        "description": "Changes a comment's body (its author only); it is then marked `edited`.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Comment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanCommentBody"
+              },
+              "example": {
+                "body": "Tiles arrive **Monday**."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The comment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanComment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanComment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete a comment",
+        "description": "Deletes a comment (its author or a board admin).\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Comment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/attachments/{id}": {
+      "get": {
+        "operationId": "getKanbanAttachment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Download an attachment",
+        "description": "The attachment bytes with the Files content headers: browser-displayable images (not SVG) are inline with their type unless `download=1`; everything else is an `application/octet-stream` attachment. Responses carry `X-Content-Type-Options: nosniff`, a sandboxing CSP and an ETag, and support Range requests.\n\n**Scope:** `kanban:read` · also accepts `?access_token=`",
+        "x-scope": "kanban:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "description": "Always send as an attachment.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/IfRange"
+          },
+          {
+            "$ref": "#/components/parameters/IfNoneMatch"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attachment bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "$ref": "#/components/headers/ContentDisposition"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Accept-Ranges": {
+                "$ref": "#/components/headers/AcceptRanges"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content (Range request).",
+            "headers": {
+              "Content-Range": {
+                "$ref": "#/components/headers/ContentRange"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameKanbanAttachment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Rename an attachment",
+        "description": "Changes the attachment's file name (editors); the content and its type stay.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanAttachmentRename"
+              },
+              "example": {
+                "filename": "floor-plan.pdf"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The attachment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KanbanAttachment"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteKanbanAttachment",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Delete an attachment",
+        "description": "Deletes an attachment (editors, or its uploader while still a member); a card cover using it is cleared.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/attachments/{id}/thumbnail": {
+      "get": {
+        "operationId": "getKanbanAttachmentThumbnail",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Attachment thumbnail",
+        "description": "A JPEG thumbnail (longest edge 160 px for `sm`, 320 px for `md`, the default) of a JPEG, PNG or GIF attachment, decoded under the server's shared image decode budget; 404 for other files and images that cannot be decoded.\n\n**Scope:** `kanban:read` · also accepts `?access_token=`",
+        "x-scope": "kanban:read",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          },
+          {
+            "accessTokenQuery": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Thumbnail size.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sm",
+                "md"
+              ],
+              "default": "md"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JPEG thumbnail.",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              }
+            },
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "$ref": "#/components/responses/NotModified"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed",
+            "description": "Unknown `size`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/kanban/attachments/{id}/save-to-files": {
+      "post": {
+        "operationId": "saveKanbanAttachmentToFiles",
+        "tags": [
+          "Kanban"
+        ],
+        "summary": "Save an attachment to Files",
+        "description": "Copies the attachment into Files (any member; tokens also need `files:write`): by default into the root of the caller's home space under the attachment's name. Quota, free-space and naming rules of Files apply.\n\n**Scope:** `kanban:write`",
+        "x-scope": "kanban:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Attachment ID.",
+            "schema": {
+              "$ref": "#/components/schemas/Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KanbanSaveToFiles"
+              },
+              "example": {
+                "path": "Projects/Renovation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Files entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Entry"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden",
+            "description": "The token lacks `files:write`, or the target space is read-only."
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound",
+            "description": "The attachment, or a writable target space, does not exist."
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict",
+            "description": "A file of that name exists (use `overwrite`)."
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationFailed"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented",
+            "description": "Files are not available."
+          },
+          "507": {
+            "$ref": "#/components/responses/InsufficientStorage",
+            "description": "`quota_exceeded` or `insufficient_storage`."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "KanbanColor": {
+        "type": "string",
+        "description": "Label, board and column color names (clients map them to their palette, light and dark).",
+        "enum": [
+          "gray",
+          "red",
+          "orange",
+          "amber",
+          "yellow",
+          "green",
+          "teal",
+          "blue",
+          "indigo",
+          "purple",
+          "pink"
+        ]
+      },
+      "KanbanRole": {
+        "type": "string",
+        "description": "`viewer` reads and comments; `editor` also changes columns, cards, labels, subtasks and attachments; `admin` also edits the board and its members; `owner` (exactly one) also deletes or transfers the board.",
+        "enum": [
+          "owner",
+          "admin",
+          "editor",
+          "viewer"
+        ]
+      },
+      "KanbanPriority": {
+        "type": "string",
+        "enum": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "urgent"
+        ]
+      },
+      "KanbanMember": {
+        "type": "object",
+        "description": "A board member.",
+        "required": [
+          "user_id",
+          "username",
+          "display_name",
+          "role"
+        ],
+        "properties": {
+          "user_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "May be empty; clients fall back to the username."
+          },
+          "role": {
+            "$ref": "#/components/schemas/KanbanRole"
+          }
+        }
+      },
+      "KanbanLabel": {
+        "type": "object",
+        "description": "A board label (unique name per board, case-insensitive).",
+        "required": [
+          "id",
+          "name",
+          "color"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          }
+        }
+      },
+      "KanbanColumn": {
+        "type": "object",
+        "description": "A board column (list of cards).",
+        "required": [
+          "id",
+          "board_id",
+          "name",
+          "position",
+          "color",
+          "wip_limit",
+          "collapsed",
+          "card_count",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "board_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0-based, dense per board."
+          },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KanbanColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wip_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Advisory work-in-progress limit: clients warn when `card_count` exceeds it; the server accepts more."
+          },
+          "collapsed": {
+            "type": "boolean",
+            "description": "Shown collapsed (shared board state)."
+          },
+          "card_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cards in the column that are not archived."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "KanbanCard": {
+        "type": "object",
+        "description": "A card.",
+        "required": [
+          "id",
+          "board_id",
+          "column_id",
+          "number",
+          "title",
+          "description",
+          "position",
+          "labels",
+          "assignees",
+          "priority",
+          "start_at",
+          "due_at",
+          "all_day",
+          "completed",
+          "completed_at",
+          "cover_attachment_id",
+          "subtasks_total",
+          "subtasks_done",
+          "comment_count",
+          "attachment_count",
+          "archived",
+          "archived_at",
+          "created_by",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "board_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "column_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Per-board card number (`#12`)."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "Markdown (rendered by clients with the safe renderer). In lists (`Board.cards`, `GET /kanban/cards`) cut to its first 200 characters; `GET /kanban/cards/{id}` and card writes return it in full."
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0-based, dense per column; archived cards keep their place (clients skip them)."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Label ids of the board, by label name."
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "User ids of board members, in assignment order."
+          },
+          "priority": {
+            "$ref": "#/components/schemas/KanbanPriority"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "all_day": {
+            "type": "boolean",
+            "description": "Dates are whole days: `start_at` is the start and `due_at` the end of the local day."
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cover_attachment_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An image attachment of the card shown as its cover."
+          },
+          "subtasks_total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "subtasks_done": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attachment_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_by": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "User id of the creator (the account may no longer exist)."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Incremented whenever a field `PATCH /kanban/cards/{id}` can change does (by anyone, also when a label is deleted or an assignee leaves); moves, subtasks, comments and attachments do not change it. Send it back as `base_version`."
+          }
+        }
+      },
+      "KanbanCardListItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/KanbanCard"
+          },
+          {
+            "type": "object",
+            "required": [
+              "board_name",
+              "column_name"
+            ],
+            "properties": {
+              "board_name": {
+                "type": "string"
+              },
+              "column_name": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "description": "A card in `GET /kanban/cards`."
+      },
+      "KanbanCardPage": {
+        "type": "object",
+        "description": "A page of cards.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanCardListItem"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "KanbanSubtask": {
+        "type": "object",
+        "description": "A checklist item of a card.",
+        "required": [
+          "id",
+          "card_id",
+          "title",
+          "done",
+          "position",
+          "due_at",
+          "assignee_id",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "card_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0-based, dense per card."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignee_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A board member."
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "KanbanComment": {
+        "type": "object",
+        "description": "A card comment.",
+        "required": [
+          "id",
+          "card_id",
+          "author_id",
+          "author_name",
+          "body",
+          "created_at",
+          "updated_at",
+          "edited"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "card_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "author_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "author_name": {
+            "type": "string",
+            "description": "Display name (or username) of the author; `Deleted user` once the account is gone."
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "Markdown."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "edited": {
+            "type": "boolean",
+            "description": "The author changed the body after posting."
+          }
+        }
+      },
+      "KanbanAttachment": {
+        "type": "object",
+        "description": "A file attached to a card.",
+        "required": [
+          "id",
+          "card_id",
+          "filename",
+          "mime",
+          "size",
+          "is_image",
+          "url",
+          "thumbnail_url",
+          "uploaded_by",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "card_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "mime": {
+            "type": "string",
+            "description": "Detected type (extension, then content sniffing)."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 52428800
+          },
+          "is_image": {
+            "type": "boolean",
+            "description": "A raster image browsers display (PNG, JPEG, GIF, WebP, BMP, AVIF, ICO; never SVG): served inline and usable as a card cover."
+          },
+          "url": {
+            "type": "string",
+            "description": "Content URL (`/api/v1/kanban/attachments/{id}`)."
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "JPEG thumbnail URL for JPEG, PNG and GIF images (append `?size=sm|md`); `null` when there is none."
+          },
+          "uploaded_by": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "KanbanActivity": {
+        "type": "object",
+        "description": "An entry of a board's activity log.",
+        "required": [
+          "id",
+          "board_id",
+          "card_id",
+          "actor_id",
+          "actor_name",
+          "action",
+          "meta",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "board_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "actor_name": {
+            "type": "string",
+            "description": "`Deleted user` once the account is gone."
+          },
+          "action": {
+            "type": "string",
+            "description": "e.g. `board.created`, `board.updated`, `board.archived`, `board.restored`, `board.transferred`, `member.added`, `member.removed`, `member.role_changed`, `member.left`, `column.created`, `column.updated`, `column.moved`, `column.deleted`, `label.created`, `label.updated`, `label.deleted`, `card.created`, `card.updated` (`meta.fields`), `card.moved` (`meta.from_column`, `meta.to_column`), `card.completed`, `card.reopened`, `card.archived`, `card.restored`, `card.deleted`, `subtask.created`, `subtask.updated`, `subtask.completed`, `subtask.reopened`, `subtask.deleted`, `subtask.promoted`, `comment.created`, `comment.deleted`, `attachment.added`, `attachment.renamed`, `attachment.deleted`."
+          },
+          "meta": {
+            "type": "object",
+            "description": "Action details: names and titles at the time of the change, ids, `fields` for updates."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          }
+        }
+      },
+      "KanbanActivityPage": {
+        "type": "object",
+        "description": "A page of activity, newest first.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanActivity"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "KanbanCommentPage": {
+        "type": "object",
+        "description": "A page of comments, oldest first.",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanComment"
+            }
+          },
+          "next_cursor": {
+            "$ref": "#/components/schemas/NextCursor"
+          }
+        }
+      },
+      "KanbanCardDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/KanbanCard"
+          },
+          {
+            "type": "object",
+            "required": [
+              "subtasks",
+              "attachments",
+              "comments",
+              "activity"
+            ],
+            "properties": {
+              "subtasks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KanbanSubtask"
+                },
+                "description": "All subtasks in order."
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KanbanAttachment"
+                },
+                "description": "All attachments, oldest first."
+              },
+              "comments": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KanbanComment"
+                },
+                "description": "The newest 100 comments in chronological order (page older ones with `GET /kanban/cards/{id}/comments`)."
+              },
+              "activity": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/KanbanActivity"
+                },
+                "description": "The newest 50 activity entries of the card."
+              }
+            }
+          }
+        ],
+        "description": "A card with its subtasks, attachments, comments and activity."
+      },
+      "KanbanBoard": {
+        "type": "object",
+        "description": "A board with everything clients need to show it.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "color",
+          "owner_id",
+          "role",
+          "archived",
+          "members",
+          "labels",
+          "columns",
+          "cards",
+          "card_count",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KanbanRole"
+              }
+            ],
+            "description": "The caller's role."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanMember"
+            },
+            "description": "Owner first, then admins, editors and viewers, by name."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanLabel"
+            },
+            "description": "By name."
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanColumn"
+            },
+            "description": "By position."
+          },
+          "cards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanCard"
+            },
+            "description": "By column and position; without archived cards unless `include_archived` (descriptions cut to 200 characters)."
+          },
+          "card_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cards that are not archived."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              }
+            ],
+            "description": "Last change to the board or anything on it."
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Incremented by every change to the board or anything on it; also the `ETag`."
+          }
+        }
+      },
+      "KanbanBoardSummary": {
+        "type": "object",
+        "description": "A board in the board list.",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "color",
+          "owner_id",
+          "role",
+          "archived",
+          "members",
+          "card_count",
+          "member_count",
+          "open_card_count",
+          "overdue_count",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Cut to its first 200 characters."
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "role": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KanbanRole"
+              }
+            ],
+            "description": "The caller's role."
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KanbanMember"
+            }
+          },
+          "card_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cards that are not archived."
+          },
+          "member_count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "open_card_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Cards neither completed nor archived."
+          },
+          "overdue_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Open cards whose `due_at` has passed."
+          },
+          "created_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "updated_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "KanbanUser": {
+        "type": "object",
+        "description": "An account that can be added as a member (never with its email address).",
+        "required": [
+          "id",
+          "username",
+          "display_name"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Id"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          }
+        }
+      },
+      "KanbanBoardCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000,
+            "description": "Markdown."
+          },
+          "color": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/KanbanColor"
+              }
+            ],
+            "description": "Default `blue`."
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "basic",
+              "blank"
+            ],
+            "description": "`basic` (default): columns \"To do\", \"In progress\", \"Done\"; `blank`: no columns."
+          }
+        }
+      },
+      "KanbanBoardUpdate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          },
+          "archived": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KanbanMembersUpdate": {
+        "type": "object",
+        "required": [
+          "members"
+        ],
+        "properties": {
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "role"
+              ],
+              "properties": {
+                "user_id": {
+                  "$ref": "#/components/schemas/Id"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "admin",
+                    "editor",
+                    "viewer"
+                  ]
+                }
+              }
+            },
+            "maxItems": 100,
+            "description": "Every member besides the owner (an entry for the owner is ignored); members missing from the list are removed and unassigned from cards and subtasks. You cannot remove yourself (leave instead)."
+          }
+        }
+      },
+      "KanbanTransfer": {
+        "type": "object",
+        "required": [
+          "user_id"
+        ],
+        "properties": {
+          "user_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "A current member."
+          }
+        }
+      },
+      "KanbanLabelCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "color"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          }
+        }
+      },
+      "KanbanLabelUpdate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "color": {
+            "$ref": "#/components/schemas/KanbanColor"
+          }
+        }
+      },
+      "KanbanColumnCreate": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "position": {
+            "type": "integer",
+            "description": "Clamped to the valid range; default: last."
+          },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KanbanColor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "wip_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` or 0: no limit."
+          }
+        }
+      },
+      "KanbanColumnUpdate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KanbanColor"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` clears it."
+          },
+          "wip_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` or 0 clears it."
+          },
+          "collapsed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KanbanPosition": {
+        "type": "object",
+        "required": [
+          "position"
+        ],
+        "properties": {
+          "position": {
+            "type": "integer",
+            "description": "0-based target position, clamped to the valid range."
+          }
+        }
+      },
+      "KanbanCardCreate": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "position": {
+            "type": "integer",
+            "description": "Clamped to the valid range; default: end of the column."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Labels of this board."
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Id"
+            },
+            "description": "Members of this board."
+          },
+          "priority": {
+            "$ref": "#/components/schemas/KanbanPriority"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Must not be before `start_at`."
+          },
+          "all_day": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KanbanCardUpdate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the labels (`null` or `[]` clears them)."
+          },
+          "assignees": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Id"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces the assignees, in order (`null` or `[]` clears them)."
+          },
+          "priority": {
+            "$ref": "#/components/schemas/KanbanPriority"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` clears it."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` clears it."
+          },
+          "all_day": {
+            "type": "boolean"
+          },
+          "completed": {
+            "type": "boolean",
+            "description": "`true` sets `completed_at`, `false` clears it."
+          },
+          "cover_attachment_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An image attachment of this card; `null` clears the cover."
+          },
+          "archived": {
+            "type": "boolean",
+            "description": "`true` sets `archived_at`, `false` restores the card."
+          },
+          "base_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The card `version` the edit is based on; a stale one is 409 with `details.current`."
+          }
+        }
+      },
+      "KanbanCardMove": {
+        "type": "object",
+        "required": [
+          "column_id"
+        ],
+        "properties": {
+          "column_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "A column of the card's board."
+          },
+          "position": {
+            "type": "integer",
+            "description": "Target position in the column (clamped); default: end of the column. Positions count archived cards."
+          }
+        }
+      },
+      "KanbanSubtaskCreate": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "position": {
+            "type": "integer",
+            "description": "Clamped; default: last."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignee_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A board member."
+          }
+        }
+      },
+      "KanbanSubtaskUpdate": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "done": {
+            "type": "boolean",
+            "description": "`true` sets `completed_at`."
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`null` clears it."
+          },
+          "assignee_id": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A board member; `null` unassigns."
+          }
+        }
+      },
+      "KanbanCommentBody": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000,
+            "description": "Markdown."
+          }
+        }
+      },
+      "KanbanFileRef": {
+        "type": "object",
+        "required": [
+          "file_id"
+        ],
+        "properties": {
+          "file_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "A Files entry the caller can read (at most 50 MiB)."
+          }
+        }
+      },
+      "KanbanAttachmentRename": {
+        "type": "object",
+        "required": [
+          "filename"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        }
+      },
+      "KanbanSaveToFiles": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "space_id": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Id"
+              }
+            ],
+            "description": "Target space; default: the caller's home."
+          },
+          "path": {
+            "type": "string",
+            "description": "Target folder (created when missing); default: the space root."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "File name; default: the attachment's name."
+          },
+          "overwrite": {
+            "type": "boolean",
+            "description": "Replace an existing file of that name (its old content goes to the trash)."
+          }
+        }
+      },
+      "KanbanConflictError": {
+        "type": "object",
+        "description": "409 body for a stale `base_version`: `details.current` is the card as it is now.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "details"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "conflict"
+                  },
+                  "details": {
+                    "type": "object",
+                    "required": [
+                      "current"
+                    ],
+                    "properties": {
+                      "current": {
+                        "$ref": "#/components/schemas/KanbanCard"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

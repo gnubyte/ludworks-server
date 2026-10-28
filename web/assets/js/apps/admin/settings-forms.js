@@ -6,6 +6,7 @@ import { h, cls, mount } from '../../core/dom.js';
 import { icon } from '../../core/icons.js';
 import { field, input, select, switchInput, passwordInput, deepEqual, setFieldError, clearErrors, formBanner } from '../../core/forms.js';
 import { formatDurationLong } from '../../core/format.js';
+import { ensureStyle } from '../../core/style.js';
 
 const MiB = 1024 ** 2;
 const GiB = 1024 ** 3;
@@ -114,7 +115,7 @@ const TABS = {
     ],
   },
   media: {
-    title: 'Media & TV', desc: 'Probing, thumbnails, transcoding, metadata and TV feeds.',
+    title: 'Media & TV', desc: 'Probing, thumbnails, transcoding, metadata, TV feeds, music and casting.',
     cards: [
       {
         ns: 'media', title: 'Media processing', icon: 'film', ffmpegStatus: true, fields: [
@@ -136,6 +137,36 @@ const TABS = {
           { key: 'hdhr_enabled', label: 'HDHomeRun emulation', type: 'switch', hint: 'Lets Plex and Jellyfin add your channels as a live TV tuner.' },
           { key: 'hdhr_device_name', label: 'Device name', type: 'text', half: true },
           { key: 'hdhr_tuner_count', label: 'Tuners', type: 'number', min: 1, max: 16, half: true },
+        ],
+      },
+      {
+        ns: 'music', title: 'Music', icon: 'music',
+        intro: 'The music library reads tags and cover art from audio files. Mobile apps can keep tracks for offline listening, as the original file or as a smaller AAC copy that the server converts once and caches.',
+        fields: [
+          { key: 'download_cache_bytes', label: 'Offline copy cache', type: 'bytes', hint: '0 disables transcoded downloads (offline copies in high/normal/low quality); originals always work. Least recently used copies are removed first. Converting needs ffmpeg.' },
+          { key: 'folder_art', label: 'Use cover images from track folders', type: 'switch', hint: 'Use a cover.jpg-style image next to the tracks as album art when no custom or embedded art exists.' },
+        ],
+      },
+      {
+        ns: 'cast', title: 'Casting', icon: 'cast', castStatus: true,
+        intro: 'Lets people play videos, TV channels and music on Chromecast and AirPlay devices (Chromecast, Google TV, Apple TV, HomePod, AirPlay speakers) from any browser or app. The server controls the devices itself and gives them short-lived links to just the media of one session.',
+        fields: [
+          { key: 'enabled', label: 'Enable casting', type: 'switch', hint: 'Off by default. While off, the server opens no casting sockets and people see no devices.' },
+          { key: 'discovery', label: 'Find devices automatically', type: 'switch', hint: 'Looks for devices with mDNS (Bonjour) on the server’s local network. In Docker, discovery needs host networking.' },
+          {
+            key: 'media_port', label: 'Cast media port', type: 'number', min: 0, max: 65535, half: true,
+            check: (v) => (v === 0 || (v >= 1024 && v <= 65535) ? null : 'Use 0 (off) or a port from 1024 to 65535.'),
+            hint: 'A plain-HTTP port for devices that cannot trust the server’s self-signed certificate. It serves only the session-bound media links handed to cast devices (everything else is 404). 0 = off; it must differ from the server’s own port.',
+          },
+          {
+            key: 'media_base_url', label: 'Media base URL', type: 'url', placeholder: 'https://nas.example.com', half: true,
+            check: (v) => checkBaseUrl(v),
+            hint: 'Optional: an https address with a certificate the devices trust (e.g. through a reverse proxy) that they use instead. Just scheme, host and port — no path.',
+          },
+          {
+            key: 'manual_devices', label: 'Manual devices', type: 'devices',
+            hint: 'Devices discovery cannot see (another subnet or VLAN, Docker without host networking). The port defaults to 8009 for Chromecast and 7000 for AirPlay.',
+          },
         ],
       },
     ],
@@ -285,6 +316,143 @@ function listControl(def) {
   };
 }
 
+/* ------------------------------------------------- cast.manual_devices editor */
+
+const DEVICE_KINDS = [{ value: 'chromecast', label: 'Chromecast' }, { value: 'airplay', label: 'AirPlay' }];
+const DEFAULT_DEVICE_PORT = { chromecast: 8009, airplay: 7000 };
+const MAX_MANUAL_DEVICES = 50;
+const HOST_NAME = /^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.?$/;
+
+/** A host name or an IPv4/IPv6 literal (mirrors settings.ValidHost on the server). */
+export function validDeviceHost(v) {
+  const t = String(v || '').trim();
+  if (!t) return false;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(t)) return t.split('.').every((n) => Number(n) <= 255);
+  const inner = t.replace(/^\[(.*)\]$/, '$1');
+  if (inner.includes(':')) return /^[0-9A-Fa-f:.]+$/.test(inner) && (inner.match(/:/g) || []).length >= 2;
+  return HOST_NAME.test(t);
+}
+
+/** A manual device in the canonical form the server stores (default port filled in). */
+function canonicalDevice(d) {
+  const kind = d?.kind === 'airplay' ? 'airplay' : 'chromecast';
+  const port = Number(d?.port) > 0 ? Number(d.port) : DEFAULT_DEVICE_PORT[kind];
+  return { kind, host: String(d?.host || '').trim().toLowerCase(), port, name: String(d?.name || '').trim() };
+}
+
+/** Whether two manual_devices lists are the same once defaults are filled in. */
+export function sameDevices(a, b) {
+  const x = Array.isArray(a) ? a : [];
+  const y = Array.isArray(b) ? b : [];
+  return x.length === y.length && x.every((d, i) => deepEqual(canonicalDevice(d), canonicalDevice(y[i])));
+}
+
+/**
+ * Problem with a manual_devices list (client-side check; the server validates too), or null.
+ * @param {Array<{kind: string, host: string, port?: number|string, name?: string}>} list
+ */
+export function manualDevicesProblem(list) {
+  if (list.length > MAX_MANUAL_DEVICES) return `At most ${MAX_MANUAL_DEVICES} devices.`;
+  const seen = new Set();
+  for (const [i, d] of list.entries()) {
+    const n = `Device ${i + 1}: `;
+    if (!validDeviceHost(d.host)) return `${n}enter a host name or IP address.`;
+    if (d.port !== undefined && d.port !== '' && d.port !== null) {
+      const p = Number(d.port);
+      if (!Number.isInteger(p) || p < 1 || p > 65535) return `${n}the port must be between 1 and 65535 (or empty for the default).`;
+    }
+    const name = String(d.name || '');
+    if (name.length > 100) return `${n}the name can have at most 100 characters.`;
+    if (/[\u0000-\u001f\u007f]/.test(name)) return `${n}the name must not contain control characters.`;
+    const c = canonicalDevice(d);
+    const key = `${c.host}:${c.port}`;
+    if (seen.has(key)) return `${n}${d.host.trim()} is listed twice.`;
+    seen.add(key);
+  }
+  return null;
+}
+
+function devicesControl(def) {
+  let rows = []; // [{kind, host, port: string, name}]
+  const list = h('div', { class: 'cast-manual-list' });
+  const addBtn = h('button', { type: 'button', class: 'btn btn-secondary btn-sm' }, icon('plus', 14), h('span', { class: 'btn-label' }, 'Add device'));
+  const el = h('div', { class: 'cast-manual', role: 'group', aria: { label: def.label } }, list, h('div', { class: 'cast-manual-actions' }, addBtn));
+  const notify = () => el.dispatchEvent(new Event('input', { bubbles: true }));
+
+  const rowEl = (row, i) => {
+    const kind = select({ options: DEVICE_KINDS, value: row.kind, 'aria-label': `Device ${i + 1} type` });
+    const host = input({ value: row.host, placeholder: '192.168.1.20 or tv.local', className: 'mono', autocomplete: 'off', spellcheck: 'false', 'aria-label': `Device ${i + 1} host name or IP address` });
+    const port = input({ type: 'number', min: '1', max: '65535', step: '1', value: row.port, placeholder: `Default ${DEFAULT_DEVICE_PORT[row.kind]}`, className: 'nums', 'aria-label': `Device ${i + 1} port` });
+    const name = input({ value: row.name, placeholder: 'Name (optional)', maxlength: '100', autocomplete: 'off', 'aria-label': `Device ${i + 1} name` });
+    const remove = h('button', { type: 'button', class: 'btn btn-ghost btn-icon btn-sm', aria: { label: `Remove device ${i + 1}` }, dataset: { tip: 'Remove' } }, icon('x', 14));
+    kind.addEventListener('change', () => { row.kind = kind.value; port.placeholder = `Default ${DEFAULT_DEVICE_PORT[row.kind]}`; });
+    host.addEventListener('input', () => { row.host = host.value; host.removeAttribute('aria-invalid'); });
+    port.addEventListener('input', () => { row.port = port.value; port.removeAttribute('aria-invalid'); });
+    name.addEventListener('input', () => { row.name = name.value; });
+    remove.addEventListener('click', () => {
+      rows = rows.filter((r) => r !== row);
+      render();
+      notify();
+      (list.querySelector('.cast-manual-row input') || addBtn).focus();
+    });
+    return h('div', { class: 'cast-manual-row', dataset: { index: String(i) } }, kind, host, port, name, remove);
+  };
+
+  const render = () => {
+    list.replaceChildren(...(rows.length ? rows.map(rowEl) : [h('span', { class: 'small faint' }, 'None — only discovered devices are listed.')]));
+    addBtn.disabled = rows.length >= MAX_MANUAL_DEVICES;
+  };
+  addBtn.addEventListener('click', () => {
+    rows = [...rows, { kind: 'chromecast', host: '', port: '', name: '' }];
+    render();
+    notify();
+    [...list.querySelectorAll('.cast-manual-row')].at(-1)?.querySelector('input')?.focus();
+  });
+  return {
+    el, focusEl: addBtn,
+    get: () => rows.map((r) => {
+      const out = { kind: r.kind, host: r.host.trim() };
+      if (String(r.port).trim() !== '') out.port = Number(r.port);
+      if (r.name.trim()) out.name = r.name.trim();
+      return out;
+    }),
+    set(v) {
+      rows = (Array.isArray(v) ? v : []).map((d) => ({
+        kind: d?.kind === 'airplay' ? 'airplay' : 'chromecast', host: String(d?.host || ''),
+        port: Number(d?.port) > 0 ? String(d.port) : '', name: String(d?.name || ''),
+      }));
+      render();
+    },
+    equals: (a, b) => sameDevices(a, b),
+    validate() {
+      const problem = manualDevicesProblem(this.get());
+      if (problem) {
+        const i = Number(/^Device (\d+):/.exec(problem)?.[1]) - 1;
+        const row = list.querySelectorAll('.cast-manual-row')[i];
+        const which = problem.includes('the port') ? 1 : problem.includes('the name') ? 2 : 0; // host, port, name inputs
+        row?.querySelectorAll('input')[which]?.setAttribute('aria-invalid', 'true');
+      }
+      return problem;
+    },
+  };
+}
+
+/** A cast media base URL: empty, or an absolute http(s) URL without path, query or credentials. */
+export function checkBaseUrl(v) {
+  if (!v) return null;
+  let u;
+  try {
+    u = new URL(v);
+  } catch {
+    return 'Enter a full http(s):// URL.';
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return 'Use an http:// or https:// address.';
+  if ((u.pathname && u.pathname !== '/') || u.search || u.hash || u.username || u.password) {
+    return 'Use just the scheme, host and port (e.g. https://nas.example.com) — no path or query.';
+  }
+  return null;
+}
+
 function makeControl(ns, def) {
   const name = `${ns}.${def.key}`;
   let ctl;
@@ -311,7 +479,7 @@ function makeControl(ns, def) {
           if (v === null || !Number.isInteger(v)) return 'Enter a whole number.';
           if (def.min !== undefined && v < def.min) return `Must be at least ${def.min}.`;
           if (def.max !== undefined && v > def.max) return `Must be at most ${def.max}.`;
-          return null;
+          return def.check ? def.check(v) : null;
         },
       };
       break;
@@ -324,6 +492,9 @@ function makeControl(ns, def) {
       break;
     case 'list':
       ctl = listControl(def);
+      break;
+    case 'devices':
+      ctl = devicesControl(def);
       break;
     default: {
       const t = def.type === 'url' ? 'url' : def.type === 'email' ? 'email' : 'text';
@@ -340,7 +511,7 @@ function makeControl(ns, def) {
           if (def.required && !v) return 'This field is required.';
           if (v && def.type === 'url' && !/^https?:\/\/[^\s/]+/i.test(v)) return 'Enter a full http(s):// URL.';
           if (v && def.type === 'email' && !inp.checkValidity()) return 'Enter a valid email address.';
-          return null;
+          return def.check ? def.check(v) : null;
         },
       };
     }
@@ -374,6 +545,8 @@ export function render(host, ctx, state, tabId) {
   let controls = [];
   let saveBar = null;
   let form = null;
+  let castStatusSlot = null;
+  if (tab.cards.some((c) => c.ns === 'cast')) ensureStyle('/assets/css/lib/cast.css'); // manual devices editor
   const testButtons = [];
 
 
@@ -384,7 +557,7 @@ export function render(host, ctx, state, tabId) {
       const orig = state.settings?.[c.ns]?.[c.def.key];
       if (c.def.type === 'secret') {
         if (v !== undefined) (out[c.ns] ??= {})[c.def.key] = v;
-      } else if (!deepEqual(orig, v)) {
+      } else if (!(c.equals ? c.equals(orig, v) : deepEqual(orig, v))) {
         (out[c.ns] ??= {})[c.def.key] = v;
       }
     }
@@ -418,8 +591,10 @@ export function render(host, ctx, state, tabId) {
     let first = null;
     for (const [key, msg] of Object.entries(fields || {})) {
       let ctl = null;
-      if (key.includes('.')) ctl = controls.find((c) => c.name === key);
-      else ctl = controls.find((c) => c.def.key === key && sentNs.includes(c.ns));
+      if (key.includes('.')) {
+        ctl = controls.find((c) => c.name === key)
+          || controls.find((c) => key.startsWith(`${c.name}.`) || key.startsWith(`${c.name}[`));
+      } else ctl = controls.find((c) => c.def.key === key && sentNs.includes(c.ns));
       if (ctl) {
         setFieldError(ctl.wrap, msg);
         first ??= ctl;
@@ -455,6 +630,10 @@ export function render(host, ctx, state, tabId) {
         if (p.general?.server_name) ctx.store.set({ status: { ...(ctx.store.get().status || {}), server_name: res.general?.server_name ?? p.general.server_name } });
         if (p.general && 'registration_enabled' in p.general) ctx.store.set({ status: { ...(ctx.store.get().status || {}), registration_enabled: !!res.general?.registration_enabled } });
         ui.toast.success('Settings saved');
+        if (p.cast) {
+          refreshCastStatus();
+          setTimeout(() => { if (!ctx.signal.aborted) refreshCastStatus(); }, 4000); // discovery takes a moment
+        }
       } catch (err) {
         const unmatched = err.fields ? attachErrors(err.fields, Object.keys(p)) : [];
         const msg = err.fields ? unmatched.join(' · ') : ui.errorMessage(err);
@@ -496,9 +675,26 @@ export function render(host, ctx, state, tabId) {
     });
   }
 
+  /** Casting card: whether casting is on and how many devices the server sees. */
+  function refreshCastStatus() {
+    const slot = castStatusSlot;
+    if (!slot) return;
+    ctx.api.get('/cast/devices', { signal: ctx.signal }).then((r) => {
+      if (!r?.enabled) {
+        slot.replaceChildren(ui.alert({ variant: 'info', message: 'Casting is off. Turn it on below to let people cast from the TV player and the music player.' }));
+        return;
+      }
+      const n = Array.isArray(r.devices) ? r.devices.length : 0;
+      const names = (r.devices || []).slice(0, 6).map((d) => d.name || d.host).filter(Boolean).join(', ');
+      slot.replaceChildren(n
+        ? ui.alert({ variant: 'success', title: `Casting is on — ${n} ${n === 1 ? 'device' : 'devices'} found`, message: names })
+        : ui.alert({ variant: 'warning', title: 'Casting is on, but no devices were found yet', message: 'Devices must be on the server’s network. Discovery needs host networking in Docker; you can also add devices manually below.' }));
+    }).catch(() => slot.replaceChildren());
+  }
+
   function build(settings) {
     controls = [];
-    const cards = tab.cards.map((card) => {
+    const cards = tab.cards.filter((card) => settings?.[card.ns] !== undefined).map((card) => {
       const cardControls = card.fields.map((def) => makeControl(card.ns, def));
       controls.push(...cardControls);
       const grid = h('div', { class: 'form-grid cols-2' }, cardControls.map((c) => c.wrap));
@@ -513,6 +709,11 @@ export function render(host, ctx, state, tabId) {
             ? ui.alert({ variant: 'success', title: 'ffmpeg detected', message: ff.version || 'Video thumbnails and transcoding are available.' })
             : ui.alert({ variant: 'warning', title: 'ffmpeg not found', message: 'Install ffmpeg (or set its path below) to enable video thumbnails, transcoding and live TV streams.' }));
         }).catch(() => {});
+      }
+      if (card.castStatus) {
+        castStatusSlot = h('div', { class: 'cast-status' });
+        extras.push(castStatusSlot);
+        refreshCastStatus();
       }
       let actions = null;
       if (card.test) {

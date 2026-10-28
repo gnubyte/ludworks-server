@@ -22,6 +22,7 @@ import (
 	"ludworks/internal/apidocs"
 	"ludworks/internal/audit"
 	"ludworks/internal/auth"
+	"ludworks/internal/cast"
 	"ludworks/internal/config"
 	"ludworks/internal/core"
 	"ludworks/internal/db"
@@ -29,8 +30,10 @@ import (
 	"ludworks/internal/files"
 	"ludworks/internal/httpx"
 	"ludworks/internal/jobs"
+	"ludworks/internal/kanban"
 	"ludworks/internal/mail"
 	"ludworks/internal/media"
+	"ludworks/internal/music"
 	"ludworks/internal/notes"
 	"ludworks/internal/settings"
 	"ludworks/internal/sheets"
@@ -187,8 +190,9 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
-	// Construction order (auth → mail → admin → files → media → tv → notes → vault → sheets →
-	// system): admin needs the auth and mail modules, mail-in needs notes and files.
+	// Construction order (auth → mail → admin → files → media → tv → music → notes → vault →
+	// sheets → kanban → cast → system): admin needs the auth and mail modules, mail-in needs
+	// notes and files, cast plays media, TV channels and music.
 	authM := auth.New(d)
 	a.infra.BindUsers(authM.Users())
 	mailM := mail.New(d)
@@ -197,12 +201,15 @@ func (a *App) build(ctx context.Context) error {
 	filesM := files.New(d)
 	mediaM := media.New(d, filesM.Service())
 	tvM := tv.New(d, filesM.Service(), mediaM.Service())
+	musicM := music.New(d, filesM.Service(), mediaM.Service())
 	notesM := notes.New(d)
 	mailM.SetIngest(notesM.Service(), filesM.Service())
 	vaultM := vault.New(d)
 	sheetsM := sheets.New(d, filesM.Service())
+	kanbanM := kanban.New(d, filesM.Service())
+	castM := cast.New(d, filesM.Service(), mediaM.Service(), tvM, musicM.Service())
 	systemM := system.New(d, filesM.Service())
-	a.modules = []httpx.Module{authM, mailM, adminM, filesM, mediaM, tvM, notesM, vaultM, sheetsM, systemM}
+	a.modules = []httpx.Module{authM, mailM, adminM, filesM, mediaM, tvM, musicM, notesM, vaultM, sheetsM, kanbanM, castM, systemM}
 
 	for _, m := range a.modules {
 		if err := d.DB.Migrate(ctx, m.Name(), m.Migrations()); err != nil {
