@@ -13,9 +13,12 @@ next to its code.
 | `internal/files/openapi.json` | `/api/v1/spaces`, `/api/v1/files*`, `/api/v1/trash*`, `/api/v1/uploads*` (tus), `/api/v1/categories`, `/api/v1/admin/categories`, `/api/v1/admin/spaces*`, `/api/v1/backup/devices*` |
 | `internal/media/openapi.json` | `/api/v1/media*` |
 | `internal/tv/openapi.json` | `/api/v1/tv/*`, `/api/v1/hdhr/*` |
+| `internal/music/openapi.json` | `/api/v1/music/*` |
 | `internal/notes/openapi.json` | `/api/v1/notes*` |
 | `internal/vault/openapi.json` | `/api/v1/vault*` |
 | `internal/sheets/openapi.json` | `/api/v1/sheets*` |
+| `internal/kanban/openapi.json` | `/api/v1/kanban/*` |
+| `internal/cast/openapi.json` | `/api/v1/cast/*` (including the public ticket route `/api/v1/cast/media/{ticket}/…`) |
 | `internal/system/openapi.json` | `/api/v1/system/*` |
 
 Each module embeds its fragment (`//go:embed openapi.json`) and returns it from `OpenAPI()`.

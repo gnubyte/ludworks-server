@@ -227,6 +227,12 @@ function makeCtx(def, to, scope) {
     setActions: (nodes) => shell?.setActions(nodes),
     setSearch: (cfg) => shell?.setSearch(cfg),
     setLayout: (opts) => shell?.setLayout(opts),
+    // The persistent bottom dock (not scoped to the app: it stays across app switches and is
+    // emptied on sign-out). set(node, {onRemove}) / set(null); current = the node shown.
+    dock: {
+      set: (node, opts) => shell?.setDock(node, opts),
+      get current() { return shell?.dockNode || null; },
+    },
     commands: { register: (cmds) => scope.add(registerCommands(cmds)) },
     shortcuts: { register: (combo, fn, opts) => scope.add(registerShortcut(combo, fn, { group: def.title, ...opts })) },
     uploads,

@@ -45,13 +45,17 @@ nav:
       - Libraries & categories: admin/libraries.md
       - Settings reference: admin/settings.md
       - Backups & maintenance: admin/maintenance.md
+      - Continuous deployment (Gitea): admin/continuous-deployment.md
   - User guide:
       - Files: guide/files.md
       - TV: guide/tv.md
       - TV integrations: guide/tv-integrations.md
+      - Music: guide/music.md
       - Notes: guide/notes.md
       - Passwords: guide/passwords.md
       - Sheets: guide/sheets.md
+      - Kanban boards: guide/kanban.md
+      - Casting (Chromecast, AirPlay): guide/casting.md
       - Storage & system: guide/storage.md
   - API:
       - API overview: api/index.md

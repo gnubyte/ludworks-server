@@ -13,6 +13,9 @@ export const SCOPE_GROUPS = [
   { label: 'Notes', scopes: [['notes:read', 'Read notes'], ['notes:write', 'Create & edit notes']] },
   { label: 'Passwords', scopes: [['vault:read', 'Sync encrypted vault'], ['vault:write', 'Modify encrypted vault']] },
   { label: 'Sheets', scopes: [['sheets:read', 'Read workbooks'], ['sheets:write', 'Edit workbooks']] },
+  { label: 'Music', scopes: [['music:read', 'Listen, playlists & plays'], ['music:write', 'Edit tags & manage playlists']] },
+  { label: 'Kanban', scopes: [['kanban:read', 'Read boards'], ['kanban:write', 'Edit boards & cards']] },
+  { label: 'Casting', scopes: [['cast', 'Cast to Chromecast & AirPlay devices']] },
   { label: 'Account', scopes: [['account', 'Manage profile, sessions & tokens']] },
   { label: 'Administration', scopes: [['admin', 'Full server administration']], adminOnly: true },
 ];

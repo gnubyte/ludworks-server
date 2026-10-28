@@ -69,6 +69,8 @@
   --tint-sky: #0b8bd1;
   --tint-slate: #64748b;
   --tint-rose: #e11d48;
+  --tint-pink: #db2777;
+  --tint-orange: #ea580c;
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -137,6 +139,8 @@
   --tint-sky: #38bdf8;
   --tint-slate: #94a3b8;
   --tint-rose: #fb7185;
+  --tint-pink: #f472b6;
+  --tint-orange: #fb923c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -192,6 +196,8 @@
     --tint-sky: #38bdf8;
     --tint-slate: #94a3b8;
     --tint-rose: #fb7185;
+    --tint-pink: #f472b6;
+    --tint-orange: #fb923c;
   }
 }
 
@@ -306,6 +312,7 @@ kbd {
 .tint-indigo { --tint: var(--tint-indigo); } .tint-blue { --tint: var(--tint-blue); } .tint-violet { --tint: var(--tint-violet); }
 .tint-amber { --tint: var(--tint-amber); } .tint-emerald { --tint: var(--tint-emerald); } .tint-teal { --tint: var(--tint-teal); }
 .tint-sky { --tint: var(--tint-sky); } .tint-slate { --tint: var(--tint-slate); } .tint-rose { --tint: var(--tint-rose); }
+.tint-pink { --tint: var(--tint-pink); } .tint-orange { --tint: var(--tint-orange); }
 
 /* ================================================================== buttons */
 .btn {
@@ -851,7 +858,11 @@ a.crumb:hover, button.crumb:hover { background: var(--c-surface-2); color: var(-
 .user-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .view { flex: 1; min-width: 0; padding: 28px 32px 64px; }
 .view:focus { outline: none; }
-.view.view-full { padding: 0; height: calc(100dvh - var(--topbar-h)); overflow: hidden; display: flex; flex-direction: column; }
+.view.view-full { padding: 0; height: calc(100dvh - var(--topbar-h) - var(--dock-h, 0px)); overflow: hidden; display: flex; flex-direction: column; }
+/* Persistent bottom dock (music player): sticks to the viewport bottom; apps size it with --dock-h. */
+.dock { position: sticky; bottom: 0; z-index: 40; }
+.dock[hidden] { display: none; }
+.shell.has-dock { --dock-h: 72px; }
 .view.view-full > .app-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .app-root { min-width: 0; animation: lw-fade-in 160ms var(--ease); }
 

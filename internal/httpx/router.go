@@ -125,8 +125,8 @@ type RateLimitOptions struct {
 // rateLimitExempt lists the routes whose requests skip the generic limiter because each is
 // one piece of a larger transfer that is bounded by the route's own locks and concurrency
 // caps: tus upload chunks (PATCH, and the HEAD offset queries clients send to resume), and
-// Range requests for file, media and recorded-program content (players and download managers
-// issue many). The predicate decides per request; authentication and access rules still apply.
+// Range requests for file, media, music and recorded-program content (players and download
+// managers issue many). The predicate decides per request; authentication and access rules still apply.
 var rateLimitExempt = map[string]func(r *http.Request) bool{
 	"PATCH /api/v1/uploads/{id}":                             always,
 	"HEAD /api/v1/uploads/{id}":                              always,
@@ -135,7 +135,18 @@ var rateLimitExempt = map[string]func(r *http.Request) bool{
 	"GET /api/v1/media/{file_id}/{asset}": func(r *http.Request) bool {
 		return r.PathValue("asset") == "stream" && isRangeGET(r) // not posters or transcodes
 	},
+	// Music playback and offline downloads (API.md §12, §15): resumed with Range + If-Range.
+	"GET /api/v1/music/tracks/{id}/stream":   isRangeGET,
+	"GET /api/v1/music/tracks/{id}/download": isRangeGET,
+	// Cast devices fetch media through tickets (API.md §14); their wildcard is named "…token"
+	// so the access log redacts it.
+	"GET /api/v1/cast/media/{ticket_token}/{kind}/{id}/{asset}": func(r *http.Request) bool {
+		return r.PathValue("asset") == "stream" && isRangeGET(r)
+	},
 }
+
+// castMediaPrefix is the path prefix of the cast media ticket routes (see cors).
+const castMediaPrefix = "/api/v1/cast/media/"
 
 // RateLimitExemptPatterns returns the route patterns rateLimitExempt names (for tests that
 // check they are all registered).
@@ -584,6 +595,22 @@ var (
 )
 
 func (rt *Router) cors(w http.ResponseWriter, r *http.Request) bool {
+	// Cast media tickets (API.md §14) are the one exception: receiver pages on other origins
+	// fetch them (subtitles, art) with XHR, authorised by the ticket alone, so they get a
+	// wildcard, credential-less preflight here (their responses carry the same headers).
+	if strings.HasPrefix(r.URL.Path, castMediaPrefix) && r.Method == http.MethodOptions &&
+		r.Header.Get("Access-Control-Request-Method") != "" {
+		// No route matched (yet): name the ticket segment so the access log redacts it.
+		r.Pattern = "OPTIONS " + castMediaPrefix + "{ticket_token}/{kind}/{id}/{asset}"
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", "*")
+		h.Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+		h.Set("Access-Control-Allow-Headers", "Range, If-Range, If-None-Match, If-Modified-Since")
+		h.Set("Access-Control-Max-Age", "600")
+		h.Set("Cross-Origin-Resource-Policy", "cross-origin")
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
 	origin := r.Header.Get("Origin")
 	if origin == "" || !isExtensionOrigin(strings.ToLower(origin)) {
 		return false

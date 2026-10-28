@@ -45,6 +45,10 @@
 // │              without it the box opens the command palette.                    │
 // │   setLayout({full: true})  edge-to-edge, viewport-height view without page   │
 // │              padding (for split-pane apps like Notes/TV player).              │
+// │   dock       persistent bottom bar outside the app view (music player):       │
+// │              dock.set(node, {onRemove}) / dock.set(null); dock.current. Not   │
+// │              cleared on unmount — it survives app switches; onRemove runs     │
+// │              when replaced or on sign-out (stop playback there).              │
 // │   commands.register([{id, title, icon?, subtitle?, keywords?, run()}])       │
 // │              adds command-palette entries while the app is mounted.           │
 // │   shortcuts.register(combo, handler, {description})  app-scoped shortcuts.   │
@@ -82,6 +86,10 @@ export const apps = [
     load: () => import('./tv/index.js'),
   },
   {
+    id: 'music', title: 'Music', icon: 'music', path: '/music', tint: 'pink', description: 'Albums, artists, playlists and lyrics',
+    load: () => import('./music/index.js'),
+  },
+  {
     id: 'notes', title: 'Notes', icon: 'note', path: '/notes', tint: 'amber', description: 'Notes, code snippets and Markdown',
     load: () => import('./notes/index.js'),
   },
@@ -92,6 +100,10 @@ export const apps = [
   {
     id: 'sheets', title: 'Sheets', icon: 'sheet', path: '/sheets', tint: 'teal', description: 'Spreadsheets with formulas, XLSX/XLS/CSV',
     load: () => import('./sheets/index.js'),
+  },
+  {
+    id: 'kanban', title: 'Kanban', icon: 'kanban', path: '/kanban', tint: 'orange', description: 'Boards, cards, subtasks and due dates',
+    load: () => import('./kanban/index.js'),
   },
   {
     id: 'system', title: 'Storage', icon: 'storage', path: '/system', tint: 'sky', description: 'Storage usage and server status',

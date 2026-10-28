@@ -3,7 +3,7 @@
 // Node >= 20, standard library only.
 
 /** Module fragments in server wiring order (ARCHITECTURE.md §3.1). Merge order matters for tag order. */
-export const MODULES = ['auth', 'admin', 'mail', 'files', 'media', 'tv', 'notes', 'vault', 'sheets', 'system'];
+export const MODULES = ['auth', 'admin', 'mail', 'files', 'media', 'tv', 'music', 'notes', 'vault', 'sheets', 'kanban', 'cast', 'system'];
 export const BASE_PATH = 'internal/apidocs/base.json';
 export const fragmentPath = (mod) => `internal/${mod}/openapi.json`;
 
@@ -19,7 +19,8 @@ const OP_KEYS = new Set(['tags', 'summary', 'description', 'externalDocs', 'oper
 const PARAM_IN = new Set(['path', 'query', 'header', 'cookie']);
 const JSON_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null']);
 export const SCOPES = new Set(['files:read', 'files:write', 'media:read', 'media:write', 'tv:read', 'tv:write', 'notes:read', 'notes:write',
-  'vault:read', 'vault:write', 'sheets:read', 'sheets:write', 'account', 'admin']);
+  'vault:read', 'vault:write', 'sheets:read', 'sheets:write', 'music:read', 'music:write', 'kanban:read', 'kanban:write', 'cast',
+  'account', 'admin']);
 const X_SCOPE_VALUES = new Set([...SCOPES, 'public', 'auth']);
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

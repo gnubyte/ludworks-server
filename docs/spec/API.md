@@ -23,7 +23,8 @@ this document; the server's OpenAPI (`/api/openapi.json`, Swagger UI at `/api/do
   every route.
   Streaming/feed endpoints marked **[qt]** also accept `?access_token=<token>`.
 * Scopes (for personal access tokens): `files:read files:write media:read media:write tv:read tv:write
-  tv:feed notes:read notes:write vault:read vault:write sheets:read sheets:write account admin`. Sessions get `*`.
+  tv:feed notes:read notes:write vault:read vault:write sheets:read sheets:write music:read music:write
+  kanban:read kanban:write cast account admin`. Sessions get `*`.
   `tv:feed` is the narrow scope of TV feed tokens (§7.2): it is accepted only on the routes marked
   `tv:read or tv:feed` (M3U, XMLTV, channel logo, `live.ts`, `play`, program `stream`) and the HDHomeRun
   emulation, and grants nothing else.
@@ -78,7 +79,7 @@ this document; the server's OpenAPI (`/api/openapi.json`, Swagger UI at `/api/do
 | `POST /admin/users/{id}/password` | `{"new_password"}` → 204 (revokes sessions) |
 | `POST /admin/users/{id}/revoke-sessions` | 204 |
 | `DELETE /admin/users/{id}/totp` | 204 |
-| `GET /admin/settings` | all namespaces, secrets redacted: `{"general":{...},"security":{...},"smtp":{...},"imap":{...},"media":{...},"tv":{...},"files":{...}}` |
+| `GET /admin/settings` | all namespaces, secrets redacted: `{"general":{...},"security":{...},"smtp":{...},"imap":{...},"media":{...},"tv":{...},"files":{...},"music":{...},"cast":{...}}` |
 | `PATCH /admin/settings` | partial object with any namespaces → full redacted settings. Send a secret field as a string to set it, `null` to clear, omit to keep. |
 | `POST /admin/settings/smtp/test` | `{"to"}` → 204 or 502 `{"error":{"code":"smtp_failed","message":...}}` |
 | `POST /admin/settings/imap/test` | → `{"ok":true,"mailboxes":[...],"unseen":int}` or 502 `imap_failed` |
@@ -121,6 +122,9 @@ Settings namespaces (defaults in parentheses):
   `auto_thumbnails`(true), `transcode_enabled`(true when ffmpeg found).
 * `tv`: `hdhr_enabled`(false), `hdhr_device_name`("Ludworks TV"), `hdhr_tuner_count`(2),
   `guide_days`(3).
+* `music`: `download_cache_bytes`(10737418240 = 10 GiB; 0 disables transcoded downloads — see §12),
+  `folder_art`(true; use `cover.jpg`-style images next to the tracks as album art).
+* `cast`: `enabled`(false), `discovery`(true), `manual_devices`([]), `media_port`(0), `media_base_url`("") — see §14.
 
 ## 4. Storage & system
 
@@ -565,3 +569,326 @@ Limits: 1,000,000 cells per workbook, 32k chars per cell, formula nesting depth 
 * Bearer `token_mode` logins; store tokens in OS-appropriate secure storage.
 * TLS: support system trust, custom CA file, or pinning the server's SHA-256 certificate fingerprint
   (self-signed default) — show the fingerprint to the user on first connect (TOFU).
+
+## 12. Music
+
+Music items are live, non-directory files whose MIME type starts with `audio/` (or is `application/ogg`) and whose
+category is empty or `music`; audio categorized as anything else (e.g. `game/soundtrack`) is not part of the music
+library. As in §6, listings cover the caller's home plus the libraries they can read (other users' homes only with an
+explicit `space_id`), and every `/music/tracks/{id}…` endpoint answers 404 for files that are unreadable **or not music
+items** (a `music:read` token cannot read other files).
+
+`Track` = `{"id" (the file id),"space_id","path","name","size","mime","title","artist","artists":[...],"album",
+"album_id","album_artist","artist_id","track_number"|null,"track_total"|null,"disc_number"|null,"disc_total"|null,
+"year"|null,"genres":[...],"composer","comment","compilation":bool,"subcategory","duration_seconds"|null,"codec",
+"container","bitrate_kbps"|null,"sample_rate"|null,"bit_depth"|null,"channels"|null,
+"replaygain":{"track_gain_db","track_peak","album_gain_db"|null,"album_peak"|null}|null,"has_art":bool,"art_url"|null,
+"has_lyrics":bool,"favorite":bool,"rating"|null,"play_count":int,"last_played_at"|null,"added_at","updated_at",
+"probe_status":"pending"|"ok"|"failed"}` — `favorite`, `rating` (1–5), `play_count` and `last_played_at` are the caller's own.
+`Album` = `{"id","title","artist","artist_id","year"|null,"genres":[...],"track_count","disc_count","duration_seconds",
+"compilation":bool,"art_url"|null,"has_custom_art":bool,"added_at","favorite":bool,"play_count":int}`
+`Artist` = `{"id","name","album_count","track_count","art_url"|null,"favorite":bool}`
+`Playlist` = `{"id","name","description","owner_id","owner_name","visibility":"private"|"shared","collaborative":bool,
+"kind":"manual"|"smart","rules":SmartRules|null,"track_count","duration_seconds","unavailable_count":int,"art_url"|null,
+"has_custom_art":bool,"can_edit":bool,"created_at","updated_at","version":int}`
+`PlaylistItem` = `{"id","position","added_at","added_by","track":Track}`
+`SmartRules` = `{"match":"all"|"any","conditions":[{"field","op","value"}],"sort","order":"asc"|"desc","limit"|null}`
+
+| Method & path | Scope | Notes |
+|---|---|---|
+| `GET /music/tracks?q=&artist_id=&album_id=&genre=&year=&favorite=&space_id=&subcategory=&sort=title|artist|album|added|year|duration|plays|last_played|random&order=&seed=&cursor=&limit=` | music:read | `Page<Track>` |
+| `POST /music/tracks/lookup` | music:read | `{"ids":[...]}` (≤ 500) → `{"tracks":[Track],"missing":[ids]}` (offline clients re-validate downloads with it) |
+| `POST /music/tracks/bulk` | music:write | `{"file_ids":[...],"set":{fields of PATCH}}` → `{"updated":int,"errors":[{"id","error","code"?}]}` |
+| `GET /music/tracks/{id}` | music:read | `Track` |
+| `PATCH /music/tracks/{id}` | music:write | `{"title"?,"artist"?,"artists"?,"album"?,"album_artist"?,"track_number"?,"track_total"?,"disc_number"?,"disc_total"?,"year"?,"genres"?,"composer"?,"compilation"?,"subcategory"?}` → `Track` |
+| `POST /music/tracks/{id}/probe` | music:write | re-read tags and art (`?reset=1` also drops manual edits) → `Track`; the §6 manual-probe limits apply |
+| `GET /music/tracks/{id}/stream` | music:read [qt] | the file's bytes, `Range`/`If-Range`/`ETag`, inline |
+| `GET /music/tracks/{id}/transcode?format=aac|mp3|opus&bitrate=&start=` | music:read [qt] | live ffmpeg transcode (no `Range`); 501 `ffmpeg_unavailable` without ffmpeg |
+| `GET /music/tracks/{id}/download?quality=original|high|normal|low` | music:read [qt] | offline-download source, always `Content-Disposition: attachment`, `Range`/`If-Range`/`ETag`; non-original qualities answer 202 while prepared (see below) |
+| `GET /music/tracks/{id}/art?size=sm|md|lg|xl` | music:read [qt] | JPEG cover art; 404 when none |
+| `GET /music/tracks/{id}/lyrics` | music:read | `{"synced":bool,"lines":[{"time_seconds"|null,"text"}],"text","source":"embedded"|"lrc"}`; 404 when none |
+| `PUT /music/tracks/{id}/rating` | music:read | `{"rating":1–5|null}` → 204 (the caller's own rating) |
+| `PUT /music/favorites` | music:read | `{"kind":"track"|"album"|"artist","id","favorite":bool}` → 204 |
+| `GET /music/albums?q=&artist_id=&genre=&year=&favorite=&compilation=&space_id=&sort=title|artist|year|added|plays|random&order=&seed=&cursor=&limit=` | music:read | `Page<Album>` |
+| `GET /music/albums/{id}` | music:read | `Album` + `{"tracks":[Track]}` (by disc, track number, title) |
+| `GET /music/albums/{id}/art?size=sm|md|lg|xl` | music:read [qt] | JPEG; 404 when none |
+| `PUT /music/albums/{id}/art` | music:write | raw image (JPEG/PNG/GIF ≤ 20 MiB, ≤ 50 MP; webp → 415) → `Album` |
+| `DELETE /music/albums/{id}/art` | music:write | 204 (back to the embedded/folder art) |
+| `GET /music/artists?q=&genre=&favorite=&role=album|all&sort=name|added|plays|random&order=&cursor=&limit=` | music:read | `Page<Artist>` |
+| `GET /music/artists/{id}` | music:read | `Artist` + `{"albums":[Album],"appears_on":[Album],"top_tracks":[Track]}` |
+| `GET /music/artists/{id}/art?size=sm|md|lg|xl` | music:read [qt] | JPEG (the art of one of the artist's albums); 404 when none |
+| `GET /music/genres?space_id=` | music:read | `[{"name","track_count","album_count"}]` sorted by name |
+| `GET /music/facets?space_id=` | music:read | `{"genres":[{"value","count"}],"years":[...],"subcategories":[...],"spaces":[{"value","label","count"}],"totals":{"tracks","albums","artists","duration_seconds","size_bytes"}}` |
+| `GET /music/search?q=&limit=` | music:read | `{"tracks":[Track],"albums":[Album],"artists":[Artist],"playlists":[Playlist]}` (each ≤ `limit`, default 10, max 50) |
+| `GET /music/home` | music:read | `{"recently_added":[Album],"recently_played":[{"kind":"album"|"artist"|"playlist"|"track","played_at","album"?,"artist"?,"playlist"?,"track"?}],"most_played":[Track],"favorite_albums":[Album],"playlists":[Playlist]}` (≤ 20 each) |
+| `POST /music/plays` | music:read | `{"plays":[{"track_id","played_at","seconds_played","completed"?,"context"?:{"kind":"album"|"artist"|"playlist"|"genre"|"search"|"queue","id"?}}]}` (≤ 500) → `{"recorded":int,"ignored":int}` |
+| `GET /music/history?cursor=&limit=` | music:read | `Page<{"id","played_at","seconds_played","context"|null,"track":Track}>` newest first |
+| `DELETE /music/history` | music:read | → 204 (clears the caller's plays and play counts) |
+| `GET /music/playlists?q=&kind=manual|smart&owner=me|others|all&sort=name|updated|created&order=&cursor=&limit=` | music:read | `Page<Playlist>` (own + shared by others) |
+| `POST /music/playlists` | music:write | `{"name","description"?,"visibility"?,"collaborative"?,"kind"?,"rules"? (smart),"track_ids"? (manual)}` → 201 `Playlist` |
+| `POST /music/playlists/import?name=&space_id=&base_path=` | music:write | raw `.m3u`/`.m3u8` (≤ 5 MiB) → 201 `Playlist` + `{"unmatched":[str]}` |
+| `GET /music/playlists/{id}` | music:read | `Playlist` + `{"items":[PlaylistItem]}` |
+| `PATCH /music/playlists/{id}` | music:write | `{"name"?,"description"?,"visibility"?,"collaborative"?,"rules"?,"base_version"?}` → `Playlist` |
+| `DELETE /music/playlists/{id}` | music:write | 204 (owner only) |
+| `POST /music/playlists/{id}/items` | music:write | `{"track_ids":[...] (≤ 1000),"position"?,"base_version"?}` insert (default: append) → `Playlist` + `items` |
+| `PUT /music/playlists/{id}/items` | music:write | `{"track_ids":[...] (≤ 10000),"base_version"?}` full ordered replacement → `Playlist` + `items` |
+| `POST /music/playlists/{id}/items/remove` | music:write | `{"item_ids":[...],"base_version"?}` → `Playlist` + `items` |
+| `POST /music/playlists/{id}/items/move` | music:write | `{"item_ids":[...],"position":int,"base_version"?}` → `Playlist` + `items` |
+| `GET /music/playlists/{id}/art?size=sm|md|lg|xl` | music:read [qt] | JPEG: the custom image, else a generated mosaic; 404 for an empty playlist without art |
+| `PUT /music/playlists/{id}/art` | music:write | raw image (as album art) → `Playlist` |
+| `DELETE /music/playlists/{id}/art` | music:write | 204 (back to the generated mosaic) |
+| `POST /music/playlists/{id}/duplicate` | music:write | `{"name"?,"freeze"?:bool}` → 201 `Playlist` (`freeze` turns a smart playlist into a manual snapshot) |
+| `GET /music/playlists/{id}/export.m3u8` | music:read | M3U8 download: `#EXTINF` lines and `<space name>/<path>` entries |
+| `POST /music/rescan` | music:write | `{"space_id"?,"path"?}` → 202 `{"job":"music.rescan"}` (re-reads tags of the readable music items below the path) |
+
+Music semantics (normative details):
+* **Tags.** Pure-Go readers for ID3v1 and ID3v2.2–2.4 (MP3; also the `ID3 ` chunk of WAV/AIFF), FLAC metadata blocks
+  (`STREAMINFO`, `VORBIS_COMMENT`, `PICTURE`), Ogg Vorbis/Opus comment headers (incl. `METADATA_BLOCK_PICTURE`), MP4/M4A
+  `ilst` atoms and WAV `LIST/INFO`; ffprobe (when available) for other containers (WMA, APE, WavPack, …). Readers are
+  budgeted like §6 probing (hostile input; a 16 MiB embedded picture cap). Multi-value tags fill `artists` / `genres`
+  (ID3v2.4 NUL separators, repeated Vorbis fields; `;` also separates genres) — `artist` stays the display string.
+  Missing values are guessed from the space-relative path: `Artist/Album/NN - Title.ext`, `Artist - Album/NN Title.ext`,
+  disc folders (`CD1`, `Disc 2`) and leading track numbers. Values set with `PATCH`/`bulk` are manual: re-reads keep
+  them (`probe?reset=1` drops them). Explicit sort tags (`TSOP`, `TSOA`, `ALBUMSORT`, …) are honoured; otherwise sort
+  keys ignore case, diacritics and a leading "The "/"A "/"An ".
+* **Identity.** `album_id` and `artist_id` are opaque, stable ids derived from the normalised (case-, whitespace- and
+  diacritic-insensitive) album artist + album title, and artist name. Album artist = `album_artist` tag, else
+  "Various Artists" for compilations (`TCMP`/`COMPILATION`/`cpil`), else the track artist. Tracks without an album have
+  `album` and `album_id` `""` and appear in no album. `GET /music/artists` lists album artists (`role=all` adds track
+  artists that only appear on other artists' albums).
+* **Art.** Cover art = custom album art, else the track's embedded picture (front cover preferred), else (setting
+  `music.folder_art`) an image in the track's folder named `cover`, `folder`, `front`, `album`, `albumart` (jpg/jpeg/
+  png/gif, case-insensitive), else the only image in that folder; a disc folder (`CD1`, `Disc 2`, `disk-03`, …)
+  without such an image uses its parent (album) folder's the same way. Images are decoded under the shared image budget,
+  re-encoded as JPEG and stored once per distinct picture; sizes sm 160, md 320, lg 640, xl 1200 px (longest edge).
+  `art_url` values are API paths with a cache-busting `?v=` (append `&size=`). Album art may be set by a caller with
+  write access to the space of every track of the album they can read. A playlist's generated art is a 2×2 mosaic of
+  the covers of its first four distinct albums (a single cover when it has fewer).
+* **Transcode.** `format` aac (ADTS, default) | mp3 | opus (Ogg), `bitrate` 64–320 kbps (default 160), `start` seconds.
+  At most 8 audio transcodes server-wide and 2 per user (429 `rate_limited` + `Retry-After`); a client that stops
+  reading for 60 s is dropped. Transcodes do not count against the §6 video transcode slots.
+* **Downloads.** `original` serves the file itself. `high`/`normal`/`low` are AAC in MP4 (`audio/mp4`, faststart) at
+  256/160/96 kbps, produced once by ffmpeg into a server cache bounded by `music.download_cache_bytes` (least recently
+  used first; a file is never re-encoded at a higher bitrate than its own) and then served with `Range`/`ETag` like the
+  original. While a rendition is prepared the endpoint answers 202 `{"status":"preparing"}` with `Retry-After`; without
+  ffmpeg (or with a 0-byte cache) only `original` works (501 `ffmpeg_unavailable`). The `ETag` changes when the source
+  file changes, so `If-Range` resumes never mix renditions.
+* **Lyrics.** Embedded (ID3 `USLT`/`SYLT`, Vorbis `LYRICS`/`UNSYNCEDLYRICS`, MP4 `©lyr`) or an `.lrc` sidecar with the
+  track's base name (synced when it has `[mm:ss.xx]` stamps; an `.lrc` wins over embedded unsynced text).
+* **Plays.** A play is recorded when `seconds_played` ≥ min(50% of the duration, 240 s) or `completed`; others are
+  `ignored`, as are repeats of the same `(track_id, played_at)` (clients replay their offline queue safely) and
+  `played_at` in the future (> 5 min) or older than 1 year. Plays feed `play_count`, `last_played_at`, `most_played`
+  (last 90 days) and `recently_played` (by context: the album, playlist or artist a play came from; plays without a
+  context count as their album).
+* **Playlists.** `private` playlists are visible to their owner only; `shared` ones to every user, who sees only the
+  tracks they can read (`unavailable_count` counts the others, which are never listed). Only the owner edits name,
+  description, visibility, rules or art, or deletes; `collaborative` shared playlists let every user add, remove and
+  move items. Someone else's private playlist is 404; changing one you can see but not edit is 403. `base_version`
+  ≠ current → 409 `conflict` with `details.current` (the `Playlist`). Positions are 0-based; `items/move` moves the
+  listed items (keeping their relative order) so the first lands at `position` in the list without them. Limits: 10 000
+  items per playlist, 1000 playlists per user, name ≤ 200 chars, description ≤ 2000 chars.
+* **Smart playlists** are evaluated for the caller on every read (their library, their plays/favorites/ratings) and are
+  read-only lists (`items/*` → 409). `field`: `title`, `artist`, `album`, `album_artist`, `genre`, `composer`, `path`,
+  `codec`, `subcategory` (text ops `is`, `is_not`, `contains`, `not_contains`, `starts_with`); `year`,
+  `duration_seconds`, `play_count`, `rating`, `bitrate_kbps` (number ops `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `between`
+  with `[a,b]`); `added_at`, `last_played_at` (date ops `in_last_days`, `not_in_last_days` with a day count, `before`,
+  `after` with an RFC 3339 time); `favorite`, `compilation` (`is_true`, `is_false`). 1–20 conditions; `sort` one of the
+  `GET /music/tracks` sorts (`random` is stable for a day); `limit` ≤ 5000. Invalid rules → 422.
+* **Import.** Entries resolve by path relative to `base_path` in `space_id` (default: the caller's home root), then by
+  `<space name>/<path>` as exported, then by `#EXTINF` "Artist - Title"; unresolved lines are returned in `unmatched`.
+
+## 13. Kanban boards
+
+`Member` = `{"user_id","username","display_name","role":"owner"|"admin"|"editor"|"viewer"}`
+`Label` = `{"id","name","color"}` (`color` ∈ `gray red orange amber yellow green teal blue indigo purple pink`)
+`Column` = `{"id","board_id","name","position":int,"color"|null,"wip_limit"|null,"collapsed":bool,"card_count":int,"created_at","updated_at"}`
+`Card` = `{"id","board_id","column_id","number":int,"title","description","position":int,"labels":[label ids],
+"assignees":[user ids],"priority":"none"|"low"|"medium"|"high"|"urgent","start_at"|null,"due_at"|null,"all_day":bool,
+"completed":bool,"completed_at"|null,"cover_attachment_id"|null,"subtasks_total":int,"subtasks_done":int,
+"comment_count":int,"attachment_count":int,"archived":bool,"archived_at"|null,"created_by","created_at","updated_at","version":int}`
+`CardDetail` = `Card` + `{"subtasks":[Subtask],"attachments":[Attachment],"comments":[Comment],"activity":[Activity]}`
+(all subtasks and attachments, the newest 100 comments in chronological order, the newest 50 activity entries)
+`Subtask` = `{"id","card_id","title","done":bool,"position":int,"due_at"|null,"assignee_id"|null,"completed_at"|null,"created_at","updated_at"}`
+`Comment` = `{"id","card_id","author_id","author_name","body","created_at","updated_at","edited":bool}`
+`Attachment` = `{"id","card_id","filename","mime","size","is_image":bool,"url","thumbnail_url"|null,"uploaded_by","created_at"}`
+`Activity` = `{"id","board_id","card_id"|null,"actor_id","actor_name","action","meta":{},"created_at"}`
+`Board` = `{"id","name","description","color","owner_id","role" (the caller's),"archived":bool,"members":[Member],
+"labels":[Label],"columns":[Column],"cards":[Card],"card_count":int,"created_at","updated_at","version":int}`
+`BoardSummary` = `Board` without `labels`, `columns` and `cards`, plus `{"member_count","open_card_count","overdue_count"}`
+
+| Method & path | Scope | Notes |
+|---|---|---|
+| `GET /kanban/boards?archived=` | kanban:read | `[BoardSummary]` boards the caller belongs to, by name |
+| `POST /kanban/boards` | kanban:write | `{"name","description"?,"color"?,"template"?:"basic"|"blank"}` → 201 `Board` (`basic`, the default: columns "To do", "In progress", "Done") |
+| `GET /kanban/boards/{id}?include_archived=` | kanban:read | `Board` with `ETag: "<version>"`; `If-None-Match` with the current version → 304 |
+| `PATCH /kanban/boards/{id}` | kanban:write | `{"name"?,"description"?,"color"?,"archived"?}` → `Board` (admin) |
+| `DELETE /kanban/boards/{id}` | kanban:write | 204 (owner) — deletes columns, cards, comments and attachments |
+| `PUT /kanban/boards/{id}/members` | kanban:write | `{"members":[{"user_id","role":"admin"|"editor"|"viewer"}]}` full replacement (the owner stays) → `Board` (admin) |
+| `POST /kanban/boards/{id}/leave` | kanban:read | → 204 (any member but the owner) |
+| `POST /kanban/boards/{id}/transfer` | kanban:write | `{"user_id"}` (a member) → `Board` (owner; the old owner becomes admin) |
+| `GET /kanban/boards/{id}/activity?card_id=&cursor=&limit=` | kanban:read | `Page<Activity>` newest first |
+| `POST /kanban/boards/{id}/labels` | kanban:write | `{"name","color"}` → 201 `Label` (editor) |
+| `POST /kanban/boards/{id}/columns` | kanban:write | `{"name","position"?,"color"?,"wip_limit"?}` → 201 `Column` (editor) |
+| `GET /kanban/users?q=` | kanban:write | `[{"id","username","display_name"}]` (≤ 20 enabled accounts whose username or display name starts with `q`, ≥ 2 chars) for adding members |
+| `PATCH /kanban/labels/{id}` | kanban:write | `{"name"?,"color"?}` → `Label` (editor) |
+| `DELETE /kanban/labels/{id}` | kanban:write | 204 (editor; removed from every card) |
+| `PATCH /kanban/columns/{id}` | kanban:write | `{"name"?,"color"?,"wip_limit"?,"collapsed"?}` → `Column` (editor) |
+| `DELETE /kanban/columns/{id}?move_cards_to=` | kanban:write | 204 (editor); 409 `conflict` while it holds cards (archived ones too) unless `move_cards_to` names another column of the board (cards are appended there) |
+| `POST /kanban/columns/{id}/move` | kanban:write | `{"position":int}` → `[Column]` (the board's columns in their new order) |
+| `POST /kanban/columns/{id}/cards` | kanban:write | `{"title","description"?,"position"?,"labels"?,"assignees"?,"priority"?,"start_at"?,"due_at"?,"all_day"?}` → 201 `Card` (editor) |
+| `GET /kanban/cards?board_id=&q=&label=&assignee=me|<user_id>&due=overdue|today|week|none|any&completed=&archived=&cursor=&limit=` | kanban:read | `Page<Card & {"board_name","column_name"}>` across the caller's boards (or one board), by due date then board/column/position |
+| `GET /kanban/cards/{id}` | kanban:read | `CardDetail` |
+| `PATCH /kanban/cards/{id}` | kanban:write | `{"title"?,"description"?,"labels"?,"assignees"?,"priority"?,"start_at"?,"due_at"?,"all_day"?,"completed"?,"cover_attachment_id"?,"archived"?,"base_version"?}` → `Card` (editor) |
+| `DELETE /kanban/cards/{id}` | kanban:write | 204 (editor; permanent, with subtasks, comments and attachments) |
+| `POST /kanban/cards/{id}/move` | kanban:write | `{"column_id","position"?}` (default: end of the column) → `Card` (editor) |
+| `POST /kanban/cards/{id}/subtasks` | kanban:write | `{"title","position"?,"due_at"?,"assignee_id"?}` → 201 `Subtask` (editor) |
+| `GET /kanban/cards/{id}/comments?cursor=&limit=` | kanban:read | `Page<Comment>` oldest first |
+| `POST /kanban/cards/{id}/comments` | kanban:write | `{"body"}` → 201 `Comment` (any member, viewers included) |
+| `POST /kanban/cards/{id}/attachments?filename=` | kanban:write | raw body (≤ 50 MiB) → 201 `Attachment` (editor) |
+| `POST /kanban/cards/{id}/attachments/from-file` | kanban:write | `{"file_id"}` copies a Files entry the caller can read (also needs `files:read`; ≤ 50 MiB) → 201 `Attachment` (editor) |
+| `PATCH /kanban/subtasks/{id}` | kanban:write | `{"title"?,"done"?,"due_at"?,"assignee_id"?}` → `Subtask` (editor) |
+| `DELETE /kanban/subtasks/{id}` | kanban:write | 204 (editor) |
+| `POST /kanban/subtasks/{id}/move` | kanban:write | `{"position":int}` → `[Subtask]` (the card's subtasks in their new order) |
+| `POST /kanban/subtasks/{id}/promote` | kanban:write | turns the subtask into a card right below its card (same column, title, due date, assignee) and deletes it → 201 `Card` (editor) |
+| `PATCH /kanban/comments/{id}` | kanban:write | `{"body"}` → `Comment` (author only) |
+| `DELETE /kanban/comments/{id}` | kanban:write | 204 (author or board admin) |
+| `GET /kanban/attachments/{id}?download=1` | kanban:read [qt] | bytes, with the §5 content headers (images except SVG inline unless `download=1`, everything else an attachment) |
+| `GET /kanban/attachments/{id}/thumbnail?size=sm|md` | kanban:read [qt] | JPEG (sm 160, md 320 px) for images; 404 otherwise |
+| `PATCH /kanban/attachments/{id}` | kanban:write | `{"filename"}` → `Attachment` (editor) |
+| `DELETE /kanban/attachments/{id}` | kanban:write | 204 (editor or the uploader; clears a card cover using it) |
+| `POST /kanban/attachments/{id}/save-to-files` | kanban:write | `{"space_id"?,"path"?,"name"?,"overwrite"?}` (also needs `files:write`; default: home root, the attachment's name) → 201 `Entry` |
+
+Kanban semantics (normative details):
+* **Access.** Boards are visible only to their members — server admins get no implicit access; other boards are 404.
+  Roles: `viewer` reads and comments; `editor` also changes columns, cards, labels, subtasks and attachments; `admin`
+  also edits the board and its members; `owner` (exactly one) also deletes or transfers the board. A member lacking
+  the role for a change gets 403. Assignees (cards and subtasks) must be members; removing a member unassigns them.
+* **Ordering.** Positions are 0-based and dense per column (cards; archived cards keep their place and are skipped by
+  clients), per board (columns) and per card (subtasks); `position` in a create/move is clamped to the valid range,
+  and moves shift the siblings. WIP limits are advisory (clients warn; the server accepts).
+* **Dates.** `start_at`/`due_at` are RFC 3339 times. For `all_day` dates the client sends the start of the local day
+  (`start_at`) and the end of the local day (`due_at`), so `due=overdue` (= `due_at` < now and not `completed`) is
+  correct without time zones on the server. `due=today|week` use the server's clock: the next 24 h / 7 days.
+  `completed:true` sets `completed_at`.
+* **Versions.** Every change to a board or anything on it increments the board's `version` (the board `ETag`), so
+  clients poll `GET /kanban/boards/{id}` with `If-None-Match` while the board is open (a 304 costs no body). Card
+  writes accept `base_version` (the card's `version`); a stale one is 409 `conflict` with `details.current` (`Card`).
+  A card's `version` increments whenever one of the fields `PATCH` can change does, whoever changes it (also a deleted
+  label or an unassigned member); moves, subtasks, comments and attachments leave it alone, so they never make an
+  open edit conflict. A `PATCH` that changes nothing keeps the version.
+* **Counts and lists.** `card_count` (boards, summaries, columns) counts cards that are not archived. Lists cut card
+  and board descriptions to their first 200 characters (`Board.cards`, `BoardSummary`, `GET /kanban/cards`); the card
+  itself (`GET /kanban/cards/{id}`, card writes) and `GET /kanban/boards/{id}` carry the full text.
+  `GET /kanban/boards` lists active boards, with `archived=true` the archived ones. `GET /kanban/cards` leaves out
+  archived cards unless `archived=true`, and cards of archived boards unless `board_id` names the board.
+* **Members.** `PUT …/members` refuses (422) to remove the caller — members leave with `POST …/leave`.
+* **Markdown** in descriptions and comments is stored as text and rendered by clients (§4 safe renderer).
+* **Attachments** are stored under `<data>/kanban/attachments/` (server-generated names), keep 1 GiB of free space
+  like file uploads (507 `insufficient_storage`), and are served with the Files content headers (`nosniff`, sandbox
+  CSP, active types as `application/octet-stream` downloads). "Images" (`is_image`, inline, usable as `cover`) are the
+  raster formats browsers display: PNG, JPEG, GIF, WebP, BMP, AVIF and ICO. Thumbnails (JPEG, PNG, GIF) share the
+  image decode budget.
+* **Activity** records board, column, card, subtask, comment, attachment and member changes (`action` e.g.
+  `card.created`, `card.moved` with `meta.from_column`/`to_column`, `card.updated` with `meta.fields`) and is kept with
+  the board (its newest 10 000 entries). Deleting a user deletes the boards they own, removes their memberships and
+  assignments, and shows their comments (and activity) as "Deleted user".
+* **Limits:** 500 boards owned per user, 100 members, 100 columns, 10 000 cards (archived included) and 200 labels per
+  board; 200 subtasks, 5000 comments and 100 attachments per card; 50 MiB per attachment (413) and 2 GiB of attachments
+  per board (507 `quota_exceeded`); names ≤ 200 chars, card and subtask titles ≤ 500, descriptions ≤ 100 000, comments
+  ≤ 20 000 (422). Creating beyond a count limit is 409 `conflict`; label names are unique per board (case-insensitive,
+  409).
+
+## 14. Casting (Chromecast, AirPlay)
+
+The server itself controls the cast devices on its network, so every client (web UI in any browser, Android, desktop,
+Python) casts the same way and no vendor SDK is needed: it discovers devices with mDNS (`_googlecast._tcp`,
+`_airplay._tcp`, `_raop._tcp`) and admin-configured `cast.manual_devices`
+(`[{"kind":"chromecast"|"airplay","host","port"?,"name"?}]`, ≤ 50; ports default to 8009 and 7000), speaks the Cast v2
+protocol to Chromecasts (Default Media Receiver) and AirPlay to Apple devices, and lets the devices fetch media
+through short-lived capability URLs. Casting is off until an admin sets `cast.enabled`.
+
+`CastDevice` = `{"id","name","kind":"chromecast"|"airplay","model","host","port","capabilities":["audio","video"],
+"source":"discovered"|"manual","requires_pairing":bool,"paired":bool,"available":bool,"busy":bool,"session_id"|null}`
+(`session_id` only when the caller owns the session on it — or is an administrator, who may stop any session; `busy` when
+anyone casts to it through this server)
+`CastItem` = `{"kind":"media"|"track"|"channel","id","title","subtitle","art_url"|null,"duration_seconds"|null}`
+(`art_url` is an authenticated API path for the caller's own UI, like the §6/§12 art URLs — devices get art through
+their ticket URLs)
+`CastSession` = `{"id","device":CastDevice,"owner_id","state":"connecting"|"loading"|"buffering"|"playing"|"paused"|"idle"|"stopped"|"error",
+"error":{"code","message"}|null,"items":[CastItem],"index":int,"position_seconds":float,"duration_seconds"|null,
+"volume":float (0–1),"muted":bool,"repeat":"off"|"all"|"one","shuffle":bool,"version":int,"created_at","updated_at"}`
+
+| Method & path | Scope | Notes |
+|---|---|---|
+| `GET /cast/devices` | cast | `{"enabled":bool,"devices":[CastDevice]}` (empty while casting is disabled) |
+| `POST /cast/devices/refresh` | cast | browses now (≤ 3 s) → same as `GET` |
+| `POST /cast/devices/{id}/pair` | cast | AirPlay PIN pairing (Apple TV), step 1: the TV shows a 4-digit PIN → `{"pairing_id"}` |
+| `POST /cast/devices/{id}/pair/confirm` | cast | `{"pairing_id","pin"}` → 204 (credentials kept server-wide, sealed with the server key); wrong PIN → 422 |
+| `DELETE /cast/devices/{id}/pairing` | admin | forget the pairing → 204 |
+| `GET /cast/sessions` | cast | `[CastSession]` the caller's sessions |
+| `POST /cast/sessions` | cast | `{"device_id","items":[{"kind","id"}] (1–1000),"index"?,"position_seconds"?,"repeat"?,"shuffle"?,"volume"?}` → 201 `CastSession` |
+| `GET /cast/sessions/{id}?wait_version=&timeout=` | cast | `CastSession`; with `wait_version` the answer waits until `version` differs (long poll, `timeout` 1–30 s, default 20) |
+| `POST /cast/sessions/{id}/control` | cast | `{"action":"play"|"pause"|"toggle"|"stop"|"seek"|"next"|"previous"|"jump"|"volume"|"mute"|"repeat"|"shuffle","position_seconds"?,"index"?,"volume"?,"muted"?,"repeat"?,"shuffle"?}` → `CastSession` |
+| `PUT /cast/sessions/{id}/items` | cast | `{"items":[...],"index"?,"position_seconds"?}` replaces the queue → `CastSession` |
+| `POST /cast/sessions/{id}/items` | cast | `{"items":[...],"position"?}` inserts (default: append) → `CastSession` |
+| `DELETE /cast/sessions/{id}` | cast | stops playback and disconnects → 204 (the owner, or an admin for any session) |
+| `GET /cast/media/{ticket}/{kind}/{id}/{asset}` | public (ticket) | what the cast device fetches: `asset` = `stream` · `transcode` (`?start=`) · `art` (`?size=`) · `<n>.vtt` (subtitle track n) |
+
+Casting semantics (normative details):
+* **Items** need the matching read scope and access: `media` (`media:read`, a readable §6 media item), `track`
+  (`music:read`, a readable §12 track), `channel` (`tv:read`, a channel visible to the caller; it plays the current
+  program from the live offset — on-demand channels from the caller's position — and follows the schedule). Video
+  items on an audio-only device → 422 `unsupported_media`. Starting a session on a device that already has one stops
+  that session (state `stopped`, `error.code` `replaced`). Sessions are private to their owner; devices are shared by
+  every user of the server.
+* **Media URLs.** Each session gets a ticket of 32 random bytes (base64url). A ticket is valid only for its session's
+  items, only while the session lives (+ 60 s), only from the device's address (when the server sees its requests
+  directly), and every request re-checks the owner's current access (a disabled account or a lost permission ends
+  it). Ticket routes accept no cookies or tokens, answer `Access-Control-Allow-Origin: *` (receivers load subtitles
+  and art with XHR), are exempt from the generic rate limit for `Range` requests and are not listed anywhere else.
+  `stream` serves the file (Range); `transcode` the §6 fMP4 (video, when the device cannot play the file) or AAC
+  (audio); `art` the poster/cover JPEG; `<n>.vtt` §6 subtitles.
+* **Reachability.** Devices fetch from `cast.media_base_url` when set (e.g. `https://nas.example.com` behind a
+  reverse proxy — it must present a certificate the devices trust), else, when `cast.media_port` > 0, from
+  `http://<this server's address on the device's network>:<media_port>`, a plain-HTTP listener that serves **only**
+  ticket routes (everything else 404); else from `general.public_url`. With none usable, starting a session is 503
+  `cast_unavailable`. Chromecasts and Apple TVs do not trust the default self-signed certificate.
+* **Chromecast** (Cast v2 over TLS port 8009, Default Media Receiver `CC1AD845`): video `media` items play the file
+  when the Chromecast supports its container and codecs (MP4/WebM with H.264/VP8/VP9/AV1 + AAC/MP3/Opus/Vorbis), else
+  the transcode (needs ffmpeg); tracks play the file (MP3, AAC, FLAC, Ogg, Opus, WAV) else an AAC transcode; title,
+  artist, album and art go along. Volume is the device's volume.
+* **AirPlay audio** (HomePod, AirPort Express, AirPlay speakers, Apple TV; RAOP over RTSP, ALAC over RTP with NTP
+  timing): the server decodes the track (ffmpeg; WAV natively) and streams it in real time, with title/artist/album,
+  cover art and progress. Speakers whose "Allow speaker access" setting requires a password or Home membership are
+  not supported (422 `pairing_unsupported`); neither is audio to an Apple TV that requires device verification —
+  PIN pairing enables video only.
+* **AirPlay video** (Apple TV): needs a one-time PIN pairing (`pair`, `pair/confirm`); then the server sends the
+  stream (or transcode) URL to the TV and controls it (play/pause/seek/stop, position). Pairing is offered for video
+  devices with HomeKit pairing (Apple TV HD/4K, AirPlay 2 TVs); HomePods and speakers cannot pair. Volume during video
+  works on AirPlay 2 receivers only; elsewhere the `volume` control fails and playback continues.
+* **State.** The server polls/subscribes to device status and updates `state`, `position_seconds` and `version`;
+  `idle` after an item ends with nothing queued; sessions without a client request or playback for 30 min end. The
+  owner's progress is recorded as if played locally: `media` items via §6 progress rules, tracks via §12 plays.
+* **Limits:** one session per device, 3 sessions per user, 1000 queued items; `next`/`previous`/`jump` respect
+  `repeat` and `shuffle`; seeking a live channel is 409.
+* **Errors** (beyond §0): `POST /cast/sessions` answers 409 `cast_disabled` (casting is off) or `session_limit`, 422
+  `unsupported_media` / `pairing_required` / `pairing_unsupported`, 502 `device_unavailable` (the device cannot be
+  reached; the call connects first, so it may take a few seconds) and 503 `cast_unavailable`; a wrong PIN is 422
+  `validation_failed` with `details.fields.pin` (start pairing again). `CastSession.error.code` is one of `replaced`,
+  `idle`, `access_revoked`, `cast_disabled`, `admin_stopped`, `interrupted` (stopped or taken over on the device),
+  `device_unavailable`, `playback_failed`, `unsupported_media`, `pairing_required`, `pairing_unsupported`; `version`
+  changes with every visible change but not with the advancing position, which is reported as of the response time.
+
+## 15. Offline downloads (client contract)
+
+Mobile clients may keep media and music on the device for offline playback. They use only the endpoints above:
+* Video: `GET /media/{id}/stream`, plus `/media/{id}/subtitles/{i}.vtt` and the poster. Music:
+  `GET /music/tracks/{id}/download?quality=` plus art and lyrics.
+* Transfers resume with `Range` + `If-Range: <ETag>`; a 200 instead of 206 restarts the file. Both endpoints answer
+  with a strong `ETag` (for every `quality`) that changes whenever the bytes would. A finished file is checked against
+  `size` (and `sha256` when the entry has one) before it is used.
+* Offline progress and plays are queued on the device and sent when online (`PUT /media/{id}/progress`,
+  `POST /music/plays` with the original `played_at`).
+* Downloaded content is private app storage: it is deleted when the user signs out or switches server/account, and
+  re-validated when online (`POST /music/tracks/lookup`, `GET /media/{id}`) — items that are gone or no longer
+  readable are removed from the device.

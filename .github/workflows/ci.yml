@@ -93,6 +93,11 @@ jobs:
       - name: Documentation site (nav, links, anchors)
         run: node tools/openapi-check/docs-check.mjs
 
+      - name: Continuous-deployment scripts (deploy/)
+        run: |
+          bash deploy/test/ludworks-deploy.test.sh
+          bash deploy/test/setup-gitea-mirrors.test.sh
+
   package:
     name: Packages (.deb amd64/arm64, Windows zip)
     needs: go

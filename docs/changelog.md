@@ -34,8 +34,23 @@ First release.
   rotation (re-encrypts everything atomically), key identity so devices holding a retired key are refused and
   locked, URI matching by the Public Suffix List (incl. shared-hosting suffixes).
 * **Sheets**: workbooks with formulas and styles; XLSX, XLS and CSV import/export; cell-level API.
+* **Music**: library built from audio tags (ID3, FLAC, Ogg, MP4, WAV/AIFF) with albums, artists, genres and search;
+  embedded and folder cover art; synced and plain lyrics; manual and smart playlists with custom or mosaic covers and
+  M3U import/export; favorites, ratings, play history; live transcodes and compact AAC renditions for offline
+  downloads (ffmpeg); a player that keeps playing while you move between apps.
+* **Kanban**: boards with members and roles, columns you can reorder, collapse and limit, cards with labels,
+  assignees, priorities, dates, Markdown descriptions, subtasks, comments and attachments, and an activity log.
+* **Casting**: the server casts media, music and TV channels to Chromecast and AirPlay devices (HomePod and AirPlay
+  speakers, Apple TV with PIN pairing) found on its network, with a shared queue and remote control from every
+  client — no vendor SDK; devices fetch media through short-lived, session-bound capability URLs. Off by default.
 
 ### Clients
 
-* Python SDK and CLI, Chrome/Firefox password extension, Android TV/Notes/Passwords apps, Windows desktop app,
-  notes app and folder backup utility.
+* Python SDK and CLI, Chrome/Firefox password extension, Android TV/Music/Notes/Passwords apps, Windows desktop
+  app, notes app and folder backup utility.
+* **Android Music**: library, playlists, synced lyrics, background playback with Android Auto and Bluetooth
+  controls, offline downloads and casting. **Android TV** downloads movies and episodes for offline viewing and
+  casts. Downloads resume, are verified against the server's size and SHA-256 and are deleted on sign-out.
+* **Python SDK**: music, kanban and casting resources and CLI commands, and resumable, verified downloads.
+* **Continuous deployment** from a Gitea mirror: tested, packaged and installed with automatic rollback
+  (`deploy/`, see *Continuous deployment (Gitea)* in the admin guide).

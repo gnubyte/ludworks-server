@@ -1,0 +1,123 @@
+# Continuous deployment from a Gitea pull mirror of this repository (docs/admin/continuous-deployment.md).
+#
+# Only Gitea runs this file (GitHub ignores .gitea/). When the mirror's periodic sync moves main, Gitea
+# fires a push event; this job then tests the commit, builds the packages exactly like a release, and
+# hands the .deb for the target's architecture to the target's ludworks-deploy script over SSH. That
+# script verifies it, keeps the previous program and database, installs, health-checks and rolls back
+# on failure. The SSH key can run nothing else on the target (forced command).
+#
+# Settings (Gitea → repository → Settings → Actions), all written by deploy/setup-gitea-mirrors.sh:
+#   secrets   DEPLOY_SSH_KEY (private ed25519 key), DEPLOY_KNOWN_HOSTS (the target's pinned host key)
+#   variables DEPLOY_HOST, DEPLOY_PORT (default 22), DEPLOY_USER (default ludworks-deploy)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never two deploys at once, and never cancel one halfway (the target also refuses a second).
+concurrency:
+  group: deploy-ludworks
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ludworks-deploy' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the package version comes from git describe
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27'
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Check the deploy settings
+        env:
+          HAS_KEY: ${{ secrets.DEPLOY_SSH_KEY != '' }}
+          HAS_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS != '' }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ "$HAS_KEY" != true ] || [ "$HAS_HOSTS" != true ]; then
+            echo "::error::Set DEPLOY_HOST and the DEPLOY_SSH_KEY / DEPLOY_KNOWN_HOSTS secrets (deploy/setup-gitea-mirrors.sh)"
+            exit 1
+          fi
+
+      - name: Test
+        run: |
+          go mod verify
+          go vet ./...
+          go test -count=1 ./...
+          node --test "web/tests/**/*.test.mjs"
+          node tools/openapi-check/check.mjs
+          node tools/openapi-check/docs-check.mjs
+          bash deploy/test/ludworks-deploy.test.sh
+          bash deploy/test/setup-gitea-mirrors.test.sh
+
+      - name: Prepare SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/ludworks_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/ludworks_known_hosts
+          {
+            echo "Host ludworks-target"
+            echo "  HostName $DEPLOY_HOST"
+            echo "  Port $DEPLOY_PORT"
+            echo "  User $DEPLOY_USER"
+            echo "  IdentityFile ~/.ssh/ludworks_deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  UserKnownHostsFile ~/.ssh/ludworks_known_hosts"
+            echo "  StrictHostKeyChecking yes"
+            echo "  BatchMode yes"
+            echo "  ConnectTimeout 20"
+            echo "  ServerAliveInterval 15"
+          } > ~/.ssh/config
+
+      - name: Target status
+        id: target
+        run: |
+          ssh ludworks-target status | tee target-status.txt
+          arch="$(sed -n 's/^arch=//p' target-status.txt)"
+          case "$arch" in
+            amd64|arm64) echo "arch=$arch" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::unsupported target architecture '$arch'"; exit 1 ;;
+          esac
+
+      - name: Build packages
+        # Each deploy carries its commit (e.g. 0.1.1+412.g3f2a9c1d0e4b), so the target's status, health
+        # check and release history tell builds of the same VERSION apart.
+        run: |
+          base="$(tr -d ' \t\r\n' < VERSION)"
+          export VERSION="${base}+$(git rev-list --count HEAD).g$(git rev-parse --short=12 HEAD)"
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" bash scripts/package.sh
+
+      - name: Deploy
+        env:
+          ARCH: ${{ steps.target.outputs.arch }}
+        run: |
+          set -- dist/ludworks_*_"$ARCH".deb
+          [ "$#" -eq 1 ] && [ -f "$1" ] || { echo "::error::expected one $ARCH package in dist/"; exit 1; }
+          sha="$(sha256sum "$1" | cut -d' ' -f1)"
+          echo "Deploying $(basename "$1") (sha256 $sha) to $DEPLOY_HOST"
+          ssh ludworks-target "deploy $sha" < "$1"
+          ssh ludworks-target status
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/ludworks_deploy

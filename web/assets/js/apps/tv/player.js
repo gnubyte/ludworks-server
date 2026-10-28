@@ -6,9 +6,14 @@
 // remembers the last channel. On-demand channels save the viewer's position. Programs'
 // subtitle tracks are offered (c / the CC button); the chosen language carries over to the
 // next programs and channels.
+// Casting (core/cast.js): the cast button sends the channel to a Chromecast/AirPlay device, which
+// then follows the schedule itself; the stage shows the cast controls, zapping re-tunes the device,
+// and stopping returns to watching here (re-synced with /now). Leaving keeps the device playing;
+// coming back re-attaches to a session that plays one of the channels.
 
 import { h, cls, isEditable } from '../../core/dom.js';
 import { formatTime } from '../../core/format.js';
+import { castButton, castControls, attachSession, findSession, errorText, castErrorMessage } from '../../core/cast.js';
 import { createPlayer } from './playercore.js';
 import { channelLogo, programText, miniProgress, iconButton, timeRange, pref } from './shared.js';
 import {
@@ -45,6 +50,7 @@ export async function render(host, vctx) {
   let saveTimer = 0;
   let clockTimer = 0;
   let pausedAt = 0;
+  let cast = null; // {controller, controls, overlay, offEnded} while a device plays the channel
 
   /* ------------------------------------------------------------- overlays */
   const statusBox = h('div', { class: 'tv-status', hidden: true, role: 'status', aria: { live: 'polite' } });
@@ -61,6 +67,14 @@ export async function render(host, vctx) {
   const backBtn = h('a', { class: 'tv-back btn btn-ghost btn-sm', href: '/tv', aria: { label: 'Back to live TV' } }, tvIcon('arrow-left', 16), h('span', {}, 'Live TV'));
   const chUp = iconButton({ icon: 'channel-up', title: 'Next channel (↑)', className: 'tv-zap tv-zap-up', size: 'lg', onClick: () => zap(1) });
   const chDown = iconButton({ icon: 'channel-down', title: 'Previous channel (↓)', className: 'tv-zap tv-zap-down', size: 'lg', onClick: () => zap(-1) });
+  const castBtn = castButton({
+    api: ctx.api, ui, className: 'tv-ctl',
+    getItems: () => (channel ? { items: [{ kind: 'channel', id: channel.id }] } : null),
+    // On-demand channels continue on the device from the position saved here.
+    beforeStart: () => savePosition(),
+    media: () => player.video,
+    onSession: (c) => beginCast(c),
+  });
 
   const player = createPlayer({
     live: true,
@@ -75,6 +89,7 @@ export async function render(host, vctx) {
       iconButton({ icon: 'channel-up', title: 'Next channel (↑)', className: 'tv-ctl', onClick: () => zap(1) }),
       iconButton({ icon: 'info', title: 'Info (i)', className: 'tv-ctl', onClick: () => showBanner(true) }),
       iconButton({ icon: 'list', title: 'Mini guide (g)', className: 'tv-ctl', onClick: () => toggleGuide() }),
+      castBtn,
       iconButton({ icon: 'help', title: 'Shortcuts (?)', className: 'tv-ctl hide-sm', onClick: () => toggleHelp() }),
     ],
   });
@@ -86,6 +101,62 @@ export async function render(host, vctx) {
     if (!p || !player.source) return 0;
     return Math.min(1, player.position() / (p.duration_seconds || 1));
   });
+
+  /** Seconds into the current program: on the device while casting, else in the local player. */
+  const playPosition = () => (cast ? cast.controller.position() : player.position());
+
+  /* -------------------------------------------------------------- casting */
+  function teardownCast() {
+    if (!cast) return null;
+    const c = cast;
+    cast = null;
+    c.offEnded();
+    c.controls.destroy();
+    c.overlay.remove();
+    player.el.classList.remove('is-casting');
+    castBtn.setCasting(null);
+    return c;
+  }
+
+  /** A device plays the channel now: stop the local stream and show the cast controls. */
+  function beginCast(c) {
+    if (cast) {
+      if (cast.controller.id === c.id) return;
+      const old = teardownCast(); // moved to another device: end the previous session
+      if (!old.controller.ended) old.controller.stop().catch(() => {});
+    }
+    const controls = castControls(c, { variant: 'overlay', onStop: () => endCast(null) });
+    const overlay = h('div', { class: 'tv-cast' }, controls.el);
+    cast = { controller: c, controls, overlay, offEnded: c.on('ended', ({ reason, byUser }) => { if (!byUser) endCast(reason); }) };
+    clearTimeout(retryTimer);
+    player.stop();
+    player.setTracks([]);
+    player.el.classList.remove('is-tuning');
+    setStatus(null);
+    player.overlays.append(overlay);
+    player.el.classList.add('is-casting');
+    castBtn.setCasting(c.device);
+  }
+
+  /** Casting ended: watch here again (at once when stopped from here, else on request). */
+  function endCast(reason) {
+    if (!teardownCast()) return;
+    if (!reason) {
+      resync(false);
+      return;
+    }
+    clearTimeout(endTimer); // the schedule follow-up must not start playing here on its own
+    clearTimeout(retryTimer);
+    setStatus(statusCard({
+      iconName: 'cast', title: 'Casting ended', message: errorText(reason),
+      actions: [ui.button({ label: 'Watch here', icon: 'play', variant: 'primary', onClick: () => { setStatus(null); resync(false); } })],
+    }));
+  }
+
+  /** Run a cast control from a key; failures become a toast. */
+  function castRun(p) {
+    p?.catch?.((err) => ui.toast(castErrorMessage(err), { type: 'warning', timeout: 4000 }));
+  }
 
   /* --------------------------------------------------------------- status */
   function setStatus(content) {
@@ -111,7 +182,7 @@ export async function render(host, vctx) {
     if (!channel) return;
     const p = nowResp?.program || null;
     const next = nowResp?.next?.[0] || null;
-    bannerProgress.set(p ? Math.min(1, player.position() / (p.duration_seconds || 1)) : 0);
+    bannerProgress.set(p ? Math.min(1, playPosition() / (p.duration_seconds || 1)) : 0);
     bannerProgress.el.hidden = !p;
     clock.textContent = formatTime(new Date());
     banner.replaceChildren(
@@ -170,6 +241,15 @@ export async function render(host, vctx) {
     ctx.setTitle(`${channel.number} · ${channel.name}`);
     if (replaceUrl && location.pathname !== `/tv/watch/${channel.id}`) navigate(`/tv/watch/${channel.id}`, { replace: true });
     nowResp = { channel, program: null, next: [] };
+    if (cast) {
+      // Zapping while casting re-tunes the device; this page only follows the schedule.
+      if (cast.controller.item()?.id !== channel.id) {
+        cast.controller.replaceItems([{ kind: 'channel', id: channel.id }]).catch((err) => ui.toast(castErrorMessage(err), { type: 'warning' }));
+      }
+      showBanner();
+      await resync(false, my);
+      return;
+    }
     player.el.classList.add('is-tuning');
     showBanner();
     setStatus(statusCard({ iconName: 'antenna', title: `Tuning to ${channel.number}`, message: channel.name }));
@@ -190,6 +270,10 @@ export async function render(host, vctx) {
       r = await api.now(channel.id, signal);
     } catch (err) {
       if (signal.aborted || my !== tuneSeq) return;
+      if (cast) {
+        retryTimer = setTimeout(() => resync(false, my), 30000);
+        return;
+      }
       player.stop();
       setStatus(statusCard({
         iconName: 'alert-circle', title: 'Could not tune in', message: ui.errorMessage(err),
@@ -202,6 +286,16 @@ export async function render(host, vctx) {
     fetchedAt = performance.now();
     channel = r.channel;
     player.el.classList.remove('is-tuning');
+    if (cast) {
+      renderBanner();
+      if (r.program) {
+        const remaining = Math.max(5, (Number(r.program.duration_seconds) || 0) - (Number(r.offset_seconds) || 0));
+        endTimer = setTimeout(() => resync(true), remaining * 1000 + 1500);
+      } else {
+        retryTimer = setTimeout(() => resync(false, my), 60000);
+      }
+      return;
+    }
     if (!r.program) {
       player.stop();
       player.setTracks([]);
@@ -222,6 +316,7 @@ export async function render(host, vctx) {
   }
 
   function startProgram() {
+    if (cast) return;
     const p = nowResp.program;
     const offset = liveOffset(nowResp, fetchedAt, performance.now());
     const src = chooseSource(p, offset, { forceTranscode });
@@ -239,7 +334,7 @@ export async function render(host, vctx) {
 
   function onMediaError() {
     const p = nowResp?.program;
-    if (!p) return;
+    if (!p || cast) return;
     const src = player.source;
     if (src?.kind === 'direct' && p.transcode_url && !forceTranscode) {
       forceTranscode = true;
@@ -373,6 +468,8 @@ export async function render(host, vctx) {
     if (isEditable(e.target) || document.documentElement.classList.contains('modal-open') || document.documentElement.classList.contains('palette-open')) return;
     if (!page.isConnected) return;
     const k = e.key;
+    // The cast controls' sliders keep their arrow keys (volume, not zapping).
+    if (cast && e.target instanceof HTMLInputElement && e.target.closest('.cast-controls') && k.startsWith('Arrow')) return;
     if (!miniGuide.hidden) {
       if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); selectGuide(guideSel + (k === 'ArrowDown' ? 1 : -1)); return; }
       if (k === 'Enter') {
@@ -393,13 +490,13 @@ export async function render(host, vctx) {
       case 'Backspace': if (digits) { e.preventDefault(); digits = digits.slice(0, -1); if (digits) osd.textContent = digits; else osd.hidden = true; } break;
       case 'i': case 'I': e.preventDefault(); showBanner(true); break;
       case 'g': case 'G': e.preventDefault(); toggleGuide(); break;
-      case 'm': case 'M': e.preventDefault(); player.toggleMute(); break;
+      case 'm': case 'M': e.preventDefault(); if (cast) castRun(cast.controller.setMuted(!cast.controller.session.muted)); else player.toggleMute(); break;
       case 'f': case 'F': e.preventDefault(); player.toggleFullscreen(); break;
-      case 'p': case 'P': e.preventDefault(); player.togglePiP(); break;
-      case 'c': case 'C': { e.preventDefault(); const label = player.cycleCaptions(); if (label !== null) ui.toast(label ? `Subtitles: ${label}` : 'Subtitles off', { timeout: 1500 }); break; }
+      case 'p': case 'P': e.preventDefault(); if (!cast) player.togglePiP(); break;
+      case 'c': case 'C': { if (cast) break; e.preventDefault(); const label = player.cycleCaptions(); if (label !== null) ui.toast(label ? `Subtitles: ${label}` : 'Subtitles off', { timeout: 1500 }); break; }
       case '?': e.preventDefault(); toggleHelp(); break;
-      case '+': case '=': e.preventDefault(); player.changeVolume(0.1); break;
-      case '-': case '_': e.preventDefault(); player.changeVolume(-0.1); break;
+      case '+': case '=': e.preventDefault(); changeVolume(0.1); break;
+      case '-': case '_': e.preventDefault(); changeVolume(-0.1); break;
       case 'k': case ' ': if (e.target instanceof HTMLButtonElement && k === ' ') break; e.preventDefault(); togglePause(); break;
       case 'Escape':
         if (!osd.hidden) { digits = ''; osd.hidden = true; } else if (!banner.hidden) banner.hidden = true;
@@ -409,7 +506,20 @@ export async function render(host, vctx) {
     }
   }
 
+  function changeVolume(delta) {
+    if (!cast) {
+      player.changeVolume(delta);
+      return;
+    }
+    const c = cast.controller;
+    castRun(c.setVolume(Math.min(1, Math.max(0, (Number(c.session.volume) || 0) + delta))));
+  }
+
   function togglePause() {
+    if (cast) {
+      castRun(cast.controller.toggle());
+      return;
+    }
     const v = player.video;
     if (v.paused) {
       // Live TV never really pauses: coming back re-joins the broadcast (unless on demand).
@@ -426,7 +536,7 @@ export async function render(host, vctx) {
   /* ---------------------------------------------------------------- swipes */
   let swipe = null;
   player.el.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch' || e.target.closest('.tv-controls,.tv-miniguide,.tv-help')) return;
+    if (e.pointerType !== 'touch' || e.target.closest('.tv-controls,.tv-miniguide,.tv-help,.cast-controls')) return;
     swipe = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
   player.el.addEventListener('pointerup', (e) => {
@@ -441,6 +551,7 @@ export async function render(host, vctx) {
 
   /* ------------------------------------------------------------- positions */
   async function savePosition(offset) {
+    if (cast) return; // the server saves the device's progress
     if (channel?.playback_mode !== 'on_demand' || !nowResp?.program || !Number.isInteger(nowResp.index)) return;
     const pos = offset ?? player.position();
     if (!(pos >= 0)) return;
@@ -450,6 +561,7 @@ export async function render(host, vctx) {
   }
 
   function saveOnHide() {
+    if (cast) return;
     if (channel?.playback_mode !== 'on_demand' || !nowResp?.program || !Number.isInteger(nowResp.index)) return;
     try {
       fetch(`/api/v1/tv/channels/${encodeURIComponent(channel.id)}/position`, {
@@ -467,7 +579,7 @@ export async function render(host, vctx) {
   saveTimer = setInterval(() => { if (!player.video.paused) savePosition(); }, SAVE_EVERY_MS);
   clockTimer = setInterval(() => {
     clock.textContent = formatTime(new Date());
-    if (!banner.hidden) bannerProgress.set(nowResp?.program ? Math.min(1, player.position() / (nowResp.program.duration_seconds || 1)) : 0);
+    if (!banner.hidden) bannerProgress.set(nowResp?.program ? Math.min(1, playPosition() / (nowResp.program.duration_seconds || 1)) : 0);
   }, 1000);
 
   try {
@@ -478,7 +590,15 @@ export async function render(host, vctx) {
   }
   // The URL's channel, else the last one watched (if still visible), else the first.
   const last = pref('lw.tv.lastChannel');
-  const initial = vctx.route.id || (channels.some((c) => c.id === last) ? last : channels[0]?.id);
+  let initial = vctx.route.id || (channels.some((c) => c.id === last) ? last : channels[0]?.id);
+  // Still casting a channel from an earlier visit (the URL's, or any when the URL names none)?
+  // Then follow that device instead of playing here.
+  const casting = initial ? await findSession(ctx.api, (sess, it) => it?.kind === 'channel'
+    && (vctx.route.id ? it.id === vctx.route.id : channels.some((c) => c.id === it.id))) : null;
+  if (casting && !signal.aborted) {
+    initial = casting.items[casting.index].id;
+    beginCast(attachSession(ctx.api, casting));
+  }
   if (!initial) {
     setStatus(statusCard({
       iconName: 'tv', title: 'No channels yet', message: 'Create a channel to start watching.',
@@ -495,7 +615,11 @@ export async function render(host, vctx) {
       if (id && id !== channel?.id) tune(id, { replaceUrl: false });
     },
     unmount() {
-      savePosition();
+      // Leaving while casting keeps the device playing; only a local position is saved.
+      const wasCasting = !!cast;
+      teardownCast()?.controller.detach();
+      castBtn.destroy();
+      if (!wasCasting) savePosition();
       tuneSeq++;
       document.removeEventListener('keydown', onKeyCapture, true);
       window.removeEventListener('pagehide', saveOnHide);

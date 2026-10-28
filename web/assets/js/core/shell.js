@@ -46,7 +46,7 @@ export function createShell(o) {
     nav.replaceChildren();
     navLinks.clear();
     const groups = [
-      ['Apps', apps.filter((a) => ['home', 'files', 'tv', 'notes', 'vault', 'sheets'].includes(a.id))],
+      ['Apps', apps.filter((a) => ['home', 'files', 'tv', 'music', 'notes', 'vault', 'sheets', 'kanban'].includes(a.id))],
       ['System', apps.filter((a) => ['system', 'settings', 'admin'].includes(a.id))],
     ];
     for (const [label, list] of groups) {
@@ -114,8 +114,20 @@ export function createShell(o) {
     e.preventDefault();
     view.focus();
   });
-  const main = h('div', { class: 'main' }, topbar, view);
+  // Persistent bottom dock (music player): outside the app view, so it survives app switches.
+  const dock = h('div', { class: 'dock', id: 'dock', hidden: true });
+  let dockRemove = null;
+  const main = h('div', { class: 'main' }, topbar, view, dock);
   const shellEl = h('div', { class: 'shell' }, skip, sidebar, backdrop, main);
+
+  function setDock(node, opts = {}) {
+    const prev = dockRemove;
+    dockRemove = node ? opts.onRemove || null : null;
+    dock.replaceChildren(...(node ? [node] : []));
+    dock.hidden = !node;
+    shellEl.classList.toggle('has-dock', !!node);
+    if (prev) prev();
+  }
 
   function renderUser() {
     userBtn.replaceChildren(avatar({ name: displayName(user) || user?.username, size: 28 }));
@@ -259,9 +271,19 @@ export function createShell(o) {
     setServerName(name) {
       brand.querySelector('.sidebar-brand-name').textContent = name || 'Ludworks';
     },
+    /**
+     * Show `node` in the persistent bottom dock (null empties it). `opts.onRemove` runs when the
+     * node is replaced or the shell is destroyed (sign-out): stop playback and release resources there.
+     */
+    setDock,
+    /** The node currently in the dock, or null. */
+    get dockNode() {
+      return dock.firstElementChild;
+    },
     openNav,
     closeNav,
     destroy() {
+      setDock(null);
       offTheme();
       offKey();
       shellEl.remove();

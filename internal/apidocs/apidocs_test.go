@@ -105,7 +105,7 @@ func TestUnresolvedRefs(t *testing.T) {
 // TestRealFragmentsMerge merges the checked-in base.json with every module's openapi.json
 // exactly as the server does, so a conflicting or broken fragment fails CI.
 func TestRealFragmentsMerge(t *testing.T) {
-	mods := []string{"auth", "mail", "admin", "files", "media", "tv", "notes", "vault", "sheets", "system"}
+	mods := []string{"auth", "mail", "admin", "files", "media", "tv", "music", "notes", "vault", "sheets", "kanban", "cast", "system"}
 	var frags []Fragment
 	for _, m := range mods {
 		b, err := os.ReadFile(filepath.Join("..", m, "openapi.json"))

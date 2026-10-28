@@ -1468,7 +1468,9 @@
           "files",
           "media",
           "tv",
-          "mail_in"
+          "mail_in",
+          "music",
+          "cast"
         ],
         "properties": {
           "general": {
@@ -1494,6 +1496,12 @@
           },
           "mail_in": {
             "$ref": "#/components/schemas/AdminSettingsMailIn"
+          },
+          "music": {
+            "$ref": "#/components/schemas/AdminSettingsMusic"
+          },
+          "cast": {
+            "$ref": "#/components/schemas/AdminSettingsCast"
           }
         }
       },
@@ -1524,6 +1532,12 @@
           },
           "mail_in": {
             "$ref": "#/components/schemas/AdminSettingsMailInPatch"
+          },
+          "music": {
+            "$ref": "#/components/schemas/AdminSettingsMusicPatch"
+          },
+          "cast": {
+            "$ref": "#/components/schemas/AdminSettingsCastPatch"
           }
         }
       },

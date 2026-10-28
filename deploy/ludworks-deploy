@@ -1,0 +1,278 @@
+#!/bin/bash
+# ludworks-deploy — installs a Ludworks build sent by CI, safely (docs/admin/continuous-deployment.md).
+#
+# Installed as /usr/local/sbin/ludworks-deploy by setup-deploy-target.sh and run as root through one
+# sudo rule from the forced command of the CI deploy key:
+#
+#   restrict,command="sudo -n /usr/local/sbin/ludworks-deploy" ssh-ed25519 AAAA… ludworks-ci
+#
+# so all that key can do is one of these (taken from SSH_ORIGINAL_COMMAND, or the arguments when an
+# administrator runs it locally with sudo):
+#
+#   status            the installation's state as key=value lines
+#   deploy <sha256>   read a ludworks .deb from stdin and install it:
+#                       1. verify the upload: size, SHA-256, package name and architecture, and
+#                          that the new program runs on this machine
+#                       2. keep the current program, unit file and database for a rollback
+#                          (the service is stopped while the database is copied)
+#                       3. install, start, and wait until /api/v1/health reports the new version
+#                       4. if anything fails after the service was stopped: put the previous
+#                          program, unit file and database back, start it again, report failure
+#
+# Settings come from /etc/ludworks-deploy.conf (written by setup-deploy-target.sh). Releases, database
+# backups and the log live in /var/lib/ludworks-deploy (root only). One deploy runs at a time.
+set -euo pipefail
+umask 077
+
+readonly CONF_FILE=/etc/ludworks-deploy.conf
+readonly MAX_UPLOAD=$((256 * 1024 * 1024))
+readonly KEEP=5
+HEALTH_TIMEOUT=120
+POLL=2
+
+# Tests run the script unprivileged against a temporary tree (LUDWORKS_DEPLOY_TEST_ROOT). As root —
+# the only way production runs it, and sudo resets the environment anyway — the variables are ignored.
+ROOT=""
+if [[ $EUID -ne 0 && -n "${LUDWORKS_DEPLOY_TEST_ROOT:-}" ]]; then
+	ROOT="$LUDWORKS_DEPLOY_TEST_ROOT"
+	HEALTH_TIMEOUT="${LUDWORKS_DEPLOY_TEST_HEALTH_TIMEOUT:-5}"
+	POLL=0.1
+fi
+STATE_DIR="$ROOT/var/lib/ludworks-deploy"
+LOCK_FILE="$ROOT/run/lock/ludworks-deploy.lock"
+
+log() {
+	local line
+	line="$(date -u +%Y-%m-%dT%H:%M:%SZ) $*"
+	printf '%s\n' "$line" >&2
+	if [[ -d "$STATE_DIR" ]]; then printf '%s\n' "$line" >>"$STATE_DIR/deploy.log"; fi
+	if [[ -z "$ROOT" ]] && command -v logger >/dev/null; then logger -t ludworks-deploy -- "$*" || true; fi
+}
+
+die() {
+	log "error: $*"
+	exit 1
+}
+
+# --------------------------------------------------------------------------------------- settings
+
+MODE="" UNIT="" BINARY="" DATA_DIR="" HEALTH_URL=""
+
+load_conf() {
+	local file="$ROOT$CONF_FILE" key value
+	[[ -f "$file" ]] || die "$CONF_FILE is missing: run setup-deploy-target.sh first"
+	# Parsed, never sourced: only known keys, and values without shell meaning.
+	while IFS='=' read -r key value; do
+		[[ -z "$key" || "$key" == \#* ]] && continue
+		[[ "$value" =~ ^[A-Za-z0-9_./:@+-]*$ ]] || die "$CONF_FILE: unsafe value for $key"
+		case "$key" in
+		MODE) MODE="$value" ;;
+		UNIT) UNIT="$value" ;;
+		BINARY) BINARY="$value" ;;
+		DATA_DIR) DATA_DIR="$value" ;;
+		HEALTH_URL) HEALTH_URL="$value" ;;
+		*) die "$CONF_FILE: unknown key $key" ;;
+		esac
+	done <"$file"
+	[[ "$MODE" == deb || "$MODE" == binary ]] || die "$CONF_FILE: MODE must be deb or binary"
+	[[ "$UNIT" =~ ^[A-Za-z0-9_.@-]+\.service$ ]] || die "$CONF_FILE: bad UNIT"
+	[[ "$BINARY" == /* && "$DATA_DIR" == /* ]] || die "$CONF_FILE: BINARY and DATA_DIR must be absolute"
+	[[ "$HEALTH_URL" =~ ^https?://[^/]+/api/v1/health$ ]] || die "$CONF_FILE: bad HEALTH_URL"
+}
+
+# ----------------------------------------------------------------------------------------- health
+
+# Prints the version the running server reports, or nothing when it is not healthy.
+running_version() {
+	local body
+	body="$(curl -fsS -k --max-time 5 "$HEALTH_URL" 2>/dev/null)" || return 0
+	[[ "$body" == *'"status":"ok"'* ]] || return 0
+	sed -n 's/.*"version":"\([^"]*\)".*/\1/p' <<<"$body"
+}
+
+# Waits until the server is healthy (and reports version $1 when given).
+wait_healthy() {
+	local want="$1" deadline v
+	deadline=$((SECONDS + HEALTH_TIMEOUT))
+	while ((SECONDS < deadline)); do
+		v="$(running_version)"
+		if [[ -n "$v" && (-z "$want" || "$v" == "$want") ]]; then
+			return 0
+		fi
+		sleep "$POLL"
+	done
+	return 1
+}
+
+installed_version() {
+	if [[ "$MODE" == deb ]]; then
+		dpkg-query -W -f='${Version}' ludworks 2>/dev/null || true
+	else
+		"$ROOT$BINARY" version 2>/dev/null | head -n 1 || true
+	fi
+}
+
+unit_file() {
+	local f
+	f="$(systemctl show -p FragmentPath --value "$UNIT" 2>/dev/null || true)"
+	if [[ -n "$f" && -f "$ROOT$f" ]]; then printf '%s\n' "$f"; fi
+}
+
+# ----------------------------------------------------------------------------------------- status
+
+cmd_status() {
+	local last=""
+	[[ -f "$STATE_DIR/last-deploy" ]] && last="$(tr -d '\n' <"$STATE_DIR/last-deploy")"
+	printf 'mode=%s\n' "$MODE"
+	printf 'unit=%s\n' "$UNIT"
+	printf 'arch=%s\n' "$(dpkg --print-architecture)"
+	printf 'installed_version=%s\n' "$(installed_version)"
+	printf 'running_version=%s\n' "$(running_version)"
+	printf 'active=%s\n' "$(systemctl is-active "$UNIT" 2>/dev/null || true)"
+	printf 'last_deploy=%s\n' "$last"
+}
+
+# ----------------------------------------------------------------------------------------- deploy
+
+WORK="" SNAP="" UNIT_FILE="" STOPPED=0 DONE=0
+
+cleanup() {
+	local rc=$?
+	if ((STOPPED && !DONE)); then
+		rollback || true
+		rc=1
+	fi
+	[[ -n "$WORK" ]] && rm -rf "$WORK"
+	exit "$rc"
+}
+
+rollback() {
+	log "rolling back to the previous program and database"
+	systemctl stop "$UNIT" || true
+	if [[ -f "$SNAP/program" ]]; then
+		cp -a "$SNAP/program" "$ROOT$BINARY.rollback"
+		mv -f "$ROOT$BINARY.rollback" "$ROOT$BINARY"
+	fi
+	if [[ -n "$UNIT_FILE" && -f "$SNAP/unit" ]]; then
+		cp -a "$SNAP/unit" "$ROOT$UNIT_FILE"
+	fi
+	local f
+	for f in ludworks.db-wal ludworks.db-shm; do rm -f "$ROOT$DATA_DIR/$f"; done
+	for f in ludworks.db ludworks.db-wal ludworks.db-shm; do
+		if [[ -f "$SNAP/$f" ]]; then cp -a "$SNAP/$f" "$ROOT$DATA_DIR/$f"; fi
+	done
+	systemctl daemon-reload || true
+	systemctl start "$UNIT" || true
+	if wait_healthy ""; then
+		log "rollback done: running $(running_version)"
+	else
+		log "ROLLBACK FAILED: the server is not healthy; restore manually from $SNAP"
+	fi
+	# The deb in the dpkg database is the new one now; the next successful deploy replaces it.
+}
+
+free_bytes() {
+	df -P -B1 "$1" | awk 'NR == 2 { print $4 }'
+}
+
+prune() {
+	local dir="$1" pattern="$2" n=0 entry
+	# Newest first; anything beyond the newest $KEEP goes.
+	while IFS= read -r entry; do
+		n=$((n + 1))
+		if ((n > KEEP)); then rm -rf -- "$entry"; fi
+	done < <(find "$dir" -mindepth 1 -maxdepth 1 -name "$pattern" -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
+}
+
+cmd_deploy() {
+	local sha="$1" deb pkg arch ver semver size need ts prev
+	mkdir -p "$STATE_DIR/releases" "$STATE_DIR/backups" "$STATE_DIR/work"
+	mkdir -p "$(dirname "$LOCK_FILE")"
+	exec 9>"$LOCK_FILE"
+	flock -n 9 || die "another deploy is running"
+	WORK="$(mktemp -d "$STATE_DIR/work/deploy.XXXXXX")"
+	trap cleanup EXIT
+
+	# 1. The upload.
+	deb="$WORK/upload.deb"
+	head -c $((MAX_UPLOAD + 1)) >"$deb"
+	size="$(stat -c %s "$deb")"
+	((size > 0)) || die "no package received on stdin"
+	((size <= MAX_UPLOAD)) || die "package larger than $MAX_UPLOAD bytes"
+	printf '%s  %s\n' "$sha" "$deb" | sha256sum -c --status - || die "SHA-256 mismatch: the package was damaged or replaced in transit"
+	pkg="$(dpkg-deb -f "$deb" Package 2>/dev/null)" || die "not a Debian package"
+	arch="$(dpkg-deb -f "$deb" Architecture)"
+	ver="$(dpkg-deb -f "$deb" Version)"
+	[[ "$pkg" == ludworks ]] || die "package is '$pkg', not ludworks"
+	[[ "$arch" == "$(dpkg --print-architecture)" ]] || die "package is for $arch, this machine is $(dpkg --print-architecture)"
+	[[ "$ver" =~ ^[0-9A-Za-z.+~]+$ ]] || die "unexpected package version '$ver'"
+	semver="${ver//\~/-}" # the Debian version is the semantic version with - spelled ~
+	dpkg-deb --fsys-tarfile "$deb" | tar -xOf - ./usr/bin/ludworks >"$WORK/program" || die "package has no /usr/bin/ludworks"
+	chmod 0755 "$WORK/program"
+	"$WORK/program" version >/dev/null 2>&1 || die "the new program does not run on this machine"
+
+	prev="$(running_version)"
+	log "deploying ludworks $semver ($arch, sha256 $sha) over ${prev:-a stopped server}"
+
+	# 2. Room for the backup and the release, then the snapshot.
+	need=$((size * 3 + 64 * 1024 * 1024))
+	local f
+	for f in ludworks.db ludworks.db-wal; do
+		[[ -f "$ROOT$DATA_DIR/$f" ]] && need=$((need + $(stat -c %s "$ROOT$DATA_DIR/$f")))
+	done
+	(($(free_bytes "$STATE_DIR") > need)) || die "not enough free space in $STATE_DIR (need $need bytes)"
+
+	ts="$(date -u +%Y%m%dT%H%M%SZ)"
+	SNAP="$STATE_DIR/backups/$ts"
+	mkdir -p "$SNAP"
+	cp -a "$ROOT$BINARY" "$SNAP/program"
+	UNIT_FILE="$(unit_file)"
+	if [[ -n "$UNIT_FILE" ]]; then cp -a "$ROOT$UNIT_FILE" "$SNAP/unit"; fi
+	printf '%s\n' "${prev:-unknown}" >"$SNAP/version"
+
+	STOPPED=1 # from here on, any failure rolls back
+	systemctl stop "$UNIT"
+	for f in ludworks.db ludworks.db-wal ludworks.db-shm; do
+		if [[ -f "$ROOT$DATA_DIR/$f" ]]; then cp -a "$ROOT$DATA_DIR/$f" "$SNAP/$f"; fi
+	done
+	log "kept the previous program and database in $SNAP"
+
+	# 3. Install and start.
+	if [[ "$MODE" == deb ]]; then
+		DEBIAN_FRONTEND=noninteractive dpkg -i --force-confold --force-confdef "$deb" >&2
+	else
+		install -m 0755 "$WORK/program" "$ROOT$BINARY.new"
+		mv -f "$ROOT$BINARY.new" "$ROOT$BINARY"
+	fi
+	systemctl daemon-reload
+	systemctl start "$UNIT"
+	wait_healthy "$semver" || die "ludworks $semver did not become healthy within ${HEALTH_TIMEOUT}s"
+
+	# 4. Done: keep the release, record it, prune old ones.
+	DONE=1
+	cp "$deb" "$STATE_DIR/releases/ludworks_${ver}_${arch}.deb"
+	printf '%s %s %s\n' "$ts" "$semver" "$sha" >"$STATE_DIR/last-deploy"
+	prune "$STATE_DIR/releases" '*.deb'
+	prune "$STATE_DIR/backups" '*'
+	log "deployed ludworks $semver: healthy"
+}
+
+# ------------------------------------------------------------------------------------------- main
+
+main() {
+	local cmd="${SSH_ORIGINAL_COMMAND-}"
+	[[ -n "$cmd" ]] || cmd="$*"
+	[[ $EUID -eq 0 || -n "$ROOT" ]] || die "must run as root (sudo)"
+	load_conf
+	case "$cmd" in
+	status) cmd_status ;;
+	"deploy "*)
+		local sha="${cmd#deploy }"
+		[[ "$sha" =~ ^[0-9a-f]{64}$ ]] || die "usage: deploy <sha256 of the package>"
+		cmd_deploy "$sha"
+		;;
+	*) die "usage: status | deploy <sha256>  (got: ${cmd:0:80})" ;;
+	esac
+}
+
+main "$@"

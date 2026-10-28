@@ -116,6 +116,27 @@ yet; set it through the API, e.g. `{"mail_in":{"trusted_authserv_ids":["mx.googl
 | `hdhr_device_name` | string | `"Ludworks TV"` | Friendly name announced to Plex/Jellyfin. |
 | `hdhr_tuner_count` | integer (1–16) | `2` | Number of tuners announced (concurrent streams). |
 | `guide_days` | integer (1–14) | `3` | Days of programmes in the XMLTV guide. |
+
+### `music`
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `download_cache_bytes` | integer (0–17592186044416) | `10737418240` | Disk space (bytes, default 10 GiB) for the smaller AAC copies (`high`/`normal`/`low`) offline clients download, kept under `<data>/music/cache` and removed least recently used first. `0` turns these copies off (clients can still download originals). Lowering it trims the cache at once. |
+| `folder_art` | boolean | `true` | Use cover images next to the tracks (`cover.jpg`, `folder.png`, … or the only image in the folder) as album art when a file has no embedded picture. |
+
+### `cast`
+
+Casting to Chromecast and AirPlay devices (see [Casting](../guide/casting.md)). Changes apply at once: turning
+`enabled` off stops every cast session and closes discovery and the cast listener.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `false` | Allow casting. While off, no discovery sockets or cast listener are opened and `GET /api/v1/cast/devices` lists nothing. |
+| `discovery` | boolean | `true` | Find devices with mDNS on the local network (in Docker this needs host networking). |
+| `manual_devices` | list (≤ 50) of `{"kind","host","port"?,"name"?}` | `[]` | Devices mDNS cannot reach (other subnets): `kind` `chromecast` or `airplay`, `host` a host name or IP address, `port` (default 8009 for Chromecasts, 7000 for AirPlay), optional display `name` (≤ 100 characters). |
+| `media_port` | integer (0 or 1024–65535) | `0` | Port of the plain-HTTP cast listener for devices that do not trust the server's certificate; it serves only ticketed media URLs. `0` = off; must differ from the server's own ports. |
+| `media_base_url` | string | `""` | Absolute `http(s)://host[:port]` (no path or query) devices fetch media from, e.g. a reverse proxy with a trusted certificate. Takes precedence over `media_port`; with neither, `general.public_url` is used. |
+
 ## Notes
 
 * `general.public_url` should be set whenever the server is reached through a reverse proxy or a different
@@ -128,3 +149,6 @@ yet; set it through the API, e.g. `{"mail_in":{"trusted_authserv_ids":["mx.googl
 * `files.max_upload_bytes` also limits resumable uploads (advertised as `Tus-Max-Size`); quotas and free disk
   space are checked when an upload is created, before any data is sent.
 * `media.transcode_enabled` only has an effect when ffmpeg is available (`media.ffmpeg_path` or on `PATH`).
+* The music library uses the same tools: audio transcodes and the download copies of `music.download_cache_bytes`
+  need ffmpeg with `media.transcode_enabled`, and `media.ffprobe_path` is used to read tags of formats Ludworks
+  cannot read itself (WMA, APE, WavPack, …).
