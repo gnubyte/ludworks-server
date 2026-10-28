@@ -50,10 +50,11 @@ jobs:
             cp /tmp/cfg.bak "$H/etc/ludworks/config.json"
           elif grep -q 8444 "$H/etc/ludworks/config.json"; then :; fi
           grep -q 8444 "$H/etc/ludworks/config.json" || { echo "no :8444 in config"; exit 1; }
-          systemctl daemon-reload
-          systemctl restart ludworks
+          SY="$H/usr/bin/systemctl"
+          $SY daemon-reload
+          $SY restart ludworks
           sleep 2
-          systemctl is-active ludworks
+          $SY is-active ludworks
           curl -sk https://127.0.0.1:8444/api/v1/health
           echo
           EOF
