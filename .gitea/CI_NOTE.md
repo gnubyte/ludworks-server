@@ -1,0 +1,1 @@
+CI/CD wired 2026-10-28. deploy.yml builds the .deb and hands it to /usr/local/sbin/ludworks-deploy on deploy-01 (forced-command key, sudo rule). Server: https://192.168.68.68:8444 (v0.1.1). update.yml (manual dpkg path) is kept as a fallback.
