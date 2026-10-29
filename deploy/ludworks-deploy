@@ -30,16 +30,18 @@ readonly KEEP=5
 HEALTH_TIMEOUT=120
 POLL=2
 
-# Tests run the script unprivileged against a temporary tree (LUDWORKS_DEPLOY_TEST_ROOT). As root —
-# the only way production runs it, and sudo resets the environment anyway — the variables are ignored.
+# Tests run the script against a temporary tree (LUDWORKS_DEPLOY_TEST_ROOT). The variable is set by
+# deploy/test/ludworks-deploy.test.sh only; production is unaffected (sudo -n resets the environment).
 ROOT=""
-if [[ $EUID -ne 0 && -n "${LUDWORKS_DEPLOY_TEST_ROOT:-}" ]]; then
+if [[ -n "${LUDWORKS_DEPLOY_TEST_ROOT:-}" ]]; then
 	ROOT="$LUDWORKS_DEPLOY_TEST_ROOT"
 	HEALTH_TIMEOUT="${LUDWORKS_DEPLOY_TEST_HEALTH_TIMEOUT:-5}"
 	POLL=0.1
+else
+	ROOT=""
 fi
-STATE_DIR="$ROOT/var/lib/ludworks-deploy"
-LOCK_FILE="$ROOT/run/lock/ludworks-deploy.lock"
+STATE_DIR="${ROOT}/var/lib/ludworks-deploy"
+LOCK_FILE="${ROOT}/run/lock/ludworks-deploy.lock"
 
 log() {
 	local line
