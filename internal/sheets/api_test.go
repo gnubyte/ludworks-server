@@ -327,6 +327,8 @@ func TestWorkbookLifecycleAndRecalc(t *testing.T) {
 		t.Fatalf("rename = %+v", sum)
 	}
 	c.Do("PATCH", "/api/v1/sheets/"+wb.ID, map[string]any{"name": "  "}).ExpectError(422, "validation_failed")
+	// updated_at has millisecond precision and ties sort by random id: make the extras strictly newer.
+	time.Sleep(5 * time.Millisecond)
 	for i := 0; i < 3; i++ {
 		create(t, c, fmt.Sprintf("Extra %d", i))
 	}
