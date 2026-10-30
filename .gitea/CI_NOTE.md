@@ -12,3 +12,5 @@ Server: https://192.168.68.68:8444. See docs/admin/continuous-deployment.md for 
 The old update.yml (manual dpkg fallback that installed the committed 0.1.1 deb on every push)
 was removed on 2026-10-30: it raced the Deploy pipeline and force-downgraded the server after
 any newer deploy. Use the Deploy workflow (or a redeploy of an older commit) instead.
+
+Mirror -> Deploy chain verified end-to-end 2026-10-30 (this commit).
