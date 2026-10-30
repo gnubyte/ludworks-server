@@ -36,7 +36,7 @@ this document; the server's OpenAPI (`/api/openapi.json`, Swagger UI at `/api/do
 | Method & path | Scope | Notes |
 |---|---|---|
 | `GET /api/v1/health` | public | `{"status":"ok","version":"1.0.0","time":"..."}` |
-| `GET /api/v1/setup/status` | public | `{"setup_required":bool,"server_name":str,"registration_enabled":bool,"version":str,"tls_fingerprint_sha256":str|null}` |
+| `GET /api/v1/setup/status` | public | `{"setup_required":bool,"server_name":str,"registration_enabled":bool,"version":str,"tls_fingerprint_sha256":str|null,"tls_next_fingerprint_sha256"?:str,"tls_next_certificate"?:str}` (the `next` fields: announced successor of a self-signed cert, see configuration docs) |
 | `POST /api/v1/setup` | public | `{"setup_token","username","password","email","server_name"?}` → 201 `{"user":User,"csrf_token":str}` + session cookie. 409 `conflict` if already set up; 403 if token wrong. |
 | `GET /api/openapi.json` | public | merged OpenAPI 3.1 document |
 | `GET /api/docs` | public | Swagger UI (vendored) |

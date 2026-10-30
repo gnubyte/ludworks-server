@@ -157,6 +157,10 @@ type TLSCertInfo struct {
 	NotAfter          time.Time
 	DNSNames          []string
 	IPAddresses       []string
+	// The announced successor of a self-signed certificate (empty when there is none yet):
+	// clients that pinned the current one may trust it ahead of the switch.
+	NextFingerprintSHA256 string
+	NextCertificatePEM    string
 }
 
 // ServerInfo is runtime information modules may display (system info, setup status).

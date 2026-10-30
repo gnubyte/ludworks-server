@@ -1212,6 +1212,14 @@
               "null"
             ],
             "description": "SHA-256 fingerprint of the server TLS certificate (for TOFU pinning by apps); `null` when TLS is off."
+          },
+          "tls_next_fingerprint_sha256": {
+            "type": "string",
+            "description": "Self-signed TLS only: SHA-256 fingerprint of the certificate that replaces the current one at renewal, published up to 60 days ahead. Apps that pinned the current certificate (and read this over a connection using it) may trust the next one ahead of the switch. Absent when no successor exists yet."
+          },
+          "tls_next_certificate": {
+            "type": "string",
+            "description": "Self-signed TLS only: the successor certificate (PEM), e.g. to add it to an OS trust store ahead of the switch. Absent when no successor exists yet."
           }
         }
       },

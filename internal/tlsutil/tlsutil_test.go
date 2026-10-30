@@ -182,4 +182,64 @@ func TestDefaultHosts(t *testing.T) {
 	if dns[0] != "localhost" || len(ips) < 2 || !ips[0].Equal(net.ParseIP("127.0.0.1")) {
 		t.Fatalf("%v %v", dns, ips)
 	}
+	// Rotating IPv6 privacy addresses would churn the cert: only ::1 is included.
+	for _, ip := range ips[2:] {
+		if ip.To4() == nil {
+			t.Fatalf("IPv6 address %v in the default SANs", ip)
+		}
+	}
+	for _, n := range []string{"docker0", "br-3f2a", "veth12ab", "virbr0", "cni0", "lxcbr0"} {
+		if !virtualIface(n) {
+			t.Fatalf("%s not treated as virtual", n)
+		}
+	}
+	for _, n := range []string{"eth0", "enp3s0", "wlan0", "wg0", "tailscale0"} {
+		if virtualIface(n) {
+			t.Fatalf("%s treated as virtual", n)
+		}
+	}
+}
+
+func TestNextSelfSignedAnnouncedThenUsed(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	dns := []string{"localhost", "nas"}
+	ips := []net.IP{net.ParseIP("127.0.0.1").To4(), net.ParseIP("192.168.1.10").To4()}
+	p := SelfSignedPaths(dir)
+
+	cur, _, err := EnsureSelfSigned(dir, dns, ips, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Long before expiry: nothing announced, stale leftovers removed.
+	os.WriteFile(p.NextCertFile, []byte("old"), 0o600)
+	if next, err := EnsureNextSelfSigned(dir, cur.Leaf, dns, ips, now.Add(24*time.Hour)); next != nil || err != nil {
+		t.Fatalf("announced too early: %v %v", next, err)
+	}
+	if _, err := os.Stat(p.NextCertFile); !os.IsNotExist(err) {
+		t.Fatal("stale next cert kept")
+	}
+
+	// 50 days before expiry: a successor is announced, and the same one on the next start.
+	t1 := cur.Leaf.NotAfter.Add(-50 * 24 * time.Hour)
+	if c, gen, _ := EnsureSelfSigned(dir, dns, ips, t1); gen || Fingerprint(c.Certificate[0]) != Fingerprint(cur.Certificate[0]) {
+		t.Fatal("current cert replaced before the renewal window")
+	}
+	next, err := EnsureNextSelfSigned(dir, cur.Leaf, dns, ips, t1)
+	if err != nil || next == nil {
+		t.Fatalf("no successor: %v", err)
+	}
+	again, _ := EnsureNextSelfSigned(dir, cur.Leaf, dns, ips, t1.Add(24*time.Hour))
+	if again == nil || Fingerprint(again.Raw) != Fingerprint(next.Raw) {
+		t.Fatal("successor not reused")
+	}
+
+	// Inside the renewal window: the announced successor becomes the cert.
+	renewed, gen, err := EnsureSelfSigned(dir, dns, ips, cur.Leaf.NotAfter.Add(-20*24*time.Hour))
+	if err != nil || !gen || Fingerprint(renewed.Certificate[0]) != Fingerprint(next.Raw) {
+		t.Fatalf("renewal did not switch to the announced cert: gen=%v err=%v", gen, err)
+	}
+	if _, err := os.Stat(p.NextCertFile); !os.IsNotExist(err) {
+		t.Fatal("successor left behind after the switch")
+	}
 }

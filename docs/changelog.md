@@ -11,6 +11,10 @@ the HTTP API is versioned separately by its base path (`/api/v1`).
   bookmarks, history, open tabs and preferences, sealed with keys derived from the vault key. Paged full and delta
   sync with signed cursors, batched writes with per-record conflicts, delete-all, usage. Records follow the vault
   key: a key rotation or vault reset drops them and every device re-uploads. See [Browser sync](api/browser-sync.md).
+* **Stable self-signed certificate:** container/VM bridge addresses and IPv6 addresses no longer go into the
+  certificate, so it stops changing on restarts and deploys. Renewal is announced 60 days ahead
+  (`tls_next_fingerprint_sha256` / `tls_next_certificate` in the setup status) so apps can trust the successor
+  without asking.
 
 ## 0.1.0 — unreleased
 

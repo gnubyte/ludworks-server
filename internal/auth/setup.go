@@ -137,6 +137,9 @@ type setupStatus struct {
 	RegistrationEnabled  bool    `json:"registration_enabled"`
 	Version              string  `json:"version"`
 	TLSFingerprintSHA256 *string `json:"tls_fingerprint_sha256"`
+	// Successor of a self-signed certificate, announced before the switch (absent otherwise).
+	TLSNextFingerprintSHA256 string `json:"tls_next_fingerprint_sha256,omitempty"`
+	TLSNextCertificate       string `json:"tls_next_certificate,omitempty"`
 }
 
 func (m *Module) setupStatus(w http.ResponseWriter, r *http.Request) error {
@@ -148,6 +151,7 @@ func (m *Module) setupStatus(w http.ResponseWriter, r *http.Request) error {
 	if c := m.d.Info.CurrentTLS(); c != nil && c.FingerprintSHA256 != "" {
 		fp := c.FingerprintSHA256
 		st.TLSFingerprintSHA256 = &fp
+		st.TLSNextFingerprintSHA256, st.TLSNextCertificate = c.NextFingerprintSHA256, c.NextCertificatePEM
 	}
 	return httpx.WriteJSON(w, http.StatusOK, st)
 }
