@@ -39,6 +39,15 @@ const Validity = 825 * 24 * time.Hour
 // renewBefore regenerates a self-signed cert this long before it expires.
 const renewBefore = 30 * 24 * time.Hour
 
+// announceBefore creates the successor of the self-signed cert this long before the current one
+// expires. Its fingerprint and certificate are published (setup status), so clients that pinned
+// the current cert can trust the next one before the switch instead of asking the user again.
+const announceBefore = 60 * 24 * time.Hour
+
+// virtualIfacePrefixes are container/VM bridges and tunnels whose addresses come and go with the
+// containers and VMs; covering them would regenerate the cert (and break every pin) each time.
+var virtualIfacePrefixes = []string{"docker", "br-", "veth", "virbr", "vnet", "cni", "flannel", "cali", "vxlan", "lxc", "lxd", "podman", "kube", "weave", "tun", "tap", "zt"}
+
 // Fingerprint returns the SHA-256 of a DER certificate as uppercase colon-separated hex
 // ("AB:CD:..."), the form browsers and openssl display. Clients should compare it
 // case-insensitively ignoring colons.
@@ -54,39 +63,64 @@ func Fingerprint(der []byte) string {
 	return b.String()
 }
 
-// DefaultHosts returns the SANs wanted for a self-signed cert: hostname, localhost,
-// loopback addresses and every non-loopback interface address.
+// DefaultHosts returns the SANs wanted for a self-signed cert: hostname, localhost, loopback
+// addresses and the IPv4 addresses of the machine's real interfaces. Container/VM bridges and
+// IPv6 addresses (privacy addresses rotate daily) are left out so the cert, and the fingerprint
+// clients pinned, stays the same across restarts; a specific IPv6 listen address is still added
+// by the caller.
 func DefaultHosts() (dns []string, ips []net.IP) {
 	dns = []string{"localhost"}
 	if h, err := os.Hostname(); err == nil && h != "" && !strings.EqualFold(h, "localhost") {
 		dns = append(dns, strings.ToLower(h))
 	}
 	ips = []net.IP{net.IPv4(127, 0, 0, 1).To4(), net.IPv6loopback}
-	addrs, err := net.InterfaceAddrs()
-	if err == nil {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return dns, ips
+	}
+	for _, ifc := range ifaces {
+		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagLoopback != 0 || virtualIface(ifc.Name) {
+			continue
+		}
+		addrs, err := ifc.Addrs()
+		if err != nil {
+			continue
+		}
 		for _, a := range addrs {
 			ipn, ok := a.(*net.IPNet)
-			if !ok || ipn.IP.IsLoopback() || ipn.IP.IsLinkLocalUnicast() || ipn.IP.IsLinkLocalMulticast() {
+			if !ok {
 				continue
 			}
-			ip := ipn.IP
-			if v4 := ip.To4(); v4 != nil {
-				ip = v4
+			if v4 := ipn.IP.To4(); v4 != nil && !v4.IsLoopback() && !v4.IsLinkLocalUnicast() {
+				ips = append(ips, v4)
 			}
-			ips = append(ips, ip)
 		}
 	}
 	return dns, ips
 }
 
-// SelfSigned describes the paths of the generated certificate.
-type SelfSigned struct {
-	CertFile, KeyFile string
+func virtualIface(name string) bool {
+	name = strings.ToLower(name)
+	for _, p := range virtualIfacePrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
 }
 
-// SelfSignedPaths returns <dir>/self-signed.crt and <dir>/self-signed.key.
+// SelfSigned describes the paths of the generated certificate and of its announced successor.
+type SelfSigned struct {
+	CertFile, KeyFile         string
+	NextCertFile, NextKeyFile string
+}
+
+// SelfSignedPaths returns <dir>/self-signed.{crt,key} and <dir>/self-signed-next.{crt,key}.
 func SelfSignedPaths(dir string) SelfSigned {
-	return SelfSigned{CertFile: filepath.Join(dir, "self-signed.crt"), KeyFile: filepath.Join(dir, "self-signed.key")}
+	return SelfSigned{
+		CertFile: filepath.Join(dir, "self-signed.crt"), KeyFile: filepath.Join(dir, "self-signed.key"),
+		NextCertFile: filepath.Join(dir, "self-signed-next.crt"), NextKeyFile: filepath.Join(dir, "self-signed-next.key"),
+	}
 }
 
 // EnsureSelfSigned makes sure a valid self-signed certificate covering dns/ips exists in dir,
@@ -103,9 +137,14 @@ func EnsureSelfSigned(dir string, dns []string, ips []net.IP, now time.Time) (*t
 			return &c, false, nil
 		}
 	}
-	certPEM, keyPEM, err := GenerateSelfSigned(dns, ips, now)
-	if err != nil {
-		return nil, false, err
+	// Renewal switches to the announced successor when there is a usable one (clients already
+	// trust it); otherwise a new cert is generated.
+	certPEM, keyPEM, ok := usableNext(p, dns, ips, now)
+	if !ok {
+		var err error
+		if certPEM, keyPEM, err = GenerateSelfSigned(dns, ips, now); err != nil {
+			return nil, false, err
+		}
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, false, err
@@ -118,12 +157,82 @@ func EnsureSelfSigned(dir string, dns []string, ips []net.IP, now time.Time) (*t
 	if err := config.WriteFileAtomic(p.CertFile, certPEM); err != nil {
 		return nil, false, err
 	}
+	if ok {
+		os.Remove(p.NextCertFile)
+		os.Remove(p.NextKeyFile)
+	}
 	c, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, false, err
 	}
 	c.Leaf, _ = x509.ParseCertificate(c.Certificate[0])
 	return &c, true, nil
+}
+
+// usableNext returns the announced successor when it is valid now and for longer than the renewal
+// window and covers the wanted SANs.
+func usableNext(p SelfSigned, dns []string, ips []net.IP, now time.Time) (certPEM, keyPEM []byte, ok bool) {
+	certPEM, err1 := os.ReadFile(p.NextCertFile)
+	keyPEM, err2 := os.ReadFile(p.NextKeyFile)
+	if err1 != nil || err2 != nil {
+		return nil, nil, false
+	}
+	c, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, nil, false
+	}
+	leaf, err := x509.ParseCertificate(c.Certificate[0])
+	if err != nil || !now.After(leaf.NotBefore) || !now.Add(renewBefore).Before(leaf.NotAfter) || !coversAll(leaf, dns, ips) {
+		return nil, nil, false
+	}
+	return certPEM, keyPEM, true
+}
+
+// EnsureNextSelfSigned keeps the successor of the current self-signed cert: once the current one
+// expires within announceBefore, a next cert is generated (or the existing one reused) so it can be
+// announced; before that any leftover successor is removed. It returns the successor, or nil.
+func EnsureNextSelfSigned(dir string, current *x509.Certificate, dns []string, ips []net.IP, now time.Time) (*x509.Certificate, error) {
+	p := SelfSignedPaths(dir)
+	if current == nil || now.Add(announceBefore).Before(current.NotAfter) {
+		os.Remove(p.NextCertFile)
+		os.Remove(p.NextKeyFile)
+		return nil, nil
+	}
+	if certPEM, _, ok := usableNext(p, dns, ips, now); ok && now.Add(announceBefore).Before(notAfterOf(certPEM)) {
+		return parsePEMCert(certPEM)
+	}
+	certPEM, keyPEM, err := GenerateSelfSigned(dns, ips, now)
+	if err != nil {
+		return nil, err
+	}
+	if err := config.WriteFileAtomic(p.NextKeyFile, keyPEM); err != nil {
+		return nil, err
+	}
+	if err := config.WriteFileAtomic(p.NextCertFile, certPEM); err != nil {
+		return nil, err
+	}
+	return parsePEMCert(certPEM)
+}
+
+func parsePEMCert(certPEM []byte) (*x509.Certificate, error) {
+	b, _ := pem.Decode(certPEM)
+	if b == nil {
+		return nil, errors.New("tls: no PEM certificate")
+	}
+	return x509.ParseCertificate(b.Bytes)
+}
+
+func notAfterOf(certPEM []byte) time.Time {
+	c, err := parsePEMCert(certPEM)
+	if err != nil {
+		return time.Time{}
+	}
+	return c.NotAfter
+}
+
+// CertificatePEM encodes a DER certificate as PEM.
+func CertificatePEM(der []byte) string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }
 
 func coversAll(leaf *x509.Certificate, dns []string, ips []net.IP) bool {

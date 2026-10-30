@@ -302,8 +302,19 @@ func (a *App) setupTLS() error {
 		if generated {
 			a.log.Info("generated self-signed TLS certificate", "dir", cfg.TLSDir())
 		}
+		next, err := tlsutil.EnsureNextSelfSigned(cfg.TLSDir(), cert.Leaf, dns, ips, time.Now())
+		if err != nil {
+			a.log.Warn("tls: could not prepare the next self-signed certificate", "err", err)
+		}
 		a.tlsConfig = tlsutil.ServerConfig(func(*tls.ClientHelloInfo) (*tls.Certificate, error) { return cert, nil })
-		info.TLSCert = func() *core.TLSCertInfo { return certInfo(cert) }
+		info.TLSCert = func() *core.TLSCertInfo {
+			ci := certInfo(cert)
+			if ci != nil && next != nil {
+				ci.NextFingerprintSHA256 = tlsutil.Fingerprint(next.Raw)
+				ci.NextCertificatePEM = tlsutil.CertificatePEM(next.Raw)
+			}
+			return ci
+		}
 	case config.TLSFiles:
 		rl, err := tlsutil.NewFileReloader(cfg.TLS.CertFile, cfg.TLS.KeyFile, func(err error) {
 			a.log.Error("tls: certificate reload failed; keeping previous certificate", "err", err)

@@ -127,10 +127,20 @@ confirm it matches the server log, pin it — any later certificate change is re
 accepted.
 
 The certificate is regenerated automatically at start-up when it is missing, expires within 30 days, or no
-longer covers the host name or one of the interface IPs (for example after renaming the host or changing its
-address). To force a new one, stop the server, delete `self-signed.crt` and `self-signed.key` and start it
-again. A new certificate has a **new fingerprint**: apps that pinned the old one will refuse to connect until
-you verify and re-pin the new fingerprint — that is the protection working, not a bug.
+longer covers the host name or one of the IPv4 addresses of the machine's real interfaces (for example after
+renaming the host or changing its address). Container and VM bridges (`docker0`, `br-…`, `veth…`, `virbr…`, …)
+and IPv6 addresses are not included, because they come and go and would change the certificate on almost every
+restart; a specific IPv6 `listen` address is still included.
+
+Renewal is announced: from 60 days before the certificate expires, the server keeps its successor in
+`self-signed-next.crt` / `self-signed-next.key` and publishes it in `GET /api/v1/setup/status`
+(`tls_next_fingerprint_sha256`, `tls_next_certificate`). Ludworks Browser reads it over the connection it already
+trusts and trusts the successor ahead of the switch, so a renewal needs no confirmation.
+
+To force a new certificate, stop the server, delete `self-signed.crt`, `self-signed.key` and any
+`self-signed-next.*` and start it again. An unannounced new certificate has a **new fingerprint**: apps that
+pinned the old one will refuse to connect until you verify and re-pin the new fingerprint — that is the
+protection working, not a bug.
 
 ### `files`
 
