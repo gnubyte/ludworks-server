@@ -13,7 +13,7 @@ document in the same change and say so.
 
 ---------------------------------------------------------------------------------------------------
 
-## 1. Repositories (workspace `C:\Users\phsta\code\ludworks\`)
+## 1. Repositories (one workspace folder, e.g. `C:\Users\<you>\code\ludworks\`)
 
 | Dir / repo           | Contents | Toolchain |
 |----------------------|----------|-----------|
@@ -29,10 +29,10 @@ Every directory becomes its own **private** GitHub repo. Each has `README.md`, `
 
 ### Building from this Windows machine
 * Go / Node / Java / Android SDK live **inside WSL Ubuntu** (`~/toolchains`, `source ~/toolchains/env.sh`).
-  From Git Bash run: `bash /c/Users/phsta/code/ludworks/.dev/wsl.sh <subdir> '<command>'`
-  e.g. `bash /c/Users/phsta/code/ludworks/.dev/wsl.sh ludworks-server 'go test ./internal/notes/...'`.
-  Inside WSL the workspace is `/mnt/c/Users/phsta/code/ludworks/`.
-* .NET 10 SDK is on Windows: `"/c/Users/phsta/AppData/Local/Microsoft/dotnet/dotnet.exe"` (set
+  From Git Bash run: `bash <workspace>/.dev/wsl.sh <subdir> '<command>'`
+  e.g. `bash <workspace>/.dev/wsl.sh ludworks-server 'go test ./internal/notes/...'`.
+  Inside WSL the workspace is `/mnt/c/Users/<you>/code/ludworks/`.
+* .NET 10 SDK is on Windows: `"/c/Users/<you>/AppData/Local/Microsoft/dotnet/dotnet.exe"` (set
   `DOTNET_CLI_TELEMETRY_OPTOUT=1`).
 * Python 3.14 is available inside WSL as `python3` (system `cryptography` package present; no pip/venv).
 * No sudo is available in WSL. Do not install system packages.

@@ -7,7 +7,7 @@ key, sudo rule). ludworks-deploy verifies the package, keeps the previous progra
 installs, health-checks /api/v1/health and rolls back on failure. Keeps last five releases in
 /var/lib/ludworks-deploy.
 
-Server: https://192.0.2.10:8444. See docs/admin/continuous-deployment.md for setup and day-2 ops.
+Server: the deploy target (port 8444). See docs/admin/continuous-deployment.md for setup and day-2 ops.
 
 The old update.yml (manual dpkg fallback that installed the committed 0.1.1 deb on every push)
 was removed on 2026-10-30: it raced the Deploy pipeline and force-downgraded the server after
