@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/ncruces/go-sqlite3 v0.35.6
 	golang.org/x/crypto v0.58.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 )
 
 require (
